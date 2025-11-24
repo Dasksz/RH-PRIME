@@ -391,8 +391,9 @@
          * Cria os botões de filtro dinamicamente
          */
         function createFilterButtons() {
-            const suppliers = ['Todos', ...new Set(validProducts.map(p => getSupplier(p.descricao)))];
+            const suppliers = [...new Set(validProducts.map(p => getSupplier(p.descricao)))];
             suppliers.sort();
+            suppliers.push('Todos');
 
             suppliers.forEach(supplier => {
                 const button = document.createElement('button');
