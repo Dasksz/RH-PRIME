@@ -100,7 +100,6 @@
             
             const [employees, setEmployees] = useState([]);
             const [isLoadingData, setIsLoadingData] = useState(true);
-            const [dataError, setDataError] = useState(null);
 
             const [isAuthChecking, setIsAuthChecking] = useState(true);
 
@@ -208,7 +207,6 @@
                     }
                 } catch (err) {
                     console.error('Failed to fetch from Supabase table:', err);
-                    setDataError('Falha ao carregar dados atualizados.');
                 } finally {
                     setIsLoadingData(false);
                 }
