@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRIME RH - Login</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React via CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Configuração do Supabase
+        const SUPABASE_URL = 'https://gcksbfstheavpfgcdndb.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function Login() {
+            const [isLogin, setIsLogin] = useState(true);
+            const [name, setName] = useState('');
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [showPassword, setShowPassword] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState('');
+            const [message, setMessage] = useState('');
+
+            useEffect(() => {
+                checkUser();
+            }, []);
+
+            async function checkUser() {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) {
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('status')
+                            .eq('id', session.user.id)
+                            .single();
+
+                        if (profile && profile.status === 'aprovado') {
+                            window.location.href = 'index.html';
+                        } else {
+                            setError('Seu cadastro está pendente de aprovação.');
+                            setLoading(false);
+                        }
+                    } else {
+                        setLoading(false);
+                    }
+                } catch (error) {
+                    console.error("Error checking auth status:", error);
+                    setLoading(false);
+                }
+            }
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                setMessage('');
+
+                try {
+                    if (isLogin) {
+                        // Login Flow
+                        const { data, error } = await supabase.auth.signInWithPassword({
+                            email,
+                            password,
+                        });
+
+                        if (error) throw error;
+
+                        // Check status after login
+                        if (data.user) {
+                            const { data: profile, error: profileError } = await supabase
+                                .from('profiles')
+                                .select('status')
+                                .eq('id', data.user.id)
+                                .single();
+
+                            if (profileError) throw profileError;
+
+                            if (profile && profile.status === 'aprovado') {
+                                window.location.href = 'index.html';
+                            } else {
+                                await supabase.auth.signOut();
+                                setError('Seu cadastro está pendente de aprovação pelo administrador.');
+                            }
+                        }
+                    } else {
+                        // Register Flow
+                        if (!name) {
+                            throw new Error('Nome é obrigatório para cadastro.');
+                        }
+                        const { data, error } = await supabase.auth.signUp({
+                            email,
+                            password,
+                            options: {
+                                data: {
+                                    name: name,
+                                }
+                            }
+                        });
+
+                        if (error) throw error;
+
+                        setMessage('Cadastro realizado com sucesso! Verifique seu e-mail e aguarde a aprovação.');
+                        setIsLogin(true); // Switch back to login
+                        setPassword('');
+                    }
+                } catch (error) {
+                    setError(error.message || 'Ocorreu um erro.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading && !error && !message) {
+                return (
+                    <div className="flex flex-col items-center justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                        <p className="mt-4 text-gray-600">Carregando...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+                    <div className="text-center mb-8">
+                        <h2 className="text-2xl font-bold text-gray-800">
+                            PRIME RH
+                        </h2>
+                        <p className="text-gray-500 mt-2">
+                            {isLogin ? 'Faça login na sua conta' : 'Crie uma nova conta'}
+                        </p>
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r">
+                            <p className="text-red-700 text-sm">{error}</p>
+                        </div>
+                    )}
+
+                    {message && (
+                        <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded-r">
+                            <p className="text-green-700 text-sm">{message}</p>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {!isLogin && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Seu nome"
+                                    required={!isLogin}
+                                />
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="seu@email.com"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                                >
+                                    <i className={`fa-regular ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
+                        >
+                            {loading ? 'Aguarde...' : (isLogin ? 'Entrar' : 'Cadastrar')}
+                        </button>
+                    </form>
+
+                    <div className="mt-6 text-center">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsLogin(!isLogin);
+                                setError('');
+                                setMessage('');
+                            }}
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça login'}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Login />);
+    </script>
+</body>
+</html>
