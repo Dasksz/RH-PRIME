@@ -14,20 +14,20 @@ serve(async (req) => {
   try {
     // The Google Sheets URL provided
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/123b1-UJTKMQWY7jdMmMPdPTpANMJSjw3/export?format=csv';
-
+    
     console.log('Fetching Google Sheet...');
     const response = await fetch(sheetUrl);
-
+    
     if (!response.ok) {
       throw new Error(`Failed to fetch sheet: ${response.status} ${response.statusText}`);
     }
-
+    
     const csvData = await response.text();
     console.log('CSV Data fetched, length:', csvData.length);
-
+    
     // Parse CSV
     const rows = parse(csvData, { skipFirstRow: false });
-
+    
     if (!rows || rows.length === 0) {
       return new Response(JSON.stringify({ data: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -52,12 +52,12 @@ serve(async (req) => {
       // Helper to calculate status based on date
       const calculateStatus = (dateStr) => {
         if (!dateStr || dateStr.trim() === '') return 'pendente';
-
+        
         // Try parsing DD/MM/YYYY or MM/DD/YYYY based on the sheet data
         // Assume MM/DD/YYYY based on previous python check output: '3/20/2025'
         const parts = dateStr.split('/');
         let dateObj;
-
+        
         if (parts.length === 3) {
             // Assuming format is MM/DD/YYYY from Google Sheets export
             dateObj = new Date(parts[2], parts[0] - 1, parts[1]);
@@ -70,16 +70,16 @@ serve(async (req) => {
         const now = new Date();
         const diffTime = Math.abs(now - dateObj);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
+        
         // Simple logic: if less than 180 days, 'em_dia', else 'vencido'
         return diffDays < 180 ? 'em_dia' : 'vencido';
       };
 
       const name = row[1]?.trim() || '';
-
+      
       // Generate initials for avatar
       const nameParts = name.split(' ');
-      const initials = nameParts.length > 1
+      const initials = nameParts.length > 1 
         ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
         : (name.substring(0, 2) || '??');
 
