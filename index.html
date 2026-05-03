@@ -148,6 +148,14 @@
                 if (parts.length === 3) {
                     // format is DD/MM/YYYY
                     dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
+                } else if (parts.length === 1 && dateStr.includes('-')) {
+                    // format might be YYYY-MM-DD
+                    const dashParts = dateStr.split('-');
+                    if (dashParts.length === 3) {
+                        dateObj = new Date(dashParts[0], dashParts[1] - 1, dashParts[2]);
+                    } else {
+                        dateObj = new Date(dateStr);
+                    }
                 } else {
                     dateObj = new Date(dateStr);
                 }
@@ -244,23 +252,7 @@
             const [viewMode, setViewMode] = useState('dashboard');
 
             
-            // Se ainda estiver validando o auth, exibe loading (isso já existe)
-            if (isAuthChecking) {
-                return (
-                    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                    </div>
-                );
-            }
 
-            if (isLoadingData) {
-                return (
-                    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                        <p className="mt-4 text-gray-600 font-medium">Carregando dados em tempo real...</p>
-                    </div>
-                );
-            }
 
 
 
@@ -363,6 +355,24 @@ const isExpired = (deliveryDateStr) => {
                 }
             };
 
+
+            // Se ainda estiver validando o auth, exibe loading (isso já existe)
+            if (isAuthChecking) {
+                return (
+                    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    </div>
+                );
+            }
+
+            if (isLoadingData) {
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                        <p className="mt-4 text-gray-600 font-medium">Carregando dados em tempo real...</p>
+                    </div>
+                );
+            }
 
             // --- TELA DASHBOARD ---
             if (viewMode === 'dashboard') {
