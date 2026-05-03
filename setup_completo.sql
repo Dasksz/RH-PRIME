@@ -93,8 +93,20 @@ drop policy if exists "Authenticated users can delete data" on public.funcionari
 create policy "Authenticated users can delete data" on public.funcionarios_epi
   for delete using (auth.role() = 'authenticated');
 
--- Enable Realtime
-alter publication supabase_realtime add table public.funcionarios_epi;
+-- Enable Realtime safely
+DO $
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'funcionarios_epi'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.funcionarios_epi;
+    END IF;
+END
+$;
 
 -- Trigger to update updated_at timestamp
 create or replace function update_modified_column()
