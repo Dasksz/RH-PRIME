@@ -214,9 +214,43 @@
 
 
             const [searchTerm, setSearchTerm] = useState('');
-            const [selectedEmpId, setSelectedEmpId] = useState(null);
+            const [selectedEmpId, setSelectedEmpIdState] = useState(null);
+            const setSelectedEmpId = (id) => {
+                setSelectedEmpIdState(id);
+                if (id) {
+                    window.history.pushState({ viewMode: 'controle', selectedEmpId: id }, "", "");
+                } else {
+                    window.history.pushState({ viewMode: 'controle', selectedEmpId: null }, "", "");
+                }
+            };
             const [activeTab, setActiveTab] = useState('epi');
-            const [viewMode, setViewMode] = useState('dashboard');
+            const [viewMode, setViewModeState] = useState('dashboard');
+            const setViewMode = (mode) => {
+                setViewModeState(mode);
+                if (mode === 'controle') {
+                    window.history.pushState({ viewMode: 'controle' }, "", "");
+                } else {
+                    window.history.pushState({ viewMode: 'dashboard' }, "", "");
+                }
+            };
+
+            useEffect(() => {
+                window.history.replaceState({ viewMode: 'dashboard' }, "", "");
+
+                const handlePopState = (event) => {
+                    if (event.state && event.state.viewMode) {
+                        setViewModeState(event.state.viewMode);
+                        if (event.state.viewMode === 'dashboard') {
+                             setSelectedEmpIdState(null);
+                        }
+                    }
+                    if (event.state && event.state.selectedEmpId !== undefined) {
+                        setSelectedEmpIdState(event.state.selectedEmpId);
+                    }
+                };
+                window.addEventListener('popstate', handlePopState);
+                return () => window.removeEventListener('popstate', handlePopState);
+            }, []);
 
             
 
@@ -368,37 +402,43 @@ const isExpired = (deliveryDateStr) => {
                                 <Activity size={24} className="text-[#002060]" />
                                 <h2 className="text-xl md:text-2xl font-bold text-gray-800">Painel Gerencial de EPI & Fardamento</h2>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[6px] border-l-green-500 p-6 flex items-start gap-5">
-                                    <div className="p-3 bg-green-50 rounded-full text-green-500 shrink-0 mt-1"><CheckCircle2 size={28} /></div>
-                                    <div className="flex flex-col">
-                                        <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entregas em Dia</p>
-                                        <p className="text-4xl font-black text-slate-800 leading-none">{kpis.emDia}</p>
-                                        <p className="text-[12px] font-semibold text-slate-500 mt-1.5">colaboradores</p>
-                                        <p className="text-[12px] font-bold text-green-600 mt-1">&lt; 6 meses</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-green-500 p-4 md:p-6 flex items-center md:items-start gap-4 md:gap-5">
+                                    <div className="p-2 md:p-3 bg-green-50 rounded-full text-green-500 shrink-0"><CheckCircle2 size={24} className="md:w-7 md:h-7" /></div>
+                                    <div className="flex flex-col flex-1">
+                                        <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 md:mb-1">Entregas em Dia</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <p className="text-2xl md:text-4xl font-black text-slate-800 leading-none">{kpis.emDia}</p>
+                                            <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block">colaboradores</p>
+                                        </div>
+                                        <p className="text-[10px] md:text-[12px] font-bold text-green-600 mt-0.5 md:mt-1">&lt; 6 meses</p>
                                     </div>
                                 </div>
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[6px] border-l-red-500 p-6 flex items-start gap-5">
-                                    <div className="p-3 bg-red-50 rounded-full text-red-500 shrink-0 mt-1"><AlertCircle size={28} /></div>
-                                    <div className="flex flex-col">
-                                        <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-1">EPIs Vencidos</p>
-                                        <p className="text-4xl font-black text-slate-800 leading-none">{kpis.vencidos}</p>
-                                        <p className="text-[12px] font-semibold text-slate-500 mt-1.5">colaboradores</p>
-                                        <p className="text-[12px] font-bold text-red-500 mt-1">&gt; 6 meses</p>
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-red-500 p-4 md:p-6 flex items-center md:items-start gap-4 md:gap-5">
+                                    <div className="p-2 md:p-3 bg-red-50 rounded-full text-red-500 shrink-0"><AlertCircle size={24} className="md:w-7 md:h-7" /></div>
+                                    <div className="flex flex-col flex-1">
+                                        <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 md:mb-1">EPIs Vencidos</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <p className="text-2xl md:text-4xl font-black text-slate-800 leading-none">{kpis.vencidos}</p>
+                                            <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block">colaboradores</p>
+                                        </div>
+                                        <p className="text-[10px] md:text-[12px] font-bold text-red-500 mt-0.5 md:mt-1">&gt; 6 meses</p>
                                     </div>
                                 </div>
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[6px] border-l-slate-400 p-6 flex items-start gap-5">
-                                    <div className="p-3 bg-slate-100 rounded-full text-slate-500 shrink-0 mt-1"><XCircle size={28} /></div>
-                                    <div className="flex flex-col">
-                                        <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sem Registro</p>
-                                        <p className="text-4xl font-black text-slate-800 leading-none">{kpis.semRegistro}</p>
-                                        <p className="text-[12px] font-semibold text-slate-500 mt-1.5">colaboradores</p>
-                                        <p className="text-[12px] font-bold text-slate-500 mt-1">Sem entrega</p>
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-slate-400 p-4 md:p-6 flex items-center md:items-start gap-4 md:gap-5">
+                                    <div className="p-2 md:p-3 bg-slate-100 rounded-full text-slate-500 shrink-0"><XCircle size={24} className="md:w-7 md:h-7" /></div>
+                                    <div className="flex flex-col flex-1">
+                                        <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 md:mb-1">Sem Registro</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <p className="text-2xl md:text-4xl font-black text-slate-800 leading-none">{kpis.semRegistro}</p>
+                                            <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block">colaboradores</p>
+                                        </div>
+                                        <p className="text-[10px] md:text-[12px] font-bold text-slate-500 mt-0.5 md:mt-1">Sem entrega</p>
                                     </div>
                                 </div>
                             </div>
                             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col md:flex-row relative min-h-[380px]">
-                                <div className="md:w-[55%] p-8 md:p-10 flex flex-col justify-between z-10 bg-white">
+                                <div className="md:w-[55%] p-6 md:p-10 flex flex-col justify-between z-10 bg-white">
                                     <div>
                                         <div className="flex items-center gap-3 mb-4">
                                             <HardHat size={32} className="text-[#E30613]" />
@@ -426,7 +466,7 @@ const isExpired = (deliveryDateStr) => {
                                     </div>
                                 </div>
                                 <div className="md:w-[45%] relative min-h-[200px] md:min-h-full order-first md:order-last">
-                                    <img src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=1000&auto=format&fit=crop" alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
+                                    <img src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=1000&auto=format&fit=crop" alt="" className="absolute inset-0 w-full h-full object-cover object-top opacity-80 md:opacity-100" />
                                     <div className="absolute inset-0 bg-gradient-to-b md:bg-gradient-to-r from-white via-white/80 md:via-white/40 to-transparent"></div>
                                 </div>
                             </div>
@@ -438,20 +478,20 @@ const isExpired = (deliveryDateStr) => {
             // --- TELA CONTROLE DE ENTREGAS ---
             return (
                 <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
-                    <div className="w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen">
+                    <div className={`w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen ${selectedEmpId !== null ? 'hidden md:flex' : 'flex'}`}>
                         <div className="p-5 bg-[#002060] text-white flex justify-between items-center sticky top-0 z-30">
                             <div className="flex items-center gap-2">
                                 <Shield size={24} className="text-[#E30613]" />
                                 <h2 className="text-lg font-bold tracking-wide">Controle de Entregas</h2>
                             </div>
-                            <button onClick={() => { setViewMode('dashboard'); setSelectedEmpId(null); }} className="p-2 bg-blue-800/40 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-semibold">
+                            <button onClick={() => { setViewMode('dashboard'); setSelectedEmpId(null); }} className="py-2.5 px-3 md:p-2 bg-blue-800/40 rounded-xl md:rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center gap-2 text-[15px] md:text-sm font-semibold active:scale-[0.96]">
                                 <ArrowLeft size={16} /> Voltar
                             </button>
                         </div>
                         <div className="p-4 border-b border-gray-100 bg-slate-50 sticky top-[68px] z-20">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                                <input type="text" placeholder="Buscar colaborador..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#002060] shadow-sm text-sm" />
+                                <input type="text" placeholder="Buscar colaborador..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3.5 md:py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#002060] shadow-sm text-[15px] md:text-sm transition-shadow focus:shadow-md" />
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 min-h-[50vh]">
@@ -466,7 +506,7 @@ const isExpired = (deliveryDateStr) => {
                                     corLinha = selectedEmpId === emp.id ? 'bg-gray-100 border-gray-500 shadow-md ring-1 ring-gray-500' : 'bg-white border-gray-300 shadow-sm hover:bg-gray-50 hover:border-gray-400';
                                 }
                                 return (
-                                    <button key={emp.id} onClick={() => setSelectedEmpId(emp.id)} className={`w-full text-left px-4 py-3.5 rounded-xl transition-all duration-200 flex items-center gap-3 border-l-[6px] border-y border-r ${corLinha}`}>
+                                    <button key={emp.id} onClick={() => setSelectedEmpId(emp.id)} className={`w-full text-left px-4 py-4 md:py-3.5 rounded-xl transition-all duration-200 flex items-center gap-3 border-l-[6px] border-y border-r ${corLinha} active:scale-[0.98]`}>
                                         <div className={`p-2.5 rounded-full ${status === 'em_dia' ? 'bg-green-100 text-green-600' : status === 'vencido' ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}>
                                             {status === 'em_dia' ? <CheckCircle2 size={18}/> : status === 'vencido' ? <AlertCircle size={18}/> : <User size={18}/>}
                                         </div>
@@ -479,7 +519,7 @@ const isExpired = (deliveryDateStr) => {
                             {filteredEmployees.length === 0 && <div className="text-center p-6 text-gray-400 text-sm font-medium">Nenhum colaborador encontrado.</div>}
                         </div>
                     </div>
-                    <div className="flex-1 flex flex-col md:h-screen overflow-hidden bg-[#F8FAFC]">
+                    <div className={`flex-1 flex flex-col md:h-screen overflow-hidden bg-[#F8FAFC] ${selectedEmpId === null ? 'hidden md:flex' : 'flex'}`}>
                         {selectedEmpId === null ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 hidden md:flex">
                                 <div className="w-24 h-24 bg-white shadow-sm border border-gray-100 rounded-full flex items-center justify-center mb-6"><User size={40} className="text-gray-300" /></div>
@@ -488,11 +528,16 @@ const isExpired = (deliveryDateStr) => {
                             </div>
                         ) : (
                             <React.Fragment>
-                                <div className="bg-white p-5 md:p-8 border-b border-gray-200 shadow-sm z-10 relative mt-4 md:mt-0">
-                                    <h2 className="text-xl md:text-3xl font-extrabold text-[#002060]">{selectedEmployee.nome}</h2>
+                                <div className="bg-white p-5 md:p-8 border-b border-gray-200 shadow-sm z-10 relative mt-0 flex items-start gap-4">
+                                    <button onClick={() => setSelectedEmpId(null)} className="md:hidden mt-1 p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0">
+                                        <ArrowLeft size={20} />
+                                    </button>
+                                    <div>
+                                        <h2 className="text-xl md:text-3xl font-extrabold text-[#002060]">{selectedEmployee.nome}</h2>
                                     <p className="text-gray-500 mt-1 flex items-center gap-2 text-xs md:text-sm font-semibold">
                                         <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span> Matrícula: {String(selectedEmployee.id).padStart(4, '0')}
-                                    </p>
+                                        </p>
+                                    </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20">
                                     <div className="flex space-x-6 mb-6 border-b border-gray-200">
@@ -519,7 +564,7 @@ const isExpired = (deliveryDateStr) => {
                                                 <input type="url" placeholder="Opcional..." value={newLink} onChange={(e) => setNewLink(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
                                             </div>
                                             <div className="md:col-span-1">
-                                                <button type="submit" className="w-full bg-slate-100 hover:bg-slate-200 text-[#002060] font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-200 text-sm"><Plus size={16} /> Incluir</button>
+                                                <button type="submit" className="w-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-[#002060] font-bold py-3 md:py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-200 text-[15px] md:text-sm active:scale-[0.98]"><Plus size={16} /> Incluir</button>
                                             </div>
                                         </form>
                                         {stagedItems.length > 0 && (
@@ -536,7 +581,7 @@ const isExpired = (deliveryDateStr) => {
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <button onClick={handleRegisterAll} className="w-full bg-[#002060] hover:bg-blue-900 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-transform hover:-translate-y-0.5 text-sm"><CheckCheck size={18} /> Salvar {stagedItems.length} itens no Banco</button>
+                                                <button onClick={handleRegisterAll} className="w-full bg-[#002060] hover:bg-[#001848] active:bg-[#001030] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0 text-[15px] active:scale-[0.98]"><CheckCheck size={18} /> Salvar {stagedItems.length} itens no Banco</button>
                                             </div>
                                         )}
                                     </div>
