@@ -1,12 +1,20 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { parse } from 'https://deno.land/std@0.168.0/encoding/csv.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+const allowedOrigins = [
+  'https://gcksbfstheavpfgcdndb.supabase.co',
+];
 
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders: Record<string, string> = {
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+
+  if (origin && allowedOrigins.includes(origin)) {
+    corsHeaders['Access-Control-Allow-Origin'] = origin;
+  }
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
