@@ -5,7 +5,7 @@ const allowedOrigins = [
   'https://gcksbfstheavpfgcdndb.supabase.co',
 ];
 
-serve(async (req) => {
+export const handler = async (req: Request) => {
   const origin = req.headers.get('origin');
   const corsHeaders: Record<string, string> = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -43,7 +43,7 @@ serve(async (req) => {
     }
 
     // Skip the header row (index 0) and any potential empty rows
-    const dataRows = rows.slice(1).filter(row => row && row[1] && row[1].trim() !== '');
+    const dataRows = rows.slice(1).filter((row: any) => row && row[1] && row[1].trim() !== '');
 
     // Map rows to the expected employee format
     // Expected Columns based on checking:
@@ -56,9 +56,9 @@ serve(async (req) => {
     // 6: Link Comprovante (Fardamento)
     // 7: Check / Validação
 
-    const employees = dataRows.map((row, index) => {
+    const employees = dataRows.map((row: any, index: number) => {
       // Helper to calculate status based on date
-      const calculateStatus = (dateStr) => {
+      const calculateStatus = (dateStr: string) => {
         if (!dateStr || dateStr.trim() === '') return 'pendente';
         
         // Try parsing DD/MM/YYYY or MM/DD/YYYY based on the sheet data
@@ -68,7 +68,7 @@ serve(async (req) => {
         
         if (parts.length === 3) {
             // Assuming format is MM/DD/YYYY from Google Sheets export
-            dateObj = new Date(parts[2], parts[0] - 1, parts[1]);
+            dateObj = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]));
         } else {
             dateObj = new Date(dateStr);
         }
@@ -76,7 +76,7 @@ serve(async (req) => {
         if (isNaN(dateObj.getTime())) return 'pendente';
 
         const now = new Date();
-        const diffTime = Math.abs(now - dateObj);
+        const diffTime = Math.abs(now.getTime() - dateObj.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         // Simple logic: if less than 180 days, 'em_dia', else 'vencido'
@@ -118,11 +118,13 @@ serve(async (req) => {
     return new Response(JSON.stringify({ data: employees }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })
   }
-})
+};
+
+serve(handler);
