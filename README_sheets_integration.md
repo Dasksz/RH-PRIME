@@ -16,8 +16,12 @@ Siga o passo a passo abaixo para configurar a via de retorno (Supabase -> Google
 // ==========================================
 // CONFIGURAÇÕES DO SUPABASE E PLANILHA
 // ==========================================
+// AVISO DE SEGURANÇA (RLS):
+// Como o Google Sheets faz chamadas anônimas nos bastidores, o banco de dados (que usa RLS)
+// vai bloquear as edições se você usar a chave pública ('anon key').
+// Por isso, você DEVE usar a 'service_role key' (Chave de Serviço) na variável SUPABASE_KEY abaixo.
 const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
+const SUPABASE_KEY = "SUPABASE_SERVER_KEY_REMOVED"; // IMPORTANTE: Use a chave service_role para ignorar regras de RLS
 const SUPABASE_TABLE = "funcionarios_epi";
 const NOME_DA_ABA = "Controle EPI e Fardamento"; // MUITO IMPORTANTE: Mude para o nome exato da aba da sua planilha!
 
