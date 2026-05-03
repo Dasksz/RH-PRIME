@@ -15,12 +15,15 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 -- Policies
+drop policy if exists "Public profiles are viewable by everyone." on public.profiles;
 create policy "Public profiles are viewable by everyone." on public.profiles
   for select using (true);
 
+drop policy if exists "Users can update own profile." on public.profiles;
 create policy "Users can update own profile." on public.profiles
   for update using (auth.uid() = id);
 
+drop policy if exists "Admins can update all profiles." on public.profiles;
 create policy "Admins can update all profiles." on public.profiles
   for update using (
     exists (
