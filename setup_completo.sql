@@ -77,15 +77,19 @@ create table if not exists public.funcionarios_epi (
 alter table public.funcionarios_epi enable row level security;
 
 -- Create policies (Assuming authenticated users can read/write for now, based on previous auth setup)
+drop policy if exists "Authenticated users can view data" on public.funcionarios_epi;
 create policy "Authenticated users can view data" on public.funcionarios_epi
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users can update data" on public.funcionarios_epi;
 create policy "Authenticated users can update data" on public.funcionarios_epi
   for update using (auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users can insert data" on public.funcionarios_epi;
 create policy "Authenticated users can insert data" on public.funcionarios_epi
   for insert with check (auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users can delete data" on public.funcionarios_epi;
 create policy "Authenticated users can delete data" on public.funcionarios_epi
   for delete using (auth.role() = 'authenticated');
 
