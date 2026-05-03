@@ -60,7 +60,7 @@ create trigger on_auth_user_created
 -- Create the main table for tracking EPI and Fardamento
 create table if not exists public.funcionarios_epi (
   id uuid default gen_random_uuid() primary key,
-  nome text not null,
+  nome text not null unique,
   funcao text,
   unidade text default 'Padrão',
   admissao text,
