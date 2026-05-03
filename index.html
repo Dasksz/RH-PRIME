@@ -173,6 +173,7 @@
                     return {
                         id: row.id,
                         nome: name,
+                        nomeLower: name.toLowerCase(),
                         cargo: row.funcao || 'Não especificado',
                         unidade: row.unidade || 'Padrão',
                         admissao: row.admissao || '',
@@ -278,7 +279,8 @@
             }, [selectedEmpId, activeTab]);
 
             const filteredEmployees = useMemo(() => {
-                return employees.filter(emp => emp.nome.toLowerCase().includes(searchTerm.toLowerCase()));
+                const lowerSearch = searchTerm.toLowerCase();
+                return employees.filter(emp => emp.nomeLower.includes(lowerSearch));
             }, [employees, searchTerm]);
 
             const selectedEmployee = useMemo(() => {
