@@ -19,7 +19,7 @@ Siga o passo a passo abaixo para configurar a via de retorno (Supabase -> Google
 const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
 const SUPABASE_TABLE = "funcionarios_epi";
-const NOME_DA_ABA = "Página1"; // MUITO IMPORTANTE: Mude para o nome exato da aba da sua planilha!
+const NOME_DA_ABA = "Controle EPI e Fardamento"; // MUITO IMPORTANTE: Mude para o nome exato da aba da sua planilha!
 
 // ==========================================
 // 1. DO GOOGLE SHEETS PARA O SUPABASE (onEdit)
@@ -146,7 +146,7 @@ function doPost(e) {
 }
 ```
 
-4. **IMPORTANTE:** Revise a variável `NOME_DA_ABA` no código acima. Por padrão eu coloquei "Página1", mas se o nome da aba na sua planilha do Google Sheets for diferente (ex: "Planilha1" ou "Funcionários"), mude no código para o nome correto exato.
+4. **IMPORTANTE:** Revise a variável `NOME_DA_ABA` no código acima. Por padrão eu coloquei "Controle EPI e Fardamento", mas se o nome da aba na sua planilha do Google Sheets for diferente (ex: "Planilha1" ou "Funcionários"), mude no código para o nome correto exato.
 
 ## Parte 2: Publicar o WebApp no Google Scripts
 
