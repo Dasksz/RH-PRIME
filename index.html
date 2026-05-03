@@ -102,6 +102,43 @@
             const [isLoadingData, setIsLoadingData] = useState(true);
             const [dataError, setDataError] = useState(null);
 
+            const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+            useEffect(() => {
+                checkUser();
+            }, []);
+
+            async function checkUser() {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('status')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (!profile || profile.status !== 'aprovado') {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+
+                    setIsAuthChecking(false);
+                } catch (error) {
+                    console.error('Error checking auth:', error);
+                    window.location.href = 'login.html';
+                }
+            }
+
+            const handleLogout = async () => {
+                await supabase.auth.signOut();
+                window.location.href = 'login.html';
+            };
+
             // Helper to calculate status based on date
             const calculateStatus = (dateStr) => {
                 if (!dateStr || dateStr.trim() === '') return 'pendente';
@@ -206,43 +243,6 @@
             const [selectedEmpId, setSelectedEmpId] = useState(null);
             const [activeTab, setActiveTab] = useState('epi');
             const [viewMode, setViewMode] = useState('dashboard');
-
-            const [isAuthChecking, setIsAuthChecking] = useState(true);
-
-            useEffect(() => {
-                checkUser();
-            }, []);
-
-            async function checkUser() {
-                try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) {
-                        window.location.href = 'login.html';
-                        return;
-                    }
-
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('status')
-                        .eq('id', session.user.id)
-                        .single();
-
-                    if (!profile || profile.status !== 'aprovado') {
-                        window.location.href = 'login.html';
-                        return;
-                    }
-
-                    setIsAuthChecking(false);
-                } catch (error) {
-                    console.error('Error checking auth:', error);
-                    window.location.href = 'login.html';
-                }
-            }
-
-            const handleLogout = async () => {
-                await supabase.auth.signOut();
-                window.location.href = 'login.html';
-            };
 
             
             // Se ainda estiver validando o auth, exibe loading (isso já existe)
