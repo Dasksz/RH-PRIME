@@ -146,7 +146,7 @@ function doPost(e) {
 }
 ```
 
-4. **IMPORTANTE:** Revise a variável `NOME_DA_ABA` no código acima. Por padrão eu coloquei "Página1", mas se o nome da aba na sua planilha do Google Sheets for diferente (ex: "Planilha1" ou "Funcionários"), mude no código para o nome correto exato.
+4. **IMPORTANTE:** Revise a variável `NOME_DA_ABA` no código acima. Por padrão eu coloquei "Controle EPI e Fardamento", mas se o nome da aba na sua planilha do Google Sheets for diferente (ex: "Planilha1" ou "Funcionários"), mude no código para o nome correto exato.
 
 ## Parte 2: Publicar o WebApp no Google Scripts
 
