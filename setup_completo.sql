@@ -15,12 +15,15 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 -- Policies
+drop policy if exists "Public profiles are viewable by everyone." on public.profiles;
 create policy "Public profiles are viewable by everyone." on public.profiles
   for select using (true);
 
+drop policy if exists "Users can update own profile." on public.profiles;
 create policy "Users can update own profile." on public.profiles
   for update using (auth.uid() = id);
 
+drop policy if exists "Admins can update all profiles." on public.profiles;
 create policy "Admins can update all profiles." on public.profiles
   for update using (
     exists (
@@ -74,20 +77,36 @@ create table if not exists public.funcionarios_epi (
 alter table public.funcionarios_epi enable row level security;
 
 -- Create policies (Assuming authenticated users can read/write for now, based on previous auth setup)
+drop policy if exists "Authenticated users can view data" on public.funcionarios_epi;
 create policy "Authenticated users can view data" on public.funcionarios_epi
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users can update data" on public.funcionarios_epi;
 create policy "Authenticated users can update data" on public.funcionarios_epi
   for update using (auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users can insert data" on public.funcionarios_epi;
 create policy "Authenticated users can insert data" on public.funcionarios_epi
   for insert with check (auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users can delete data" on public.funcionarios_epi;
 create policy "Authenticated users can delete data" on public.funcionarios_epi
   for delete using (auth.role() = 'authenticated');
 
--- Enable Realtime
-alter publication supabase_realtime add table public.funcionarios_epi;
+-- Enable Realtime safely
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'funcionarios_epi'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.funcionarios_epi;
+    END IF;
+END
+$$;
 
 -- Trigger to update updated_at timestamp
 create or replace function update_modified_column()
