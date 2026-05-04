@@ -29,26 +29,27 @@ function syncToSupabaseOnEdit(e) {
   const row = e.range.getRow();
   if (row <= 1) return;
 
-  // A planilha agora tem 12 colunas até a Validação (A até L)
-  // [0] Admissão | [1] Nome | [2] CPF | [3] Função | [4] Unidade
-  // [5] EPI Data | [6] EPI Itens | [7] Link EPI
-  // [8] Fardamento Data | [9] Fardamento Itens | [10] Link Fardamento
-  // [11] Validação
-  const rowData = sheet.getRange(row, 1, 1, 12).getValues()[0];
+  // A planilha agora tem 13 colunas até a Validação (A até M)
+  // [0] Admissão | [1] Nome | [2] CPF | [3] Função | [4] Setor | [5] Unidade
+  // [6] EPI Data | [7] EPI Itens | [8] Link EPI
+  // [9] Fardamento Data | [10] Fardamento Itens | [11] Link Fardamento
+  // [12] Validação
+  const rowData = sheet.getRange(row, 1, 1, 13).getValues()[0];
 
   const payload = {
     admissao: formatarData(rowData[0]),
     nome: rowData[1] ? rowData[1].toString() : "",
     cpf: rowData[2] ? rowData[2].toString() : "",
     funcao: rowData[3] ? rowData[3].toString() : "",
-    unidade: rowData[4] ? rowData[4].toString() : "",
-    epi_data: formatarData(rowData[5]),
-    epi_itens: rowData[6] ? rowData[6].toString() : "",
-    epi_link: rowData[7] ? rowData[7].toString() : "",
-    fardamento_data: formatarData(rowData[8]),
-    fardamento_itens: rowData[9] ? rowData[9].toString() : "",
-    fardamento_link: rowData[10] ? rowData[10].toString() : "",
-    validacao: rowData[11] ? rowData[11].toString() : ""
+    setor: rowData[4] ? rowData[4].toString() : "",
+    unidade: rowData[5] ? rowData[5].toString() : "",
+    epi_data: formatarData(rowData[6]),
+    epi_itens: rowData[7] ? rowData[7].toString() : "",
+    epi_link: rowData[8] ? rowData[8].toString() : "",
+    fardamento_data: formatarData(rowData[9]),
+    fardamento_itens: rowData[10] ? rowData[10].toString() : "",
+    fardamento_link: rowData[11] ? rowData[11].toString() : "",
+    validacao: rowData[12] ? rowData[12].toString() : ""
   };
 
   try {
@@ -164,14 +165,15 @@ function syncAllToSupabase() {
       nome: rowData[1] ? rowData[1].toString() : "",
       cpf: rowData[2] ? rowData[2].toString() : "",
       funcao: rowData[3] ? rowData[3].toString() : "",
-      unidade: rowData[4] ? rowData[4].toString() : "",
-      epi_data: formatarData(rowData[5]),
-      epi_itens: rowData[6] ? rowData[6].toString() : "",
-      epi_link: rowData[7] ? rowData[7].toString() : "",
-      fardamento_data: formatarData(rowData[8]),
-      fardamento_itens: rowData[9] ? rowData[9].toString() : "",
-      fardamento_link: rowData[10] ? rowData[10].toString() : "",
-      validacao: rowData[11] ? rowData[11].toString() : ""
+      setor: rowData[4] ? rowData[4].toString() : "",
+      unidade: rowData[5] ? rowData[5].toString() : "",
+      epi_data: formatarData(rowData[6]),
+      epi_itens: rowData[7] ? rowData[7].toString() : "",
+      epi_link: rowData[8] ? rowData[8].toString() : "",
+      fardamento_data: formatarData(rowData[9]),
+      fardamento_itens: rowData[10] ? rowData[10].toString() : "",
+      fardamento_link: rowData[11] ? rowData[11].toString() : "",
+      validacao: rowData[12] ? rowData[12].toString() : ""
     };
 
     try {

@@ -63,6 +63,7 @@ create table if not exists public.funcionarios_epi (
   nome text not null,
   cpf text,
   funcao text,
+  setor text,
   unidade text default 'Padrão',
   admissao text,
   epi_data text,
