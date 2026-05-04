@@ -154,14 +154,14 @@
                         avatar: initials.toUpperCase(),
                         epi: {
                             status: calculateStatus(row.epi_data),
-                            ultimaEntrega: row.epi_data || null,
+                            ultimaEntrega: (row.epi_data && row.epi_data.trim() !== '') ? row.epi_data : null,
                             validade: '180 dias',
                             link: row.epi_link || null,
                             itens: row.epi_itens || null
                         },
                         fardamento: {
                             status: calculateStatus(row.fardamento_data),
-                            ultimaEntrega: row.fardamento_data || null,
+                            ultimaEntrega: (row.fardamento_data && row.fardamento_data.trim() !== '') ? row.fardamento_data : null,
                             validade: '1 ano',
                             link: row.fardamento_link || null,
                             itens: row.fardamento_itens || null
