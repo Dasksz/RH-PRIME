@@ -1,12 +1,12 @@
 // ==========================================
 // CONFIGURAÇÕES DO SUPABASE E PLANILHA
 // ==========================================
-const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
+const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co"; 
 const SUPABASE_KEY = "SUA_CHAVE_AQUI"; // Certifique-se de preencher com a chave real
 const SUPABASE_TABLE = "funcionarios_epi";
-const NOME_DA_ABA = "Controle EPI e Fardamento";
+const NOME_DA_ABA = "Controle EPI e Fardamento"; 
 
-// Função auxiliar para formatar datas
+// Função auxiliar para formatar datas 
 function formatarData(valor) {
   if (valor instanceof Date) {
     const d = valor.getDate().toString().padStart(2, '0');
@@ -22,35 +22,36 @@ function formatarData(valor) {
 // ==========================================
 function syncToSupabaseOnEdit(e) {
   if (!e || !e.range) return;
-
+  
   const sheet = e.source.getActiveSheet();
   if (sheet.getName() !== NOME_DA_ABA) return;
-
+  
   const row = e.range.getRow();
   if (row <= 1) return;
-
-  // A planilha agora tem 12 colunas até a Validação (A até L)
-  // [0] Admissão | [1] Nome | [2] CPF | [3] Função | [4] Unidade
-  // [5] EPI Data | [6] EPI Itens | [7] Link EPI
-  // [8] Fardamento Data | [9] Fardamento Itens | [10] Link Fardamento
-  // [11] Validação
-  const rowData = sheet.getRange(row, 1, 1, 12).getValues()[0];
-
+  
+  // A planilha agora tem 13 colunas até a Validação (A até M)
+  // [0] Admissão | [1] Nome | [2] CPF | [3] Função | [4] Setor | [5] Unidade 
+  // [6] EPI Data | [7] EPI Itens | [8] Link EPI 
+  // [9] Fardamento Data | [10] Fardamento Itens | [11] Link Fardamento 
+  // [12] Validação
+  const rowData = sheet.getRange(row, 1, 1, 13).getValues()[0];
+  
   const payload = {
     admissao: formatarData(rowData[0]),
     nome: rowData[1] ? rowData[1].toString() : "",
     cpf: rowData[2] ? rowData[2].toString() : "",
     funcao: rowData[3] ? rowData[3].toString() : "",
-    unidade: rowData[4] ? rowData[4].toString() : "",
-    epi_data: formatarData(rowData[5]),
-    epi_itens: rowData[6] ? rowData[6].toString() : "",
-    epi_link: rowData[7] ? rowData[7].toString() : "",
-    fardamento_data: formatarData(rowData[8]),
-    fardamento_itens: rowData[9] ? rowData[9].toString() : "",
-    fardamento_link: rowData[10] ? rowData[10].toString() : "",
-    validacao: rowData[11] ? rowData[11].toString() : ""
+    setor: rowData[4] ? rowData[4].toString() : "",
+    unidade: rowData[5] ? rowData[5].toString() : "",
+    epi_data: formatarData(rowData[6]),
+    epi_itens: rowData[7] ? rowData[7].toString() : "",
+    epi_link: rowData[8] ? rowData[8].toString() : "", 
+    fardamento_data: formatarData(rowData[9]),
+    fardamento_itens: rowData[10] ? rowData[10].toString() : "",
+    fardamento_link: rowData[11] ? rowData[11].toString() : "",
+    validacao: rowData[12] ? rowData[12].toString() : ""
   };
-
+  
   try {
     const existingUrl = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?nome=eq.${encodeURIComponent(payload.nome)}&select=id`;
     const response = UrlFetchApp.fetch(existingUrl, {
@@ -61,9 +62,9 @@ function syncToSupabaseOnEdit(e) {
         "Content-Type": "application/json"
       }
     });
-
+    
     const records = JSON.parse(response.getContentText());
-
+    
     if (records.length > 0) {
       const id = records[0].id;
       UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${id}`, {
@@ -99,8 +100,8 @@ function syncToSupabaseOnEdit(e) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const record = data.record;
-
+    const record = data.record; 
+    
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(NOME_DA_ABA);
     if (!sheet) return ContentService.createTextOutput("Aba não encontrada").setMimeType(ContentService.MimeType.TEXT);
 
@@ -108,9 +109,9 @@ function doPost(e) {
     const allData = sheet.getDataRange().getValues();
     let rowToUpdate = -1;
 
-    for (let i = 1; i < allData.length; i++) {
-      if (allData[i][1] === nomeBusca) {
-        rowToUpdate = i + 1;
+    for (let i = 1; i < allData.length; i++) { 
+      if (allData[i][1] === nomeBusca) { 
+        rowToUpdate = i + 1; 
         break;
       }
     }
@@ -149,31 +150,32 @@ function doPost(e) {
 function syncAllToSupabase() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(NOME_DA_ABA);
   if (!sheet) return;
-
+  
   const allData = sheet.getDataRange().getValues();
-
+  
   // Começa de 1 para pular o cabeçalho
   for (let i = 1; i < allData.length; i++) {
     const rowData = allData[i];
-
+    
     // Se não tiver nome, pula a linha vazia
     if (!rowData[1]) continue;
-
+    
     const payload = {
       admissao: formatarData(rowData[0]),
       nome: rowData[1] ? rowData[1].toString() : "",
       cpf: rowData[2] ? rowData[2].toString() : "",
       funcao: rowData[3] ? rowData[3].toString() : "",
-      unidade: rowData[4] ? rowData[4].toString() : "",
-      epi_data: formatarData(rowData[5]),
-      epi_itens: rowData[6] ? rowData[6].toString() : "",
-      epi_link: rowData[7] ? rowData[7].toString() : "",
-      fardamento_data: formatarData(rowData[8]),
-      fardamento_itens: rowData[9] ? rowData[9].toString() : "",
-      fardamento_link: rowData[10] ? rowData[10].toString() : "",
-      validacao: rowData[11] ? rowData[11].toString() : ""
+      setor: rowData[4] ? rowData[4].toString() : "",
+      unidade: rowData[5] ? rowData[5].toString() : "",
+      epi_data: formatarData(rowData[6]),
+      epi_itens: rowData[7] ? rowData[7].toString() : "",
+      epi_link: rowData[8] ? rowData[8].toString() : "", 
+      fardamento_data: formatarData(rowData[9]),
+      fardamento_itens: rowData[10] ? rowData[10].toString() : "",
+      fardamento_link: rowData[11] ? rowData[11].toString() : "",
+      validacao: rowData[12] ? rowData[12].toString() : ""
     };
-
+    
     try {
       const existingUrl = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?nome=eq.${encodeURIComponent(payload.nome)}&select=id`;
       const response = UrlFetchApp.fetch(existingUrl, {
@@ -184,9 +186,9 @@ function syncAllToSupabase() {
           "Content-Type": "application/json"
         }
       });
-
+      
       const records = JSON.parse(response.getContentText());
-
+      
       if (records.length > 0) {
         // Já existe: Atualiza
         const id = records[0].id;
@@ -213,14 +215,14 @@ function syncAllToSupabase() {
           payload: JSON.stringify([payload])
         });
       }
-
+      
       // Pausa rápida de 100ms
-      Utilities.sleep(100);
-
+      Utilities.sleep(100); 
+      
     } catch (error) {
       console.error(`Erro ao sincronizar funcionário ${payload.nome}:`, error);
     }
   }
-
+  
   SpreadsheetApp.getUi().alert("Sincronização em massa concluída com sucesso!");
 }

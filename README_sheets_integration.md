@@ -310,18 +310,19 @@ Agora o ciclo está completo e as permissões estão resolvidas! As modificaçõ
 ## Atualização: Itens de EPI e Fardamento
 
 Um novo arquivo chamado `google_apps_script_atualizado.js` foi criado para refletir a nova estrutura de colunas que inclui os Itens de EPI e Fardamento.
-As colunas na planilha do Google Sheets agora devem seguir a seguinte ordem de 12 colunas (A até L):
+As colunas na planilha do Google Sheets agora devem seguir a seguinte ordem de 13 colunas (A até M):
 1. Admissão
 2. Nome
 3. CPF
 4. Função
-5. Unidade
-6. EPI Data
-7. EPI Itens
-8. Link EPI
-9. Fardamento Data
-10. Fardamento Itens
-11. Link Fardamento
-12. Validação
+5. Setor
+6. Unidade
+7. EPI Data
+8. EPI Itens
+9. Link EPI
+10. Fardamento Data
+11. Fardamento Itens
+12. Link Fardamento
+13. Validação
 
 Copie o conteúdo de `google_apps_script_atualizado.js` para o Google Apps Script e garanta que sua planilha siga exatamente essa estrutura!
