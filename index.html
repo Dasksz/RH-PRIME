@@ -156,13 +156,15 @@
                             status: calculateStatus(row.epi_data),
                             ultimaEntrega: row.epi_data || null,
                             validade: '180 dias',
-                            link: row.epi_link || null
+                            link: row.epi_link || null,
+                            itens: row.epi_itens || null
                         },
                         fardamento: {
                             status: calculateStatus(row.fardamento_data),
                             ultimaEntrega: row.fardamento_data || null,
                             validade: '1 ano',
-                            link: row.fardamento_link || null
+                            link: row.fardamento_link || null,
+                            itens: row.fardamento_itens || null
                         }
                     };
                 });
@@ -331,14 +333,17 @@ const isExpired = (deliveryDateStr) => {
                     }
                     
                     const latestLink = stagedItems[stagedItems.length - 1].linkComprovante;
+                    const itemsJoined = stagedItems.map(i => i.nomeItem).join('; ');
                     
                     const updatePayload = {};
                     if (activeTab === 'epi') {
                         updatePayload.epi_data = formattedDate;
                         if (latestLink) updatePayload.epi_link = latestLink;
+                        updatePayload.epi_itens = itemsJoined;
                     } else {
                         updatePayload.fardamento_data = formattedDate;
                         if (latestLink) updatePayload.fardamento_link = latestLink;
+                        updatePayload.fardamento_itens = itemsJoined;
                     }
                     
                     const { error } = await supabase
@@ -617,6 +622,12 @@ const isExpired = (deliveryDateStr) => {
                                                                     {vencido && <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide">Vencido</span>}
                                                                 </div>
                                                             </div>
+                                                            {item.itens && (
+                                                                <div className="mt-2 text-sm text-gray-700">
+                                                                    <span className="font-bold">Itens: </span>
+                                                                    <span>{item.itens}</span>
+                                                                </div>
+                                                            )}
                                                             {item.link && (
                                                                 <a href={item.link.startsWith('http') ? item.link : `https://${item.link}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 mt-2 w-full py-2 bg-gray-50 hover:bg-gray-100 text-blue-600 text-xs font-bold rounded-xl transition-colors border border-gray-200">
                                                                     <LinkIcon size={14} /> Ver Comprovante
