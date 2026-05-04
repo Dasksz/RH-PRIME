@@ -69,6 +69,8 @@ create table if not exists public.funcionarios_epi (
   epi_link text,
   fardamento_data text,
   fardamento_link text,
+  epi_itens text,
+  fardamento_itens text,
   validacao text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null

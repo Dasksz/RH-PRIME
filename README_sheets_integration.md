@@ -305,3 +305,23 @@ Para o Supabase conseguir mandar dados, precisamos transformar o script num "sit
 ## 🚀 Tudo Pronto!
 
 Agora o ciclo está completo e as permissões estão resolvidas! As modificações feitas na planilha agora terão autorização para notificar o Supabase e vice-versa.
+
+
+## Atualização: Itens de EPI e Fardamento
+
+Um novo arquivo chamado `google_apps_script_atualizado.js` foi criado para refletir a nova estrutura de colunas que inclui os Itens de EPI e Fardamento.
+As colunas na planilha do Google Sheets agora devem seguir a seguinte ordem de 12 colunas (A até L):
+1. Admissão
+2. Nome
+3. CPF
+4. Função
+5. Unidade
+6. EPI Data
+7. EPI Itens
+8. Link EPI
+9. Fardamento Data
+10. Fardamento Itens
+11. Link Fardamento
+12. Validação
+
+Copie o conteúdo de `google_apps_script_atualizado.js` para o Google Apps Script e garanta que sua planilha siga exatamente essa estrutura!
