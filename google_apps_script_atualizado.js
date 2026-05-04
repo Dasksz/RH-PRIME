@@ -116,23 +116,27 @@ function doPost(e) {
       }
     }
 
+    // Se uma coluna vier vazia do webhook, mas existir na planilha, mantemos a da planilha.
+    const existingRow = rowToUpdate !== -1 ? sheet.getRange(rowToUpdate, 1, 1, 13).getValues()[0] : Array(13).fill("");
+
     const newRowData = [
-      record.admissao || "",           // Col A (0)
-      record.nome || "",               // Col B (1)
-      record.cpf || "",                // Col C (2)
-      record.funcao || "",             // Col D (3)
-      record.unidade || "",            // Col E (4)
-      record.epi_data || "",           // Col F (5)
-      record.epi_itens || "",          // Col G (6) NOVO
-      record.epi_link || "",           // Col H (7)
-      record.fardamento_data || "",    // Col I (8)
-      record.fardamento_itens || "",   // Col J (9) NOVO
-      record.fardamento_link || "",    // Col K (10)
-      record.validacao || ""           // Col L (11)
+      record.admissao || existingRow[0] || "",           // Col A (0)
+      record.nome || existingRow[1] || "",               // Col B (1)
+      record.cpf || existingRow[2] || "",                // Col C (2)
+      record.funcao || existingRow[3] || "",             // Col D (3)
+      record.setor || existingRow[4] || "",              // Col E (4)
+      record.unidade || existingRow[5] || "",            // Col F (5)
+      record.epi_data || existingRow[6] || "",           // Col G (6)
+      record.epi_itens || existingRow[7] || "",          // Col H (7)
+      record.epi_link || existingRow[8] || "",           // Col I (8)
+      record.fardamento_data || existingRow[9] || "",    // Col J (9)
+      record.fardamento_itens || existingRow[10] || "",  // Col K (10)
+      record.fardamento_link || existingRow[11] || "",   // Col L (11)
+      record.validacao || existingRow[12] || ""          // Col M (12)
     ];
 
     if (rowToUpdate !== -1) {
-      sheet.getRange(rowToUpdate, 1, 1, 12).setValues([newRowData]);
+      sheet.getRange(rowToUpdate, 1, 1, 13).setValues([newRowData]);
     } else {
       sheet.appendRow(newRowData);
     }
