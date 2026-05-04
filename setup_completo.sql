@@ -61,6 +61,7 @@ create trigger on_auth_user_created
 create table if not exists public.funcionarios_epi (
   id uuid default gen_random_uuid() primary key,
   nome text not null,
+  cpf text,
   funcao text,
   unidade text default 'Padrão',
   admissao text,
