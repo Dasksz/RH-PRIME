@@ -120,19 +120,19 @@ function doPost(e) {
     const existingRow = rowToUpdate !== -1 ? sheet.getRange(rowToUpdate, 1, 1, 13).getValues()[0] : Array(13).fill("");
 
     const newRowData = [
-      record.admissao || existingRow[0] || "",           // Col A (0)
-      record.nome || existingRow[1] || "",               // Col B (1)
-      record.cpf || existingRow[2] || "",                // Col C (2)
-      record.funcao || existingRow[3] || "",             // Col D (3)
-      record.setor || existingRow[4] || "",              // Col E (4)
-      record.unidade || existingRow[5] || "",            // Col F (5)
-      record.epi_data || existingRow[6] || "",           // Col G (6)
-      record.epi_itens || existingRow[7] || "",          // Col H (7)
-      record.epi_link || existingRow[8] || "",           // Col I (8)
-      record.fardamento_data || existingRow[9] || "",    // Col J (9)
-      record.fardamento_itens || existingRow[10] || "",  // Col K (10)
-      record.fardamento_link || existingRow[11] || "",   // Col L (11)
-      record.validacao || existingRow[12] || ""          // Col M (12)
+      record.hasOwnProperty('admissao') ? (record.admissao || "") : existingRow[0],
+      record.hasOwnProperty('nome') ? (record.nome || "") : existingRow[1],
+      record.hasOwnProperty('cpf') ? (record.cpf || "") : existingRow[2],
+      record.hasOwnProperty('funcao') ? (record.funcao || "") : existingRow[3],
+      record.hasOwnProperty('setor') ? (record.setor || "") : existingRow[4],
+      record.hasOwnProperty('unidade') ? (record.unidade || "") : existingRow[5],
+      record.hasOwnProperty('epi_data') ? (record.epi_data || "") : existingRow[6],
+      record.hasOwnProperty('epi_itens') ? (record.epi_itens || "") : existingRow[7],
+      record.hasOwnProperty('epi_link') ? (record.epi_link || "") : existingRow[8],
+      record.hasOwnProperty('fardamento_data') ? (record.fardamento_data || "") : existingRow[9],
+      record.hasOwnProperty('fardamento_itens') ? (record.fardamento_itens || "") : existingRow[10],
+      record.hasOwnProperty('fardamento_link') ? (record.fardamento_link || "") : existingRow[11],
+      record.hasOwnProperty('validacao') ? (record.validacao || "") : existingRow[12]
     ];
 
     if (rowToUpdate !== -1) {
