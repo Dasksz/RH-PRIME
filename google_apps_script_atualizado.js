@@ -100,15 +100,24 @@ function syncToSupabaseOnEdit(e) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    const type = data.type; // 'INSERT', 'UPDATE', or 'DELETE'
     const record = data.record; 
+    const oldRecord = data.old_record;
     
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(NOME_DA_ABA);
     if (!sheet) return ContentService.createTextOutput("Aba não encontrada").setMimeType(ContentService.MimeType.TEXT);
 
-    const nomeBusca = record.nome;
+    // Identificar o nome para busca baseado na ação
+    const nomeBusca = type === 'DELETE' ? (oldRecord ? oldRecord.nome : null) : (record ? record.nome : null);
+    
+    if (!nomeBusca) {
+      return ContentService.createTextOutput("Nome não fornecido pelo Supabase").setMimeType(ContentService.MimeType.TEXT);
+    }
+
     const allData = sheet.getDataRange().getValues();
     let rowToUpdate = -1;
 
+    // Procura o funcionário pelo nome
     for (let i = 1; i < allData.length; i++) { 
       if (allData[i][1] === nomeBusca) { 
         rowToUpdate = i + 1; 
@@ -116,7 +125,16 @@ function doPost(e) {
       }
     }
 
-    // Se uma coluna vier vazia do webhook, mas existir na planilha, mantemos a da planilha.
+    if (type === 'DELETE') {
+      if (rowToUpdate !== -1) {
+        sheet.deleteRow(rowToUpdate);
+        return ContentService.createTextOutput(JSON.stringify({"status": "success", "action": "deleted"})).setMimeType(ContentService.MimeType.JSON);
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({"status": "ignored", "message": "Linha não encontrada para deletar"})).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // Se for INSERT ou UPDATE, montar os novos dados da linha (13 colunas)
     const existingRow = rowToUpdate !== -1 ? sheet.getRange(rowToUpdate, 1, 1, 13).getValues()[0] : Array(13).fill("");
 
     const newRowData = [
@@ -136,12 +154,14 @@ function doPost(e) {
     ];
 
     if (rowToUpdate !== -1) {
+      // UPDATE: Atualiza a linha inteira existente
       sheet.getRange(rowToUpdate, 1, 1, 13).setValues([newRowData]);
+      return ContentService.createTextOutput(JSON.stringify({"status": "success", "action": "updated"})).setMimeType(ContentService.MimeType.JSON);
     } else {
+      // INSERT: Cria uma nova linha inteira no final
       sheet.appendRow(newRowData);
+      return ContentService.createTextOutput(JSON.stringify({"status": "success", "action": "inserted"})).setMimeType(ContentService.MimeType.JSON);
     }
-
-    return ContentService.createTextOutput(JSON.stringify({"status": "success"})).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": error.message})).setMimeType(ContentService.MimeType.JSON);
