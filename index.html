@@ -18,6 +18,8 @@
     <style>
         body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
     </style>
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <div id="root"></div>
@@ -25,7 +27,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
     <script type="text/babel">
-        const { useState, useMemo, useEffect, useRef } = React;
+        const { useState, useMemo, useEffect } = React;
 
         
         // Configuração do Supabase
@@ -58,6 +60,7 @@
         const HardHat = (p) => <Icon {...p}><path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6h0"/><path d="M14 6h0a6 6 0 0 1 6 6v3"/></Icon>;
         const XCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></Icon>;
         const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></Icon>;
+        const Pencil = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></Icon>;
 
         // ==========================================
         // 3. APLICATIVO REACT PRINCIPAL
@@ -262,11 +265,70 @@
 
 
             const [stagedItems, setStagedItems] = useState([]);
+            const [newItemCA, setNewItemCA] = useState('');
+            const [newItemQtd, setNewItemQtd] = useState(1);
+            const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
+            const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+            const [editingItem, setEditingItem] = useState(null);
             const [newItemName, setNewItemName] = useState('');
             const [newDeliveryDate, setNewDeliveryDate] = useState('');
             const [newLink, setNewLink] = useState('');
             const scrollContainerRef = useRef(null);
-            
+            const parseItemString = (itemsStr, defaultDate, defaultLink) => {
+                if (!itemsStr) return [];
+                // Split by ';' and clean up
+                const parts = itemsStr.split(';').map(s => s.trim()).filter(Boolean);
+                return parts.map((part, index) => {
+                    // Match "Nome (CA: valor, Qtd: valor)" or just "Nome"
+                    const match = part.match(/^(.*?)\s*\(CA:\s*(.*?),\s*Qtd:\s*(.*?)\)$/i);
+                    if (match) {
+                        return {
+                            id: Date.now() + Math.random() + index,
+                            nomeItem: match[1].trim(),
+                            ca: match[2].trim(),
+                            qtd: match[3].trim(),
+                            dataEntrega: defaultDate || new Date().toISOString().split('T')[0],
+                            linkComprovante: defaultLink || ''
+                        };
+                    } else {
+                        return {
+                            id: Date.now() + Math.random() + index,
+                            nomeItem: part,
+                            ca: '',
+                            qtd: '1',
+                            dataEntrega: defaultDate || new Date().toISOString().split('T')[0],
+                            linkComprovante: defaultLink || ''
+                        };
+                    }
+                });
+            };
+
+            const loadHistoryIntoStaged = () => {
+                const emp = employees.find(e => e.id === selectedEmpId);
+                if (!emp) return;
+
+                const itemData = activeTab === 'epi' ? emp.epi : emp.fardamento;
+                
+                if (itemData && itemData.itens) {
+                    // Convert stored DD/MM/YYYY to YYYY-MM-DD for the input type="date"
+                    let isoDate = new Date().toISOString().split('T')[0]; // Default to today
+                    
+                    const parsedItems = parseItemString(itemData.itens, isoDate, itemData.link);
+                    setStagedItems(parsedItems);
+                }
+                setHasLoadedHistory(true);
+            };
+
+            // Reset history loaded flag when changing employee or tab
+            useEffect(() => {
+                setHasLoadedHistory(false);
+                setStagedItems([]);
+                setNewItemName('');
+                setNewItemCA('');
+                setNewItemQtd(1);
+            }, [selectedEmpId, activeTab]);
+
+
             useEffect(() => {
                 if (selectedEmpId !== null) {
                     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -318,9 +380,41 @@ const isExpired = (deliveryDateStr) => {
             const handleAddStagedItem = (e) => {
                 e.preventDefault();
                 if (!newItemName || !newDeliveryDate) return;
-                const newItem = { id: Date.now() + Math.random(), nomeItem: newItemName, dataEntrega: newDeliveryDate, linkComprovante: newLink };
+                
+                if (!hasLoadedHistory) {
+                    loadHistoryIntoStaged();
+                }
+
+                const newItem = { 
+                    id: Date.now() + Math.random(), 
+                    nomeItem: newItemName, 
+                    ca: newItemCA,
+                    qtd: newItemQtd,
+                    dataEntrega: newDeliveryDate, 
+                    linkComprovante: newLink 
+                };
+                
+                setStagedItems(prev => [...prev, newItem]);
+                setNewItemName(''); 
+                setNewItemCA('');
+                setNewItemQtd(1);
+                // Keep newDeliveryDate and newLink as they were
+            };
                 setStagedItems(prev => [...prev, newItem]);
                 setNewItemName(''); setNewDeliveryDate(''); setNewLink('');
+            };
+
+            
+            const handleEditClick = (item) => {
+                setEditingItem({ ...item });
+                setIsEditModalOpen(true);
+            };
+
+            const handleSaveEdit = (e) => {
+                e.preventDefault();
+                setStagedItems(prev => prev.map(item => item.id === editingItem.id ? editingItem : item));
+                setIsEditModalOpen(false);
+                setEditingItem(null);
             };
 
             const handleRemoveStagedItem = (idToRemove) => {
@@ -328,24 +422,199 @@ const isExpired = (deliveryDateStr) => {
             };
 
             
+                        
+            const generatePDF = (emp, items, dateStr) => {
+                // Create a hidden div for the PDF content
+                const container = document.createElement('div');
+                container.style.position = 'absolute';
+                container.style.left = '-9999px';
+                container.style.top = '0';
+                
+                // Add the layout HTML
+                container.innerHTML = `
+                    <div id="pdf-content" style="width: 297mm; min-height: 210mm; background: white; font-family: Arial, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px;">
+                        <!-- Header -->
+                        <div style="border: 1px solid black; display: flex; text-align: center; font-weight: bold; margin-bottom: 5px;">
+                            <div style="flex: 1; padding: 10px; border-right: 1px solid black; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <div style="font-size: 14px;">NUNES & VIEIRA LOGISTICA LTDA</div>
+                                <div>CNPJ: 48.986.353/0001-39</div>
+                                <div>Endereço: Tv São Pedro, 426, CEP: 45.604-570, Itabuna/BA</div>
+                            </div>
+                            <div style="flex: 1; padding: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                                FICHA INDIVIDUAL DE FARDAMENTO E EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - E.P.I.
+                            </div>
+                        </div>
+
+                        <!-- Employee Info -->
+                        <div style="border: 1px solid black; margin-bottom: 5px;">
+                            <div style="display: flex; border-bottom: 1px solid black; padding: 5px;">
+                                <div style="flex: 3;"><strong>NOME:</strong> ${emp.nome || ''}</div>
+                                <div style="flex: 1;"><strong>CPF:</strong> ${emp.cpf || ''}</div>
+                                <div style="flex: 1;"><strong>DATA ADMISSÃO:</strong> ${emp.admissao || ''}</div>
+                            </div>
+                            <div style="display: flex; padding: 5px;">
+                                <div style="flex: 1;"><strong>SETOR:</strong> ${emp.setor || ''}</div>
+                                <div style="flex: 2;"><strong>FUNÇÃO:</strong> ${emp.funcao || ''}</div>
+                                <div style="flex: 1;"><strong>UNIDADE:</strong> ${emp.unidade || ''}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 9px; margin-bottom: 5px;">
+                            NR 6.1 Para os fins de aplicação desta norma Regulamentadora - NR, considera-se <strong>Equipamento de proteção Individual - EPI</strong> é todo dispositivo de uso individual, de fabricação nacional ou estrangeira, destinado a proteger a saúde e a integridade física do trabalhador.
+                        </div>
+
+                        <!-- Obligations -->
+                        <div style="display: flex; border: 1px solid black; margin-bottom: 5px;">
+                            <div style="flex: 1; padding: 5px; border-right: 1px solid black;">
+                                <strong>Obrigações do Empregador</strong><br>
+                                a) Adquirir o tipo adequado de EPI à atividade do colaborador. NR 06<br>
+                                b) Treinar o colaborador sobre o uso.<br>
+                                c) Fornecer ao colaborador somente EPI aprovado pelo MTb e de empresas cadastradas no DNSST/MTb.<br>
+                                d) Tornar obrigatório o seu uso e acompanhamento do EPI.<br>
+                                e) Substituí-lo, imediatamente, quando danificado, extraviado ou quando pela perda de sua eficácia.<br>
+                                f) Comunicar ao MTb qualquer irregularidade observada no EPI.<br><br>
+                                <strong>1.8. Cabe ao empregado:</strong><br>
+                                a) usar o EPI fornecido pelo empregador;<br>
+                                <strong>1.8.1. Constitui ato faltoso a recusa injustificada do empregado ao cumprimento do disposto no item anterior.</strong>
+                            </div>
+                            <div style="flex: 1; padding: 5px;">
+                                <strong>Obrigações dos Colaboradores</strong><br>
+                                <strong>6.7.1. Cabe ao empregado quanto ao EPI</strong><br>
+                                <strong>a) usar, utilizando-o apenas para a finalidade a que se destina;</strong><br>
+                                <strong>b) responsabilizar-se pela guarda e conservação;</strong><br>
+                                <strong>c) comunicar ao empregador qualquer alteração que o torne impróprio para uso;</strong><br>
+                                <strong>d) cumprir as determinações do empregador sobre o uso adequado.</strong>
+                            </div>
+                        </div>
+
+                        <!-- Term -->
+                        <div style="border: 1px solid black; padding: 5px; color: red; margin-bottom: 5px;">
+                            <strong>Termo de Responsabilidade</strong><br>
+                            <span style="color: black; font-size: 9px;">
+                                Recebi, da empresa NUNES & VIEIRA LOGISTICA LTDA., os EPI'S adequados abaixo, os quais desde já me comprometo sempre usar na execução de minhas tarefas, zelando pela sua perfeita guarda e conservação, uso e funcionamento de acordo com as orientações e treinamentos recebidos da CIPA e/ou SESMT, assumindo também o compromisso de devolvê-lo quando solicitado ou em ocasião de rescisão de meu contrato de trabalho.<br>
+                                Estou ciente e de pleno acordo que o não cumprimento das condições estabelecidas, acarretará, além de aplicações de penas disciplinares, inclusive rescisão de meu contrato laboral, outras sanções previstas em lei, em especial nas constantes na NR 06, portaria 3.214 de 08/06/1978, do Ministério do Trabalho.<br>
+                                Declaro, também, que estou ciente das disposições do Art. 462 e § 1º da CLT, e autorizo o desconto salarial proporcional ao custo de reparação do dano por mim causado aos EPIs.
+                            </span>
+                        </div>
+
+                        <!-- Table Title -->
+                        <div style="background-color: #003399; color: white; text-align: center; font-weight: bold; padding: 3px; border: 1px solid black; margin-bottom: 2px;">
+                            CONTROLE DE EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - EPI
+                        </div>
+                        <div style="background-color: #e0e0e0; text-align: center; font-weight: bold; padding: 3px; border: 1px solid black; border-bottom: none;">
+                            EQUIPAMENTOS DE PROTEÇÃO INDIVIDUAL RECEBIDOS:
+                        </div>
+
+                        <!-- Items Table -->
+                        <table style="width: 100%; border-collapse: collapse; text-align: center;">
+                            <thead>
+                                <tr style="font-weight: bold;">
+                                    <th style="border: 1px solid black; padding: 3px; width: 8%;">DATA DE<br>ENTREGA</th>
+                                    <th style="border: 1px solid black; padding: 3px; width: 30%;">DESCRIÇÃO/ MATERIAL</th>
+                                    <th style="border: 1px solid black; padding: 3px; width: 8%;">C.A. Nº</th>
+                                    <th style="border: 1px solid black; padding: 3px; width: 5%;">QTD.</th>
+                                    <th style="border: 1px solid black; padding: 3px; width: 15%;">ASSINATURA DE ENTREGA</th>
+                                    <th style="border: 1px solid black; padding: 3px; width: 8%;">DATA DE<br>DEVOLUÇÃO</th>
+                                    <th style="border: 1px solid black; padding: 3px; width: 11%;">MOTIVO DA<br>DEVOLUÇÃO</th>
+                                    <th style="border: 1px solid black; padding: 3px; width: 15%;">ASSINATURA DE DEVOLUÇÃO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => {
+                                    // format item.dataEntrega from YYYY-MM-DD to DD/MM/YYYY
+                                    const dParts = item.dataEntrega.split('-');
+                                    const dStr = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : item.dataEntrega;
+                                    return `
+                                        <tr>
+                                            <td style="border: 1px solid black; padding: 8px 3px;">${dStr}</td>
+                                            <td style="border: 1px solid black; padding: 8px 3px; text-align: left;">${item.nomeItem}</td>
+                                            <td style="border: 1px solid black; padding: 8px 3px;">${item.ca || ''}</td>
+                                            <td style="border: 1px solid black; padding: 8px 3px;">${item.qtd}</td>
+                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                                ${Array(Math.max(0, 15 - items.length)).fill(`
+                                    <tr>
+                                        <td style="border: 1px solid black; padding: 8px 3px;">&nbsp;</td>
+                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                document.body.appendChild(container);
+
+                const element = document.getElementById('pdf-content');
+                const safeName = (emp.nome || 'Funcionario').replace(/[^a-z0-9]/gi, '_');
+                const dateFileName = dateStr.replace(/\//g, '-');
+                
+                const opt = {
+                    margin:       5,
+                    filename:     `EPI_Comprovante_${safeName}_${dateFileName}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                };
+
+                html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
+                    window.open(pdf.output('bloburl'), '_blank');
+                }).save().then(() => {
+                    document.body.removeChild(container);
+                });
+            };
+
             const handleRegisterAll = async () => {
                 if (stagedItems.length === 0) return;
+                
+                // Check for different dates
+                const uniqueDates = [...new Set(stagedItems.map(i => i.dataEntrega))];
+                let finalDateToUse = stagedItems[stagedItems.length - 1].dataEntrega;
+                
+                if (uniqueDates.length > 1) {
+                    // Sort dates to find the latest
+                    const sortedDates = [...uniqueDates].sort((a, b) => new Date(b) - new Date(a));
+                    finalDateToUse = sortedDates[0];
+                    
+                    const confirmed = window.confirm(
+                        `Aviso: Há itens com datas diferentes na lista.\n\nA data de todos os itens será atualizada para a data mais recente informada (${new Date(finalDateToUse + 'T00:00:00').toLocaleDateString('pt-BR')}) no banco.\n\nDeseja continuar?`
+                    );
+                    if (!confirmed) return;
+                    
+                    // Update all items to the latest date
+                    setStagedItems(prev => prev.map(item => ({...item, dataEntrega: finalDateToUse})));
+                }
                 
                 try {
                     // Update in Supabase
                     const empToUpdate = employees.find(e => e.id === selectedEmpId);
                     if (!empToUpdate) return;
                     
-                    const latestDate = stagedItems[stagedItems.length - 1].dataEntrega;
                     // Format from YYYY-MM-DD to DD/MM/YYYY if needed, assuming input type="date"
-                    const parts = latestDate.split('-');
-                    let formattedDate = latestDate;
+                    const parts = finalDateToUse.split('-');
+                    let formattedDate = finalDateToUse;
                     if (parts.length === 3) {
                         formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
                     }
                     
                     const latestLink = stagedItems[stagedItems.length - 1].linkComprovante;
-                    const itemsJoined = stagedItems.map(i => i.nomeItem).join('; ');
+                    
+                    // Generate string format: "Nome (CA: valor, Qtd: valor)"
+                    const itemsJoined = stagedItems.map(i => {
+                        const caStr = i.ca ? `CA: ${i.ca}, ` : '';
+                        return `${i.nomeItem} (${caStr}Qtd: ${i.qtd})`;
+                    }).join('; ');
                     
                     const updatePayload = {};
                     if (activeTab === 'epi') {
@@ -365,8 +634,12 @@ const isExpired = (deliveryDateStr) => {
                         
                     if (error) throw error;
                     
+                    // Call PDF Generation before clearing items
+                    generatePDF(empToUpdate, stagedItems, formattedDate);
+                    
                     // Note: Supabase Realtime will automatically trigger fetchEmployees and update the state!
                     setStagedItems([]);
+                    setHasLoadedHistory(false);
                 } catch (err) {
                     console.error("Failed to update records:", err);
                     alert("Erro ao salvar no banco: " + err.message);
@@ -593,10 +866,18 @@ const isExpired = (deliveryDateStr) => {
                                     </div>
                                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8">
                                         <h3 className="text-base font-bold text-[#002060] mb-4 flex items-center gap-2"><ListPlus size={18} className="text-[#E30613]" /> Adicionar {activeTab === 'epi' ? 'EPI' : 'Fardamento'}</h3>
-                                        <form onSubmit={handleAddStagedItem} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                        <form onSubmit={handleAddStagedItem} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                                             <div className="md:col-span-1">
                                                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Item Entregue</label>
                                                 <input type="text" required placeholder="Ex: Bota de Segurança" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
+                                            </div>
+                                            <div className="md:col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">C.A. (Opcional)</label>
+                                                <input type="text" placeholder="Ex: 12345" value={newItemCA} onChange={(e) => setNewItemCA(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
+                                            </div>
+                                            <div className="md:col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Qtd.</label>
+                                                <input type="number" min="1" required value={newItemQtd} onChange={(e) => setNewItemQtd(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
                                             </div>
                                             <div className="md:col-span-1">
                                                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Data da Entrega</label>
@@ -606,10 +887,10 @@ const isExpired = (deliveryDateStr) => {
                                                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Link Comprovante</label>
                                                 <input type="url" placeholder="Opcional..." value={newLink} onChange={(e) => setNewLink(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
                                             </div>
-                                            <div className="md:col-span-1">
+                                            <div className="md:col-span-1 flex items-end">
                                                 <button type="submit" className="w-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-[#002060] font-bold py-3 md:py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-200 text-[15px] md:text-sm active:scale-[0.98]"><Plus size={16} /> Incluir</button>
                                             </div>
-                                        </form>
+</form>
                                         {stagedItems.length > 0 && (
                                             <div className="mt-6 border-t border-gray-100 pt-5">
                                                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Prontos para salvar ({stagedItems.length})</h4>
@@ -617,23 +898,47 @@ const isExpired = (deliveryDateStr) => {
                                                     {stagedItems.map(item => (
                                                         <div key={item.id} className="flex items-center justify-between bg-blue-50/50 border border-blue-100 p-3 rounded-xl">
                                                             <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4">
-                                                                <span className="font-bold text-[#002060] text-sm">{item.nomeItem}</span>
-                                                                <span className="text-xs text-gray-500 font-medium">Data: {new Date(item.dataEntrega + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                                                                <span className="font-bold text-[#002060] text-sm">
+        {item.nomeItem} 
+        <span className="text-xs text-gray-500 font-normal ml-1">
+            (Qtd: {item.qtd}{item.ca ? `, CA: ${item.ca}` : ''})
+        </span>
+    </span>
+    <span className="text-xs text-gray-500 font-medium">Data: {new Date(item.dataEntrega + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
                                                             </div>
-                                                            <button onClick={() => handleRemoveStagedItem(item.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={16} /></button>
+                                                            <div className="flex gap-2">
+        <button onClick={() => handleEditClick(item)} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Pencil size={16} /></button>
+        <button onClick={() => handleRemoveStagedItem(item.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={16} /></button>
+    </div>
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <button onClick={handleRegisterAll} className="w-full bg-[#002060] hover:bg-[#001848] active:bg-[#001030] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0 text-[15px] active:scale-[0.98]"><CheckCheck size={18} /> Salvar {stagedItems.length} itens no Banco</button>
+                                                <button onClick={handleRegisterAll} className="w-full bg-[#002060] hover:bg-[#001848] active:bg-[#001030] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0 text-[15px] active:scale-[0.98]"><CheckCheck size={18} /> Salvar</button>
                                             </div>
                                         )}
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-[#002060] mb-4">Histórico Salvo</h3>
+                                        
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-base font-bold text-[#002060]">Histórico Salvo</h3>
+                                            {((activeTab === 'epi' && selectedEmployee.epi.ultimaEntrega) || (activeTab === 'fardamento' && selectedEmployee.fardamento.ultimaEntrega)) && (
+                                                <button 
+                                                    onClick={() => {
+                                                        loadHistoryIntoStaged();
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+                                                    }} 
+                                                    className="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1"
+                                                >
+                                                    <Activity size={14} /> Nova Entrega/Verificação
+                                                </button>
+                                            )}
+                                        </div>
 
                                         {((activeTab === 'epi' && !selectedEmployee.epi.ultimaEntrega) || (activeTab === 'fardamento' && !selectedEmployee.fardamento.ultimaEntrega)) ? (
                                             <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-8 text-center text-gray-400 text-sm font-medium">Nenhum registro encontrado.</div>
                                         ) : (
+
                                             <div className="grid grid-cols-1 gap-3">
                                                 {(() => {
                                                     const item = activeTab === 'epi' ? selectedEmployee.epi : selectedEmployee.fardamento;
@@ -675,10 +980,43 @@ const isExpired = (deliveryDateStr) => {
                                 </div>
                             </React.Fragment>
                         )}
+                        
+                                {isEditModalOpen && editingItem && (
+                                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                                        <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
+                                            <h3 className="text-lg font-bold text-[#002060] mb-4">Editar Item</h3>
+                                            <form onSubmit={handleSaveEdit} className="space-y-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Item Entregue</label>
+                                                    <input type="text" required value={editingItem.nomeItem} onChange={e => setEditingItem({...editingItem, nomeItem: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">C.A. (Opcional)</label>
+                                                        <input type="text" value={editingItem.ca} onChange={e => setEditingItem({...editingItem, ca: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Qtd.</label>
+                                                        <input type="number" min="1" required value={editingItem.qtd} onChange={e => setEditingItem({...editingItem, qtd: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Data da Entrega</label>
+                                                    <input type="date" required value={editingItem.dataEntrega} onChange={e => setEditingItem({...editingItem, dataEntrega: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
+                                                </div>
+                                                <div className="flex gap-3 mt-6">
+                                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 bg-white hover:bg-gray-50 text-gray-600 font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors">Cancelar</button>
+                                                    <button type="submit" className="flex-1 bg-[#002060] hover:bg-[#001848] text-white font-bold py-2.5 px-4 rounded-xl transition-colors">Salvar Alterações</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                )}
+
+                        </div>
                     </div>
-                </div>
-            );
-        }
+                );
+            }
 
         // Renderização Final
         const root = ReactDOM.createRoot(document.getElementById('root'));
