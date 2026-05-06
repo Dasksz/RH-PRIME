@@ -1,435 +1,587 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PRIME RH - Gestão de Segurança</title>
-    
+
     <!-- Carregando Tailwind CSS para o Design -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Carregando React via CDN -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    
+    <script
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+      crossorigin
+    ></script>
+
     <!-- Carregando Babel para ler o código React dentro do HTML -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+      body {
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+      }
     </style>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <div id="root"></div>
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
     <script type="text/babel">
-        const { useState, useMemo, useEffect, useRef } = React;
+      const { useState, useMemo, useEffect, useRef } = React;
 
-        
-        // Configuração do Supabase
-        const SUPABASE_URL = 'https://gcksbfstheavpfgcdndb.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      // Configuração do Supabase
+      const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
+      const SUPABASE_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // ==========================================
-        // 1. ÍCONES (Componentes SVG Nativos)
-        // ==========================================
-        const Icon = ({ size = 24, className = "", children }) => (
-            <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {children}
-            </svg>
-        );
+      // ==========================================
+      // 1. ÍCONES (Componentes SVG Nativos)
+      // ==========================================
+      const Icon = ({ size = 24, className = "", children }) => (
+        <svg
+          width={size}
+          height={size}
+          className={className}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {children}
+        </svg>
+      );
 
-        const Shield = (p) => <Icon {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></Icon>;
-        const Shirt = (p) => <Icon {...p}><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></Icon>;
-        const Search = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>;
-        const Plus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
-        const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>;
-        const CheckCircle2 = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></Icon>;
-        const User = (p) => <Icon {...p}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Icon>;
-        const Calendar = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Icon>;
-        const LinkIcon = (p) => <Icon {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></Icon>;
-        const Trash2 = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></Icon>;
-        const ListPlus = (p) => <Icon {...p}><path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="M18 9v6"/><path d="M21 12h-6"/></Icon>;
-        const CheckCheck = (p) => <Icon {...p}><polyline points="18 6 7 17 2 12"/><polyline points="22 10 11 21 6 16"/></Icon>;
-        const Activity = (p) => <Icon {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></Icon>;
-        const HardHat = (p) => <Icon {...p}><path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6h0"/><path d="M14 6h0a6 6 0 0 1 6 6v3"/></Icon>;
-        const XCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></Icon>;
-        const ArrowLeft = (p) => <Icon {...p}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></Icon>;
-        const Pencil = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></Icon>;
+      const Shield = (p) => (
+        <Icon {...p}>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </Icon>
+      );
+      const Shirt = (p) => (
+        <Icon {...p}>
+          <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" />
+        </Icon>
+      );
+      const Search = (p) => (
+        <Icon {...p}>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </Icon>
+      );
+      const Plus = (p) => (
+        <Icon {...p}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </Icon>
+      );
+      const AlertCircle = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </Icon>
+      );
+      const CheckCircle2 = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="m9 12 2 2 4-4" />
+        </Icon>
+      );
+      const User = (p) => (
+        <Icon {...p}>
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </Icon>
+      );
+      const Calendar = (p) => (
+        <Icon {...p}>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </Icon>
+      );
+      const LinkIcon = (p) => (
+        <Icon {...p}>
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </Icon>
+      );
+      const Trash2 = (p) => (
+        <Icon {...p}>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </Icon>
+      );
+      const ListPlus = (p) => (
+        <Icon {...p}>
+          <path d="M11 12H3" />
+          <path d="M16 6H3" />
+          <path d="M16 18H3" />
+          <path d="M18 9v6" />
+          <path d="M21 12h-6" />
+        </Icon>
+      );
+      const CheckCheck = (p) => (
+        <Icon {...p}>
+          <polyline points="18 6 7 17 2 12" />
+          <polyline points="22 10 11 21 6 16" />
+        </Icon>
+      );
+      const Activity = (p) => (
+        <Icon {...p}>
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </Icon>
+      );
+      const HardHat = (p) => (
+        <Icon {...p}>
+          <path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z" />
+          <path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
+          <path d="M4 15v-3a6 6 0 0 1 6-6h0" />
+          <path d="M14 6h0a6 6 0 0 1 6 6v3" />
+        </Icon>
+      );
+      const XCircle = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </Icon>
+      );
+      const ArrowLeft = (p) => (
+        <Icon {...p}>
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </Icon>
+      );
+      const Pencil = (p) => (
+        <Icon {...p}>
+          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+          <path d="m15 5 4 4" />
+        </Icon>
+      );
 
-        // ==========================================
-        // 3. APLICATIVO REACT PRINCIPAL
-        // ==========================================
-        function App() {
-            
-            
-            const [employees, setEmployees] = useState([]);
-            const [isLoadingData, setIsLoadingData] = useState(true);
+      // ==========================================
+      // 3. APLICATIVO REACT PRINCIPAL
+      // ==========================================
+      function App() {
+        const [employees, setEmployees] = useState([]);
+        const [isLoadingData, setIsLoadingData] = useState(true);
 
-            const [isAuthChecking, setIsAuthChecking] = useState(true);
+        const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-            useEffect(() => {
-                checkUser();
-            }, []);
+        useEffect(() => {
+          checkUser();
+        }, []);
 
-            async function checkUser() {
-                try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) {
-                        window.location.href = 'login.html';
-                        return;
-                    }
-
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('status')
-                        .eq('id', session.user.id)
-                        .single();
-
-                    if (!profile || profile.status !== 'aprovado') {
-                        window.location.href = 'login.html';
-                        return;
-                    }
-
-                    setIsAuthChecking(false);
-                } catch (error) {
-                    console.error('Error checking auth:', error);
-                    window.location.href = 'login.html';
-                }
+        async function checkUser() {
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (!session) {
+              window.location.href = "login.html";
+              return;
             }
 
-            const handleLogout = async () => {
-                await supabase.auth.signOut();
-                window.location.href = 'login.html';
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("status")
+              .eq("id", session.user.id)
+              .single();
+
+            if (!profile || profile.status !== "aprovado") {
+              window.location.href = "login.html";
+              return;
+            }
+
+            setIsAuthChecking(false);
+          } catch (error) {
+            console.error("Error checking auth:", error);
+            window.location.href = "login.html";
+          }
+        }
+
+        const handleLogout = async () => {
+          await supabase.auth.signOut();
+          window.location.href = "login.html";
+        };
+
+        // Helper to calculate status based on date
+        const calculateStatus = (dateStr) => {
+          if (!dateStr || dateStr.trim() === "") return "pendente";
+
+          const parts = dateStr.split("/");
+          let dateObj;
+
+          if (parts.length === 3) {
+            // format is DD/MM/YYYY
+            dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
+          } else if (parts.length === 1 && dateStr.includes("-")) {
+            // format might be YYYY-MM-DD
+            const dashParts = dateStr.split("-");
+            if (dashParts.length === 3) {
+              dateObj = new Date(dashParts[0], dashParts[1] - 1, dashParts[2]);
+            } else {
+              dateObj = new Date(dateStr);
+            }
+          } else {
+            dateObj = new Date(dateStr);
+          }
+
+          if (isNaN(dateObj.getTime())) return "pendente";
+
+          const now = new Date();
+          const diffTime = Math.abs(now - dateObj);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          return diffDays < 180 ? "em_dia" : "vencido";
+        };
+
+        const mapDataToState = (data) => {
+          return data.map((row) => {
+            const name = row.nome || "";
+            const nameParts = name.split(" ");
+            const initials =
+              nameParts.length > 1
+                ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
+                : name.substring(0, 2) || "??";
+
+            return {
+              id: row.id,
+              nome: name,
+              nomeLower: name.toLowerCase(),
+              cargo: row.funcao || "Não especificado",
+              setor: row.setor || "Não especificado",
+              cpf: row.cpf || "Não informado",
+              unidade: row.unidade || "Padrão",
+              admissao: row.admissao || "",
+              avatar: initials.toUpperCase(),
+              epi: {
+                status: calculateStatus(row.epi_data),
+                ultimaEntrega:
+                  row.epi_data && row.epi_data.trim() !== ""
+                    ? row.epi_data
+                    : null,
+                validade: "180 dias",
+                link: row.epi_link || null,
+                itens: row.epi_itens || null,
+              },
+              fardamento: {
+                status: calculateStatus(row.fardamento_data),
+                ultimaEntrega:
+                  row.fardamento_data && row.fardamento_data.trim() !== ""
+                    ? row.fardamento_data
+                    : null,
+                validade: "1 ano",
+                link: row.fardamento_link || null,
+                itens: row.fardamento_itens || null,
+              },
             };
+          });
+        };
 
-            // Helper to calculate status based on date
-            const calculateStatus = (dateStr) => {
-                if (!dateStr || dateStr.trim() === '') return 'pendente';
-                
-                const parts = dateStr.split('/');
-                let dateObj;
-                
-                if (parts.length === 3) {
-                    // format is DD/MM/YYYY
-                    dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
-                } else if (parts.length === 1 && dateStr.includes('-')) {
-                    // format might be YYYY-MM-DD
-                    const dashParts = dateStr.split('-');
-                    if (dashParts.length === 3) {
-                        dateObj = new Date(dashParts[0], dashParts[1] - 1, dashParts[2]);
-                    } else {
-                        dateObj = new Date(dateStr);
-                    }
-                } else {
-                    dateObj = new Date(dateStr);
-                }
+        const fetchEmployees = async () => {
+          try {
+            const { data, error } = await supabase
+              .from("funcionarios_epi")
+              .select("*")
+              .order("nome", { ascending: true });
 
-                if (isNaN(dateObj.getTime())) return 'pendente';
+            if (error) throw error;
 
-                const now = new Date();
-                const diffTime = Math.abs(now - dateObj);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                return diffDays < 180 ? 'em_dia' : 'vencido';
+            if (data) {
+              setEmployees(mapDataToState(data));
+            }
+          } catch (err) {
+            console.error("Failed to fetch from Supabase table:", err);
+          } finally {
+            setIsLoadingData(false);
+          }
+        };
+
+        useEffect(() => {
+          if (!isAuthChecking) {
+            fetchEmployees();
+
+            // Set up Realtime subscription
+            const channel = supabase
+              .channel("schema-db-changes")
+              .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "funcionarios_epi" },
+                (payload) => {
+                  console.log("Realtime change received!", payload);
+                  // For simplicity and accuracy, re-fetch all data on change.
+                  // For huge datasets, we'd update state based on payload.
+                  fetchEmployees();
+                },
+              )
+              .subscribe();
+
+            return () => {
+              supabase.removeChannel(channel);
             };
+          }
+        }, [isAuthChecking]);
 
-            const mapDataToState = (data) => {
-                return data.map(row => {
-                    const name = row.nome || '';
-                    const nameParts = name.split(' ');
-                    const initials = nameParts.length > 1 
-                        ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
-                        : (name.substring(0, 2) || '??');
+        const [searchTerm, setSearchTerm] = useState("");
+        const [selectedEmpId, setSelectedEmpIdState] = useState(null);
+        const setSelectedEmpId = (id) => {
+          setSelectedEmpIdState(id);
+          if (id) {
+            window.history.pushState(
+              { viewMode: "controle", selectedEmpId: id },
+              "",
+              "",
+            );
+          } else {
+            window.history.pushState(
+              { viewMode: "controle", selectedEmpId: null },
+              "",
+              "",
+            );
+          }
+        };
+        const [activeTab, setActiveTab] = useState("epi");
+        const [viewMode, setViewModeState] = useState("dashboard");
+        const setViewMode = (mode) => {
+          setViewModeState(mode);
+          if (mode === "controle") {
+            window.history.pushState({ viewMode: "controle" }, "", "");
+          } else {
+            window.history.pushState({ viewMode: "dashboard" }, "", "");
+          }
+        };
 
-                    return {
-                        id: row.id,
-                        nome: name,
-                        nomeLower: name.toLowerCase(),
-                        cargo: row.funcao || 'Não especificado',
-                        setor: row.setor || 'Não especificado',
-                        cpf: row.cpf || 'Não informado',
-                        unidade: row.unidade || 'Padrão',
-                        admissao: row.admissao || '',
-                        avatar: initials.toUpperCase(),
-                        epi: {
-                            status: calculateStatus(row.epi_data),
-                            ultimaEntrega: (row.epi_data && row.epi_data.trim() !== '') ? row.epi_data : null,
-                            validade: '180 dias',
-                            link: row.epi_link || null,
-                            itens: row.epi_itens || null
-                        },
-                        fardamento: {
-                            status: calculateStatus(row.fardamento_data),
-                            ultimaEntrega: (row.fardamento_data && row.fardamento_data.trim() !== '') ? row.fardamento_data : null,
-                            validade: '1 ano',
-                            link: row.fardamento_link || null,
-                            itens: row.fardamento_itens || null
-                        }
-                    };
-                });
-            };
+        useEffect(() => {
+          window.history.replaceState({ viewMode: "dashboard" }, "", "");
 
-            const fetchEmployees = async () => {
-                try {
-                    const { data, error } = await supabase
-                        .from('funcionarios_epi')
-                        .select('*')
-                        .order('nome', { ascending: true });
-                        
-                    if (error) throw error;
-                    
-                    if (data) {
-                        setEmployees(mapDataToState(data));
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch from Supabase table:', err);
-                } finally {
-                    setIsLoadingData(false);
-                }
-            };
+          const handlePopState = (event) => {
+            if (event.state && event.state.viewMode) {
+              setViewModeState(event.state.viewMode);
+              if (event.state.viewMode === "dashboard") {
+                setSelectedEmpIdState(null);
+              }
+            }
+            if (event.state && event.state.selectedEmpId !== undefined) {
+              setSelectedEmpIdState(event.state.selectedEmpId);
+            }
+          };
+          window.addEventListener("popstate", handlePopState);
+          return () => window.removeEventListener("popstate", handlePopState);
+        }, []);
 
-            useEffect(() => {
-                if (!isAuthChecking) {
-                    fetchEmployees();
+        const [stagedItems, setStagedItems] = useState([]);
+        const [newItemCA, setNewItemCA] = useState("");
+        const [newItemQtd, setNewItemQtd] = useState(1);
+        const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
+        const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+        const [editingItem, setEditingItem] = useState(null);
+        const [newItemName, setNewItemName] = useState("");
+        const [newDeliveryDate, setNewDeliveryDate] = useState("");
+        const [newLink, setNewLink] = useState("");
+        const scrollContainerRef = useRef(null);
+        const parseItemString = (itemsStr, defaultDate, defaultLink) => {
+          if (!itemsStr) return [];
+          // Split by ';' and clean up
+          const parts = itemsStr
+            .split(";")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return parts.map((part, index) => {
+            // Match "Nome (CA: valor, Qtd: valor)" or just "Nome"
+            const match = part.match(
+              /^(.*?)\s*\((?:CA:\s*(.*?),\s*)?Qtd:\s*(.*?)\)$/i,
+            );
+            if (match) {
+              return {
+                id: Date.now() + Math.random() + index,
+                nomeItem: match[1].trim(),
+                ca: (match[2] || "").trim(),
+                qtd: match[3].trim(),
+                dataEntrega:
+                  defaultDate || new Date().toISOString().split("T")[0],
+                linkComprovante: defaultLink || "",
+              };
+            } else {
+              return {
+                id: Date.now() + Math.random() + index,
+                nomeItem: part,
+                ca: "",
+                qtd: "1",
+                dataEntrega:
+                  defaultDate || new Date().toISOString().split("T")[0],
+                linkComprovante: defaultLink || "",
+              };
+            }
+          });
+        };
 
-                    // Set up Realtime subscription
-                    const channel = supabase
-                        .channel('schema-db-changes')
-                        .on(
-                            'postgres_changes',
-                            { event: '*', schema: 'public', table: 'funcionarios_epi' },
-                            (payload) => {
-                                console.log('Realtime change received!', payload);
-                                // For simplicity and accuracy, re-fetch all data on change.
-                                // For huge datasets, we'd update state based on payload.
-                                fetchEmployees();
-                            }
-                        )
-                        .subscribe();
+        const loadHistoryIntoStaged = () => {
+          const emp = employees.find((e) => e.id === selectedEmpId);
+          if (!emp) return;
 
-                    return () => {
-                        supabase.removeChannel(channel);
-                    };
-                }
-            }, [isAuthChecking]);
+          const itemData = activeTab === "epi" ? emp.epi : emp.fardamento;
 
+          if (itemData && itemData.itens) {
+            // Convert stored DD/MM/YYYY to YYYY-MM-DD for the input type="date"
+            let isoDate = new Date().toISOString().split("T")[0]; // Default to today
 
-            const [searchTerm, setSearchTerm] = useState('');
-            const [selectedEmpId, setSelectedEmpIdState] = useState(null);
-            const setSelectedEmpId = (id) => {
-                setSelectedEmpIdState(id);
-                if (id) {
-                    window.history.pushState({ viewMode: 'controle', selectedEmpId: id }, "", "");
-                } else {
-                    window.history.pushState({ viewMode: 'controle', selectedEmpId: null }, "", "");
-                }
-            };
-            const [activeTab, setActiveTab] = useState('epi');
-            const [viewMode, setViewModeState] = useState('dashboard');
-            const setViewMode = (mode) => {
-                setViewModeState(mode);
-                if (mode === 'controle') {
-                    window.history.pushState({ viewMode: 'controle' }, "", "");
-                } else {
-                    window.history.pushState({ viewMode: 'dashboard' }, "", "");
-                }
-            };
+            const parsedItems = parseItemString(
+              itemData.itens,
+              isoDate,
+              itemData.link,
+            );
+            setStagedItems(parsedItems);
+          }
+          setHasLoadedHistory(true);
+        };
 
-            useEffect(() => {
-                window.history.replaceState({ viewMode: 'dashboard' }, "", "");
+        // Reset history loaded flag when changing employee or tab
+        useEffect(() => {
+          setHasLoadedHistory(false);
+          setStagedItems([]);
+          setNewItemName("");
+          setNewItemCA("");
+          setNewItemQtd(1);
+        }, [selectedEmpId, activeTab]);
 
-                const handlePopState = (event) => {
-                    if (event.state && event.state.viewMode) {
-                        setViewModeState(event.state.viewMode);
-                        if (event.state.viewMode === 'dashboard') {
-                             setSelectedEmpIdState(null);
-                        }
-                    }
-                    if (event.state && event.state.selectedEmpId !== undefined) {
-                        setSelectedEmpIdState(event.state.selectedEmpId);
-                    }
-                };
-                window.addEventListener('popstate', handlePopState);
-                return () => window.removeEventListener('popstate', handlePopState);
-            }, []);
+        useEffect(() => {
+          if (selectedEmpId !== null) {
+            window.scrollTo({ top: 0, behavior: "auto" });
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTop = 0;
+            }
+          }
+        }, [selectedEmpId]);
 
-            
+        useEffect(() => {
+          setStagedItems([]);
+          setNewItemName("");
+          setNewDeliveryDate("");
+          setNewLink("");
+        }, [selectedEmpId, activeTab]);
 
+        const filteredEmployees = useMemo(() => {
+          const lowerSearch = searchTerm.toLowerCase();
+          return employees.filter((emp) => emp.nomeLower.includes(lowerSearch));
+        }, [employees, searchTerm]);
 
+        const selectedEmployee = useMemo(() => {
+          return employees.find((emp) => emp.id === selectedEmpId);
+        }, [employees, selectedEmpId]);
 
+        const isExpired = (deliveryDateStr) => {
+          // Not used anymore directly, kept for backwards compatibility if missed somewhere
+          return false;
+        };
 
-            const [stagedItems, setStagedItems] = useState([]);
-            const [newItemCA, setNewItemCA] = useState('');
-            const [newItemQtd, setNewItemQtd] = useState(1);
-            const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
-            const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-            const [editingItem, setEditingItem] = useState(null);
-            const [newItemName, setNewItemName] = useState('');
-            const [newDeliveryDate, setNewDeliveryDate] = useState('');
-            const [newLink, setNewLink] = useState('');
-            const scrollContainerRef = useRef(null);
-            const parseItemString = (itemsStr, defaultDate, defaultLink) => {
-                if (!itemsStr) return [];
-                // Split by ';' and clean up
-                const parts = itemsStr.split(';').map(s => s.trim()).filter(Boolean);
-                return parts.map((part, index) => {
-                    // Match "Nome (CA: valor, Qtd: valor)" or just "Nome"
-                    const match = part.match(/^(.*?)\s*\(CA:\s*(.*?),\s*Qtd:\s*(.*?)\)$/i);
-                    if (match) {
-                        return {
-                            id: Date.now() + Math.random() + index,
-                            nomeItem: match[1].trim(),
-                            ca: match[2].trim(),
-                            qtd: match[3].trim(),
-                            dataEntrega: defaultDate || new Date().toISOString().split('T')[0],
-                            linkComprovante: defaultLink || ''
-                        };
-                    } else {
-                        return {
-                            id: Date.now() + Math.random() + index,
-                            nomeItem: part,
-                            ca: '',
-                            qtd: '1',
-                            dataEntrega: defaultDate || new Date().toISOString().split('T')[0],
-                            linkComprovante: defaultLink || ''
-                        };
-                    }
-                });
-            };
+        const getEmployeeStatus = (emp) => {
+          if (!emp.epi.ultimaEntrega && !emp.fardamento.ultimaEntrega)
+            return "sem_entrega";
+          if (
+            emp.epi.status === "vencido" ||
+            emp.fardamento.status === "vencido"
+          )
+            return "vencido";
+          return "em_dia";
+        };
 
-            const loadHistoryIntoStaged = () => {
-                const emp = employees.find(e => e.id === selectedEmpId);
-                if (!emp) return;
+        const kpis = useMemo(() => {
+          let emDia = 0,
+            vencidos = 0,
+            semRegistro = 0;
+          employees.forEach((emp) => {
+            const status = getEmployeeStatus(emp);
+            if (status === "sem_entrega") semRegistro++;
+            else if (status === "vencido") vencidos++;
+            else if (status === "em_dia") emDia++;
+          });
+          const taxaConformidade =
+            employees.length > 0
+              ? Math.round((emDia / employees.length) * 100)
+              : 0;
+          return { emDia, vencidos, semRegistro, taxaConformidade };
+        }, [employees]);
 
-                const itemData = activeTab === 'epi' ? emp.epi : emp.fardamento;
-                
-                if (itemData && itemData.itens) {
-                    // Convert stored DD/MM/YYYY to YYYY-MM-DD for the input type="date"
-                    let isoDate = new Date().toISOString().split('T')[0]; // Default to today
-                    
-                    const parsedItems = parseItemString(itemData.itens, isoDate, itemData.link);
-                    setStagedItems(parsedItems);
-                }
-                setHasLoadedHistory(true);
-            };
+        const handleAddStagedItem = (e) => {
+          e.preventDefault();
+          if (!newItemName || !newDeliveryDate) return;
 
-            // Reset history loaded flag when changing employee or tab
-            useEffect(() => {
-                setHasLoadedHistory(false);
-                setStagedItems([]);
-                setNewItemName('');
-                setNewItemCA('');
-                setNewItemQtd(1);
-            }, [selectedEmpId, activeTab]);
+          if (!hasLoadedHistory) {
+            loadHistoryIntoStaged();
+          }
 
+          const newItem = {
+            id: Date.now() + Math.random(),
+            nomeItem: newItemName,
+            ca: newItemCA,
+            qtd: newItemQtd,
+            dataEntrega: newDeliveryDate,
+            linkComprovante: newLink,
+          };
 
-            useEffect(() => {
-                if (selectedEmpId !== null) {
-                    window.scrollTo({ top: 0, behavior: 'auto' });
-                    if (scrollContainerRef.current) {
-                        scrollContainerRef.current.scrollTop = 0;
-                    }
-                }
-            }, [selectedEmpId]);
+          setStagedItems((prev) => [...prev, newItem]);
+          setNewItemName("");
+          setNewItemCA("");
+          setNewItemQtd(1);
+          // Keep newDeliveryDate and newLink as they were
+        };
 
-            useEffect(() => {
-                setStagedItems([]);
-                setNewItemName('');
-                setNewDeliveryDate('');
-                setNewLink('');
-            }, [selectedEmpId, activeTab]);
+        const handleEditClick = (item) => {
+          setEditingItem({ ...item });
+          setIsEditModalOpen(true);
+        };
 
-            const filteredEmployees = useMemo(() => {
-                const lowerSearch = searchTerm.toLowerCase();
-                return employees.filter(emp => emp.nomeLower.includes(lowerSearch));
-            }, [employees, searchTerm]);
+        const handleSaveEdit = (e) => {
+          e.preventDefault();
+          setStagedItems((prev) =>
+            prev.map((item) =>
+              item.id === editingItem.id ? editingItem : item,
+            ),
+          );
+          setIsEditModalOpen(false);
+          setEditingItem(null);
+        };
 
-            const selectedEmployee = useMemo(() => {
-                return employees.find(emp => emp.id === selectedEmpId);
-            }, [employees, selectedEmpId]);
+        const handleRemoveStagedItem = (idToRemove) => {
+          setStagedItems((prev) =>
+            prev.filter((item) => item.id !== idToRemove),
+          );
+        };
 
-const isExpired = (deliveryDateStr) => {
-                // Not used anymore directly, kept for backwards compatibility if missed somewhere
-                return false;
-            };
+        const generatePDF = (emp, items, dateStr) => {
+          // Create a hidden div for the PDF content
+          const container = document.createElement("div");
+          container.style.position = "absolute";
+          container.style.left = "-9999px";
+          container.style.top = "0";
 
-            const getEmployeeStatus = (emp) => {
-                if (!emp.epi.ultimaEntrega && !emp.fardamento.ultimaEntrega) return 'sem_entrega';
-                if (emp.epi.status === 'vencido' || emp.fardamento.status === 'vencido') return 'vencido';
-                return 'em_dia';
-            };
-
-            const kpis = useMemo(() => {
-                let emDia = 0, vencidos = 0, semRegistro = 0;
-                employees.forEach(emp => {
-                    const status = getEmployeeStatus(emp);
-                    if (status === 'sem_entrega') semRegistro++;
-                    else if (status === 'vencido') vencidos++;
-                    else if (status === 'em_dia') emDia++;
-                });
-                const taxaConformidade = employees.length > 0 ? Math.round((emDia / employees.length) * 100) : 0;
-                return { emDia, vencidos, semRegistro, taxaConformidade };
-            }, [employees]);
-
-            const handleAddStagedItem = (e) => {
-                e.preventDefault();
-                if (!newItemName || !newDeliveryDate) return;
-                
-                if (!hasLoadedHistory) {
-                    loadHistoryIntoStaged();
-                }
-
-                const newItem = { 
-                    id: Date.now() + Math.random(), 
-                    nomeItem: newItemName, 
-                    ca: newItemCA,
-                    qtd: newItemQtd,
-                    dataEntrega: newDeliveryDate, 
-                    linkComprovante: newLink 
-                };
-                
-                setStagedItems(prev => [...prev, newItem]);
-                setNewItemName(''); 
-                setNewItemCA('');
-                setNewItemQtd(1);
-                // Keep newDeliveryDate and newLink as they were
-            };
-
-            
-            const handleEditClick = (item) => {
-                setEditingItem({ ...item });
-                setIsEditModalOpen(true);
-            };
-
-            const handleSaveEdit = (e) => {
-                e.preventDefault();
-                setStagedItems(prev => prev.map(item => item.id === editingItem.id ? editingItem : item));
-                setIsEditModalOpen(false);
-                setEditingItem(null);
-            };
-
-            const handleRemoveStagedItem = (idToRemove) => {
-                setStagedItems(prev => prev.filter(item => item.id !== idToRemove));
-            };
-
-            
-                        
-            const generatePDF = (emp, items, dateStr) => {
-                // Create a hidden div for the PDF content
-                const container = document.createElement('div');
-                container.style.position = 'absolute';
-                container.style.left = '-9999px';
-                container.style.top = '0';
-                
-                // Add the layout HTML
-                container.innerHTML = `
-                    <div id="pdf-content" style="width: 297mm; min-height: 210mm; background: white; font-family: Arial, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px;">
+          // Add the layout HTML
+          container.innerHTML = `
+                    <div id="pdf-content" style="width: 297mm; background: white; font-family: Arial, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px;">
                         <!-- Header -->
                         <div style="border: 1px solid black; display: flex; text-align: center; font-weight: bold; margin-bottom: 5px;">
                             <div style="flex: 1; padding: 10px; border-right: 1px solid black; display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -445,14 +597,14 @@ const isExpired = (deliveryDateStr) => {
                         <!-- Employee Info -->
                         <div style="border: 1px solid black; margin-bottom: 5px;">
                             <div style="display: flex; border-bottom: 1px solid black; padding: 5px;">
-                                <div style="flex: 3;"><strong>NOME:</strong> ${emp.nome || ''}</div>
-                                <div style="flex: 1;"><strong>CPF:</strong> ${emp.cpf || ''}</div>
-                                <div style="flex: 1;"><strong>DATA ADMISSÃO:</strong> ${emp.admissao || ''}</div>
+                                <div style="flex: 3;"><strong>NOME:</strong> ${emp.nome || ""}</div>
+                                <div style="flex: 1;"><strong>CPF:</strong> ${emp.cpf || ""}</div>
+                                <div style="flex: 1;"><strong>DATA ADMISSÃO:</strong> ${emp.admissao || ""}</div>
                             </div>
                             <div style="display: flex; padding: 5px;">
-                                <div style="flex: 1;"><strong>SETOR:</strong> ${emp.setor || ''}</div>
-                                <div style="flex: 2;"><strong>FUNÇÃO:</strong> ${emp.funcao || ''}</div>
-                                <div style="flex: 1;"><strong>UNIDADE:</strong> ${emp.unidade || ''}</div>
+                                <div style="flex: 1;"><strong>SETOR:</strong> ${emp.setor || ""}</div>
+                                <div style="flex: 2;"><strong>FUNÇÃO:</strong> ${emp.cargo || ""}</div>
+                                <div style="flex: 1;"><strong>UNIDADE:</strong> ${emp.unidade || ""}</div>
                             </div>
                         </div>
                         
@@ -517,15 +669,19 @@ const isExpired = (deliveryDateStr) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${items.map(item => {
+                                ${items
+                                  .map((item) => {
                                     // format item.dataEntrega from YYYY-MM-DD to DD/MM/YYYY
-                                    const dParts = item.dataEntrega.split('-');
-                                    const dStr = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : item.dataEntrega;
+                                    const dParts = item.dataEntrega.split("-");
+                                    const dStr =
+                                      dParts.length === 3
+                                        ? `${dParts[2]}/${dParts[1]}/${dParts[0]}`
+                                        : item.dataEntrega;
                                     return `
                                         <tr>
                                             <td style="border: 1px solid black; padding: 8px 3px;">${dStr}</td>
                                             <td style="border: 1px solid black; padding: 8px 3px; text-align: left;">${item.nomeItem}</td>
-                                            <td style="border: 1px solid black; padding: 8px 3px;">${item.ca || ''}</td>
+                                            <td style="border: 1px solid black; padding: 8px 3px;">${item.ca || ""}</td>
                                             <td style="border: 1px solid black; padding: 8px 3px;">${item.qtd}</td>
                                             <td style="border: 1px solid black; padding: 8px 3px;"></td>
                                             <td style="border: 1px solid black; padding: 8px 3px;"></td>
@@ -533,491 +689,839 @@ const isExpired = (deliveryDateStr) => {
                                             <td style="border: 1px solid black; padding: 8px 3px;"></td>
                                         </tr>
                                     `;
-                                }).join('')}
-                                ${Array(Math.max(0, 15 - items.length)).fill(`
-                                    <tr>
-                                        <td style="border: 1px solid black; padding: 8px 3px;">&nbsp;</td>
-                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                        <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                    </tr>
-                                `).join('')}
+                                  })
+                                  .join("")}
+                                
                             </tbody>
                         </table>
                     </div>
                 `;
-                
-                document.body.appendChild(container);
 
-                const element = document.getElementById('pdf-content');
-                const safeName = (emp.nome || 'Funcionario').replace(/[^a-z0-9]/gi, '_');
-                const dateFileName = dateStr.replace(/\//g, '-');
-                
-                const opt = {
-                    margin:       5,
-                    filename:     `EPI_Comprovante_${safeName}_${dateFileName}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true },
-                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-                };
+          document.body.appendChild(container);
 
-                html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
-                    window.open(pdf.output('bloburl'), '_blank');
-                }).save().then(() => {
-                    document.body.removeChild(container);
-                });
-            };
+          const element = document.getElementById("pdf-content");
+          const safeName = (emp.nome || "Funcionario").replace(
+            /[^a-z0-9]/gi,
+            "_",
+          );
+          const dateFileName = dateStr.replace(/\//g, "-");
 
-            const handleRegisterAll = async () => {
-                if (stagedItems.length === 0) return;
-                
-                // Check for different dates
-                const uniqueDates = [...new Set(stagedItems.map(i => i.dataEntrega))];
-                let finalDateToUse = stagedItems[stagedItems.length - 1].dataEntrega;
-                
-                if (uniqueDates.length > 1) {
-                    // Sort dates to find the latest
-                    const sortedDates = [...uniqueDates].sort((a, b) => new Date(b) - new Date(a));
-                    finalDateToUse = sortedDates[0];
-                    
-                    const confirmed = window.confirm(
-                        `Aviso: Há itens com datas diferentes na lista.\n\nA data de todos os itens será atualizada para a data mais recente informada (${new Date(finalDateToUse + 'T00:00:00').toLocaleDateString('pt-BR')}) no banco.\n\nDeseja continuar?`
-                    );
-                    if (!confirmed) return;
-                    
-                    // Update all items to the latest date
-                    setStagedItems(prev => prev.map(item => ({...item, dataEntrega: finalDateToUse})));
-                }
-                
-                try {
-                    // Update in Supabase
-                    const empToUpdate = employees.find(e => e.id === selectedEmpId);
-                    if (!empToUpdate) return;
-                    
-                    // Format from YYYY-MM-DD to DD/MM/YYYY if needed, assuming input type="date"
-                    const parts = finalDateToUse.split('-');
-                    let formattedDate = finalDateToUse;
-                    if (parts.length === 3) {
-                        formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    }
-                    
-                    const latestLink = stagedItems[stagedItems.length - 1].linkComprovante;
-                    
-                    // Generate string format: "Nome (CA: valor, Qtd: valor)"
-                    const itemsJoined = stagedItems.map(i => {
-                        const caStr = i.ca ? `CA: ${i.ca}, ` : '';
-                        return `${i.nomeItem} (${caStr}Qtd: ${i.qtd})`;
-                    }).join('; ');
-                    
-                    const updatePayload = {};
-                    if (activeTab === 'epi') {
-                        updatePayload.epi_data = formattedDate;
-                        if (latestLink) updatePayload.epi_link = latestLink;
-                        updatePayload.epi_itens = itemsJoined;
-                    } else {
-                        updatePayload.fardamento_data = formattedDate;
-                        if (latestLink) updatePayload.fardamento_link = latestLink;
-                        updatePayload.fardamento_itens = itemsJoined;
-                    }
-                    
-                    const { error } = await supabase
-                        .from('funcionarios_epi')
-                        .update(updatePayload)
-                        .eq('id', selectedEmpId);
-                        
-                    if (error) throw error;
-                    
-                    // Call PDF Generation before clearing items
-                    generatePDF(empToUpdate, stagedItems, formattedDate);
-                    
-                    // Note: Supabase Realtime will automatically trigger fetchEmployees and update the state!
-                    setStagedItems([]);
-                    setHasLoadedHistory(false);
-                } catch (err) {
-                    console.error("Failed to update records:", err);
-                    alert("Erro ao salvar no banco: " + err.message);
-                }
-            };
+          const opt = {
+            margin: 5,
+            filename: `EPI_Comprovante_${safeName}_${dateFileName}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+          };
 
+          html2pdf()
+            .set(opt)
+            .from(element)
+            .toPdf()
+            .get("pdf")
+            .then(function (pdf) {
+              window.open(pdf.output("bloburl"), "_blank");
+            })
+            .save()
+            .then(() => {
+              document.body.removeChild(container);
+            });
+        };
 
-            // Se ainda estiver validando o auth, exibe loading (isso já existe)
-            if (isAuthChecking) {
-                return (
-                    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                    </div>
-                );
+        const handleRegisterAll = async () => {
+          if (stagedItems.length === 0) return;
+
+          // Check for different dates
+          const uniqueDates = [
+            ...new Set(stagedItems.map((i) => i.dataEntrega)),
+          ];
+          let finalDateToUse = stagedItems[stagedItems.length - 1].dataEntrega;
+
+          if (uniqueDates.length > 1) {
+            // Sort dates to find the latest
+            const sortedDates = [...uniqueDates].sort(
+              (a, b) => new Date(b) - new Date(a),
+            );
+            finalDateToUse = sortedDates[0];
+
+            const confirmed = window.confirm(
+              `Aviso: Há itens com datas diferentes na lista.\n\nA data de todos os itens será atualizada para a data mais recente informada (${new Date(finalDateToUse + "T00:00:00").toLocaleDateString("pt-BR")}) no banco.\n\nDeseja continuar?`,
+            );
+            if (!confirmed) return;
+
+            // Update all items to the latest date
+            setStagedItems((prev) =>
+              prev.map((item) => ({ ...item, dataEntrega: finalDateToUse })),
+            );
+          }
+
+          try {
+            // Update in Supabase
+            const empToUpdate = employees.find((e) => e.id === selectedEmpId);
+            if (!empToUpdate) return;
+
+            // Format from YYYY-MM-DD to DD/MM/YYYY if needed, assuming input type="date"
+            const parts = finalDateToUse.split("-");
+            let formattedDate = finalDateToUse;
+            if (parts.length === 3) {
+              formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
             }
 
-            if (isLoadingData) {
-                return (
-                    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                        <p className="mt-4 text-gray-600 font-medium">Carregando dados em tempo real...</p>
-                    </div>
-                );
+            const latestLink =
+              stagedItems[stagedItems.length - 1].linkComprovante;
+
+            // Generate string format: "Nome (CA: valor, Qtd: valor)"
+            const itemsJoined = stagedItems
+              .map((i) => {
+                const caStr = i.ca ? `CA: ${i.ca}, ` : "";
+                return `${i.nomeItem} (${caStr}Qtd: ${i.qtd})`;
+              })
+              .join("; ");
+
+            const updatePayload = {};
+            if (activeTab === "epi") {
+              updatePayload.epi_data = formattedDate;
+              if (latestLink) updatePayload.epi_link = latestLink;
+              updatePayload.epi_itens = itemsJoined;
+            } else {
+              updatePayload.fardamento_data = formattedDate;
+              if (latestLink) updatePayload.fardamento_link = latestLink;
+              updatePayload.fardamento_itens = itemsJoined;
             }
 
-            // --- TELA DASHBOARD ---
-            if (viewMode === 'dashboard') {
-                return (
-                    <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
-                        
-                        <header className="bg-[#002060] text-white px-5 py-4 flex items-center justify-between shadow-md sticky top-0 z-50">
-                            <div className="flex items-center gap-3">
-                                <Shield size={28} className="text-[#E30613]" />
-                                <div>
-                                    <h1 className="text-xl font-extrabold tracking-tight leading-none">PRIME RH</h1>
-                                    <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">Gestão de Segurança</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={handleLogout}
-                                className="flex items-center gap-2 text-red-300 hover:text-white hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                                <span>Sair</span>
-                            </button>
-                        </header>
+            const { error } = await supabase
+              .from("funcionarios_epi")
+              .update(updatePayload)
+              .eq("id", selectedEmpId);
 
-                        <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
-                            <div className="flex items-center gap-2 mb-6 mt-2">
-                                <Activity size={24} className="text-[#002060]" />
-                                <h2 className="text-xl md:text-2xl font-bold text-gray-800">Painel Gerencial de EPI & Fardamento</h2>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-green-500 p-4 md:p-6 flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3 md:gap-5">
-                                        <div className="p-2 md:p-3 bg-green-50 rounded-full text-green-500 shrink-0"><CheckCircle2 size={24} className="md:w-7 md:h-7" /></div>
-                                        <div className="flex flex-col">
-                                            <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Entregas em Dia</p>
-                                            <p className="text-[10px] md:text-[12px] font-bold text-green-600">&lt; 6 meses</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right flex flex-col items-end">
-                                        <p className="text-3xl md:text-4xl font-black text-slate-800 leading-none">{kpis.emDia}</p>
-                                        <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block mt-1">colaboradores</p>
-                                    </div>
-                                </div>
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-red-500 p-4 md:p-6 flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3 md:gap-5">
-                                        <div className="p-2 md:p-3 bg-red-50 rounded-full text-red-500 shrink-0"><AlertCircle size={24} className="md:w-7 md:h-7" /></div>
-                                        <div className="flex flex-col">
-                                            <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">EPIs Vencidos</p>
-                                            <p className="text-[10px] md:text-[12px] font-bold text-red-500">&gt; 6 meses</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right flex flex-col items-end">
-                                        <p className="text-3xl md:text-4xl font-black text-slate-800 leading-none">{kpis.vencidos}</p>
-                                        <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block mt-1">colaboradores</p>
-                                    </div>
-                                </div>
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-slate-400 p-4 md:p-6 flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3 md:gap-5">
-                                        <div className="p-2 md:p-3 bg-slate-100 rounded-full text-slate-500 shrink-0"><XCircle size={24} className="md:w-7 md:h-7" /></div>
-                                        <div className="flex flex-col">
-                                            <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Sem Registro</p>
-                                            <p className="text-[10px] md:text-[12px] font-bold text-slate-500">Sem entrega</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right flex flex-col items-end">
-                                        <p className="text-3xl md:text-4xl font-black text-slate-800 leading-none">{kpis.semRegistro}</p>
-                                        <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block mt-1">colaboradores</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col md:flex-row relative min-h-[380px]">
-                                <div className="md:w-[55%] p-6 md:p-10 flex flex-col justify-between z-10 bg-white">
-                                    <div>
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <HardHat size={32} className="text-[#E30613]" />
-                                            <h3 className="text-2xl md:text-3xl font-extrabold text-[#002060] leading-tight">
-                                                Cultura de <br className="hidden md:block"/>Prevenção PRIME
-                                            </h3>
-                                        </div>
-                                        <p className="text-slate-600 text-sm md:text-base leading-relaxed mb-8 max-w-md">
-                                            A segurança não é apenas uma regra, é o nosso passaporte diário para voltar para casa. Acompanhe a entrega e renovação de equipamentos e fardamentos da frota.
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-6">
-                                            <div className="flex justify-between items-end mb-2">
-                                                <span className="text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">Conformidade da Frota</span>
-                                                <span className="text-xl md:text-2xl font-black text-green-600">{kpis.taxaConformidade}%</span>
-                                            </div>
-                                            <div className="w-full bg-slate-200 rounded-full h-2.5">
-                                                <div className="bg-green-500 h-2.5 rounded-full transition-all duration-1000" style={{ width: `${kpis.taxaConformidade}%` }}></div>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => setViewMode('controle')} className="w-full md:w-fit bg-slate-50 hover:bg-slate-100 text-[#002060] border border-slate-200 py-3.5 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm">
-                                            <ListPlus size={18} /> Acessar Controle de Entrega
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="md:w-[45%] relative min-h-[200px] md:min-h-full order-first md:order-last">
-                                    <img src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=1000&auto=format&fit=crop" alt="" className="absolute inset-0 w-full h-full object-cover object-top opacity-80 md:opacity-100" />
-                                    <div className="absolute inset-0 bg-gradient-to-b md:bg-gradient-to-r from-white via-white/80 md:via-white/40 to-transparent"></div>
-                                </div>
-                            </div>
-                        </main>
-                    </div>
-                );
-            }
+            if (error) throw error;
 
-            // --- TELA CONTROLE DE ENTREGAS ---
-            return (
-                <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
-                    <div className={`w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen ${selectedEmpId !== null ? 'hidden md:flex' : 'flex'}`}>
-                        <div className="p-5 bg-[#002060] text-white flex justify-between items-center sticky top-0 z-30">
-                            <div className="flex items-center gap-2">
-                                <Shield size={24} className="text-[#E30613]" />
-                                <h2 className="text-lg font-bold tracking-wide">Controle de Entregas</h2>
-                            </div>
-                            <button onClick={() => { setViewMode('dashboard'); setSelectedEmpId(null); }} className="py-2.5 px-3 md:p-2 bg-blue-800/40 rounded-xl md:rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center gap-2 text-[15px] md:text-sm font-semibold active:scale-[0.96]">
-                                <ArrowLeft size={16} /> Voltar
-                            </button>
-                        </div>
-                        <div className="p-4 border-b border-gray-100 bg-slate-50 sticky top-[68px] z-20">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                                <input type="text" placeholder="Buscar colaborador..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3.5 md:py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#002060] shadow-sm text-[15px] md:text-sm transition-shadow focus:shadow-md" />
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 min-h-[50vh]">
-                            {filteredEmployees.map(emp => {
-                                const status = getEmployeeStatus(emp);
-                                let corLinha = '';
-                                if (status === 'em_dia') {
-                                    corLinha = selectedEmpId === emp.id ? 'bg-green-50 border-green-500 shadow-md ring-1 ring-green-500' : 'bg-white border-green-400 shadow-sm hover:bg-green-50 hover:border-green-500';
-                                } else if (status === 'vencido') {
-                                    corLinha = selectedEmpId === emp.id ? 'bg-red-50 border-red-500 shadow-md ring-1 ring-red-500' : 'bg-white border-red-500 shadow-sm hover:bg-red-50 hover:border-red-500';
-                                } else {
-                                    corLinha = selectedEmpId === emp.id ? 'bg-gray-100 border-gray-500 shadow-md ring-1 ring-gray-500' : 'bg-white border-gray-300 shadow-sm hover:bg-gray-50 hover:border-gray-400';
-                                }
-                                return (
-                                    <button key={emp.id} onClick={() => setSelectedEmpId(emp.id)} className={`w-full text-left px-4 py-4 md:py-3.5 rounded-xl transition-all duration-200 flex items-center gap-3 border-l-[6px] border-y border-r ${corLinha} active:scale-[0.98]`}>
-                                        <div className={`p-2.5 rounded-full ${status === 'em_dia' ? 'bg-green-100 text-green-600' : status === 'vencido' ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}>
-                                            {status === 'em_dia' ? <CheckCircle2 size={18}/> : status === 'vencido' ? <AlertCircle size={18}/> : <User size={18}/>}
-                                        </div>
-                                        <span className={`font-bold text-sm truncate ${status === 'em_dia' ? 'text-green-900' : status === 'vencido' ? 'text-red-900' : 'text-gray-600'}`}>
-                                            {emp.nome}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                            {filteredEmployees.length === 0 && <div className="text-center p-6 text-gray-400 text-sm font-medium">Nenhum colaborador encontrado.</div>}
-                        </div>
+            // Ensure all items passed to PDF generation have the final normalized date
+            const finalItemsForPDF = stagedItems.map((item) => ({
+              ...item,
+              dataEntrega: finalDateToUse,
+            }));
+
+            // Call PDF Generation before clearing items
+            generatePDF(empToUpdate, finalItemsForPDF, formattedDate);
+
+            // Note: Supabase Realtime will automatically trigger fetchEmployees and update the state!
+            setStagedItems([]);
+            setHasLoadedHistory(false);
+          } catch (err) {
+            console.error("Failed to update records:", err);
+            alert("Erro ao salvar no banco: " + err.message);
+          }
+        };
+
+        // Se ainda estiver validando o auth, exibe loading (isso já existe)
+        if (isAuthChecking) {
+          return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          );
+        }
+
+        if (isLoadingData) {
+          return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="mt-4 text-gray-600 font-medium">
+                Carregando dados em tempo real...
+              </p>
+            </div>
+          );
+        }
+
+        // --- TELA DASHBOARD ---
+        if (viewMode === "dashboard") {
+          return (
+            <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
+              <header className="bg-[#002060] text-white px-5 py-4 flex items-center justify-between shadow-md sticky top-0 z-50">
+                <div className="flex items-center gap-3">
+                  <Shield size={28} className="text-[#E30613]" />
+                  <div>
+                    <h1 className="text-xl font-extrabold tracking-tight leading-none">
+                      PRIME RH
+                    </h1>
+                    <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">
+                      Gestão de Segurança
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 text-red-300 hover:text-white hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  <span>Sair</span>
+                </button>
+              </header>
+
+              <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+                <div className="flex items-center gap-2 mb-6 mt-2">
+                  <Activity size={24} className="text-[#002060]" />
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-800">
+                    Painel Gerencial de EPI & Fardamento
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-green-500 p-4 md:p-6 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 md:gap-5">
+                      <div className="p-2 md:p-3 bg-green-50 rounded-full text-green-500 shrink-0">
+                        <CheckCircle2 size={24} className="md:w-7 md:h-7" />
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                          Entregas em Dia
+                        </p>
+                        <p className="text-[10px] md:text-[12px] font-bold text-green-600">
+                          &lt; 6 meses
+                        </p>
+                      </div>
                     </div>
-                    <div className={`flex-1 flex flex-col md:h-screen overflow-hidden bg-[#F8FAFC] ${selectedEmpId === null ? 'hidden md:flex' : 'flex'}`}>
-                        {selectedEmpId === null ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 hidden md:flex">
-                                <div className="w-24 h-24 bg-white shadow-sm border border-gray-100 rounded-full flex items-center justify-center mb-6"><User size={40} className="text-gray-300" /></div>
-                                <h2 className="text-2xl font-bold text-gray-700">Selecione um Colaborador</h2>
-                                <p className="text-gray-500 mt-2 max-w-md">A lista ao lado é inteligente. Ela destacará em <strong className="text-green-600">Verde</strong> os colaboradores em dia e em <strong className="text-red-500">Vermelho</strong> aqueles que necessitam de substituição.</p>
-                            </div>
+                    <div className="text-right flex flex-col items-end">
+                      <p className="text-3xl md:text-4xl font-black text-slate-800 leading-none">
+                        {kpis.emDia}
+                      </p>
+                      <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block mt-1">
+                        colaboradores
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-red-500 p-4 md:p-6 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 md:gap-5">
+                      <div className="p-2 md:p-3 bg-red-50 rounded-full text-red-500 shrink-0">
+                        <AlertCircle size={24} className="md:w-7 md:h-7" />
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                          EPIs Vencidos
+                        </p>
+                        <p className="text-[10px] md:text-[12px] font-bold text-red-500">
+                          &gt; 6 meses
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex flex-col items-end">
+                      <p className="text-3xl md:text-4xl font-black text-slate-800 leading-none">
+                        {kpis.vencidos}
+                      </p>
+                      <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block mt-1">
+                        colaboradores
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-slate-400 p-4 md:p-6 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 md:gap-5">
+                      <div className="p-2 md:p-3 bg-slate-100 rounded-full text-slate-500 shrink-0">
+                        <XCircle size={24} className="md:w-7 md:h-7" />
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-[10px] md:text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                          Sem Registro
+                        </p>
+                        <p className="text-[10px] md:text-[12px] font-bold text-slate-500">
+                          Sem entrega
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex flex-col items-end">
+                      <p className="text-3xl md:text-4xl font-black text-slate-800 leading-none">
+                        {kpis.semRegistro}
+                      </p>
+                      <p className="text-[10px] md:text-[12px] font-semibold text-slate-500 hidden md:block mt-1">
+                        colaboradores
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col md:flex-row relative min-h-[380px]">
+                  <div className="md:w-[55%] p-6 md:p-10 flex flex-col justify-between z-10 bg-white">
+                    <div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <HardHat size={32} className="text-[#E30613]" />
+                        <h3 className="text-2xl md:text-3xl font-extrabold text-[#002060] leading-tight">
+                          Cultura de <br className="hidden md:block" />
+                          Prevenção PRIME
+                        </h3>
+                      </div>
+                      <p className="text-slate-600 text-sm md:text-base leading-relaxed mb-8 max-w-md">
+                        A segurança não é apenas uma regra, é o nosso passaporte
+                        diário para voltar para casa. Acompanhe a entrega e
+                        renovação de equipamentos e fardamentos da frota.
+                      </p>
+                    </div>
+                    <div>
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-6">
+                        <div className="flex justify-between items-end mb-2">
+                          <span className="text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            Conformidade da Frota
+                          </span>
+                          <span className="text-xl md:text-2xl font-black text-green-600">
+                            {kpis.taxaConformidade}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2.5">
+                          <div
+                            className="bg-green-500 h-2.5 rounded-full transition-all duration-1000"
+                            style={{ width: `${kpis.taxaConformidade}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setViewMode("controle")}
+                        className="w-full md:w-fit bg-slate-50 hover:bg-slate-100 text-[#002060] border border-slate-200 py-3.5 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
+                      >
+                        <ListPlus size={18} /> Acessar Controle de Entrega
+                      </button>
+                    </div>
+                  </div>
+                  <div className="md:w-[45%] relative min-h-[200px] md:min-h-full order-first md:order-last">
+                    <img
+                      src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=1000&auto=format&fit=crop"
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover object-top opacity-80 md:opacity-100"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b md:bg-gradient-to-r from-white via-white/80 md:via-white/40 to-transparent"></div>
+                  </div>
+                </div>
+              </main>
+            </div>
+          );
+        }
+
+        // --- TELA CONTROLE DE ENTREGAS ---
+        return (
+          <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
+            <div
+              className={`w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen ${selectedEmpId !== null ? "hidden md:flex" : "flex"}`}
+            >
+              <div className="p-5 bg-[#002060] text-white flex justify-between items-center sticky top-0 z-30">
+                <div className="flex items-center gap-2">
+                  <Shield size={24} className="text-[#E30613]" />
+                  <h2 className="text-lg font-bold tracking-wide">
+                    Controle de Entregas
+                  </h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setViewMode("dashboard");
+                    setSelectedEmpId(null);
+                  }}
+                  className="py-2.5 px-3 md:p-2 bg-blue-800/40 rounded-xl md:rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center gap-2 text-[15px] md:text-sm font-semibold active:scale-[0.96]"
+                >
+                  <ArrowLeft size={16} /> Voltar
+                </button>
+              </div>
+              <div className="p-4 border-b border-gray-100 bg-slate-50 sticky top-[68px] z-20">
+                <div className="relative">
+                  <Search
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    size={18}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Buscar colaborador..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3.5 md:py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#002060] shadow-sm text-[15px] md:text-sm transition-shadow focus:shadow-md"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 min-h-[50vh]">
+                {filteredEmployees.map((emp) => {
+                  const status = getEmployeeStatus(emp);
+                  let corLinha = "";
+                  if (status === "em_dia") {
+                    corLinha =
+                      selectedEmpId === emp.id
+                        ? "bg-green-50 border-green-500 shadow-md ring-1 ring-green-500"
+                        : "bg-white border-green-400 shadow-sm hover:bg-green-50 hover:border-green-500";
+                  } else if (status === "vencido") {
+                    corLinha =
+                      selectedEmpId === emp.id
+                        ? "bg-red-50 border-red-500 shadow-md ring-1 ring-red-500"
+                        : "bg-white border-red-500 shadow-sm hover:bg-red-50 hover:border-red-500";
+                  } else {
+                    corLinha =
+                      selectedEmpId === emp.id
+                        ? "bg-gray-100 border-gray-500 shadow-md ring-1 ring-gray-500"
+                        : "bg-white border-gray-300 shadow-sm hover:bg-gray-50 hover:border-gray-400";
+                  }
+                  return (
+                    <button
+                      key={emp.id}
+                      onClick={() => setSelectedEmpId(emp.id)}
+                      className={`w-full text-left px-4 py-4 md:py-3.5 rounded-xl transition-all duration-200 flex items-center gap-3 border-l-[6px] border-y border-r ${corLinha} active:scale-[0.98]`}
+                    >
+                      <div
+                        className={`p-2.5 rounded-full ${status === "em_dia" ? "bg-green-100 text-green-600" : status === "vencido" ? "bg-red-100 text-red-500" : "bg-gray-100 text-gray-500"}`}
+                      >
+                        {status === "em_dia" ? (
+                          <CheckCircle2 size={18} />
+                        ) : status === "vencido" ? (
+                          <AlertCircle size={18} />
                         ) : (
-                            <React.Fragment>
-                                <div className="bg-white p-5 md:p-8 border-b border-gray-200 shadow-sm z-10 relative mt-0 flex items-start gap-4 w-full">
-                                    <button onClick={() => setSelectedEmpId(null)} className="md:hidden mt-1 p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0">
-                                        <ArrowLeft size={20} />
-                                    </button>
-                                    <div className="w-full">
-                                        <h2 className="text-xl md:text-3xl font-extrabold text-[#002060]">{selectedEmployee.nome}</h2>
-                                        <div className="mt-2 space-y-1">
-                                            <p className="text-gray-500 flex items-center gap-2 text-xs md:text-sm font-semibold">
-                                                <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span> CPF: {selectedEmployee.cpf}
-                                            </p>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mt-4 w-full">
-                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Função</span>
-                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.cargo || '-'}</span>
-                                                </div>
-                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Setor</span>
-                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.setor || '-'}</span>
-                                                </div>
-                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Unidade</span>
-                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.unidade || '-'}</span>
-                                                </div>
-                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Admissão</span>
-                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.admissao || '--/--/----'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20">
-                                    <div className="flex space-x-6 mb-6 border-b border-gray-200">
-                                        <button onClick={() => setActiveTab('epi')} className={`pb-3 px-2 font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-colors ${activeTab === 'epi' ? 'text-[#002060] border-b-[3px] border-[#002060]' : 'text-gray-400 hover:text-gray-600'}`}>
-                                            <Shield size={18} /> EPIs
-                                        </button>
-                                        <button onClick={() => setActiveTab('farda')} className={`pb-3 px-2 font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-colors ${activeTab === 'farda' ? 'text-[#002060] border-b-[3px] border-[#002060]' : 'text-gray-400 hover:text-gray-600'}`}>
-                                            <Shirt size={18} /> Fardas
-                                        </button>
-                                    </div>
-                                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8">
-                                        <h3 className="text-base font-bold text-[#002060] mb-4 flex items-center gap-2"><ListPlus size={18} className="text-[#E30613]" /> Adicionar {activeTab === 'epi' ? 'EPI' : 'Fardamento'}</h3>
-                                        <form onSubmit={handleAddStagedItem} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-                                            <div className="md:col-span-1">
-                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Item Entregue</label>
-                                                <input type="text" required placeholder="Ex: Bota de Segurança" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                            </div>
-                                            <div className="md:col-span-1">
-                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">C.A. (Opcional)</label>
-                                                <input type="text" placeholder="Ex: 12345" value={newItemCA} onChange={(e) => setNewItemCA(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                            </div>
-                                            <div className="md:col-span-1">
-                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Qtd.</label>
-                                                <input type="number" min="1" required value={newItemQtd} onChange={(e) => setNewItemQtd(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                            </div>
-                                            <div className="md:col-span-1">
-                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Data da Entrega</label>
-                                                <input type="date" required value={newDeliveryDate} onChange={(e) => setNewDeliveryDate(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                            </div>
-                                            <div className="md:col-span-1">
-                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Link Comprovante</label>
-                                                <input type="url" placeholder="Opcional..." value={newLink} onChange={(e) => setNewLink(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                            </div>
-                                            <div className="md:col-span-1 flex items-end">
-                                                <button type="submit" className="w-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-[#002060] font-bold py-3 md:py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-200 text-[15px] md:text-sm active:scale-[0.98]"><Plus size={16} /> Incluir</button>
-                                            </div>
-</form>
-                                        {stagedItems.length > 0 && (
-                                            <div className="mt-6 border-t border-gray-100 pt-5">
-                                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Prontos para salvar ({stagedItems.length})</h4>
-                                                <div className="space-y-2.5 mb-5">
-                                                    {stagedItems.map(item => (
-                                                        <div key={item.id} className="flex items-center justify-between bg-blue-50/50 border border-blue-100 p-3 rounded-xl">
-                                                            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4">
-                                                                <span className="font-bold text-[#002060] text-sm">
-        {item.nomeItem} 
-        <span className="text-xs text-gray-500 font-normal ml-1">
-            (Qtd: {item.qtd}{item.ca ? `, CA: ${item.ca}` : ''})
-        </span>
-    </span>
-    <span className="text-xs text-gray-500 font-medium">Data: {new Date(item.dataEntrega + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
-                                                            </div>
-                                                            <div className="flex gap-2">
-        <button onClick={() => handleEditClick(item)} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Pencil size={16} /></button>
-        <button onClick={() => handleRemoveStagedItem(item.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={16} /></button>
-    </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <button onClick={handleRegisterAll} className="w-full bg-[#002060] hover:bg-[#001848] active:bg-[#001030] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0 text-[15px] active:scale-[0.98]"><CheckCheck size={18} /> Salvar</button>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-base font-bold text-[#002060]">Histórico Salvo</h3>
-                                            {((activeTab === 'epi' && selectedEmployee.epi.ultimaEntrega) || (activeTab === 'fardamento' && selectedEmployee.fardamento.ultimaEntrega)) && (
-                                                <button 
-                                                    onClick={() => {
-                                                        loadHistoryIntoStaged();
-                                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                                                        if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-                                                    }} 
-                                                    className="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1"
-                                                >
-                                                    <Activity size={14} /> Nova Entrega/Verificação
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {((activeTab === 'epi' && !selectedEmployee.epi.ultimaEntrega) || (activeTab === 'fardamento' && !selectedEmployee.fardamento.ultimaEntrega)) ? (
-                                            <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-8 text-center text-gray-400 text-sm font-medium">Nenhum registro encontrado.</div>
-                                        ) : (
-
-                                            <div className="grid grid-cols-1 gap-3">
-                                                {(() => {
-                                                    const item = activeTab === 'epi' ? selectedEmployee.epi : selectedEmployee.fardamento;
-                                                    const vencido = item.status === 'vencido';
-                                                    
-                                                    // Parse the date back to display it cleanly
-                                                    let displayDate = item.ultimaEntrega;
-                                                    
-                                                    return (
-                                                        <div className={`bg-white p-4 rounded-2xl border ${vencido ? 'border-red-300 shadow-sm bg-red-50/20' : 'border-gray-100'} flex flex-col justify-between gap-3`}>
-                                                            <div className="flex items-start gap-3">
-                                                                <div className={`p-2.5 rounded-full mt-0.5 ${vencido ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
-                                                                    {vencido ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="text-sm font-bold text-gray-800">Última Entrega</h4>
-                                                                    <p className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 font-medium"><Calendar size={12}/> {displayDate}</p>
-                                                                    {vencido && <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide">Vencido</span>}
-                                                                </div>
-                                                            </div>
-                                                            {item.itens && (
-                                                                <div className="mt-2 text-sm text-gray-700">
-                                                                    <span className="font-bold">Itens: </span>
-                                                                    <span>{item.itens}</span>
-                                                                </div>
-                                                            )}
-                                                            {item.link && (
-                                                                <a href={item.link.startsWith('http') ? item.link : `https://${item.link}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 mt-2 w-full py-2 bg-gray-50 hover:bg-gray-100 text-blue-600 text-xs font-bold rounded-xl transition-colors border border-gray-200">
-                                                                    <LinkIcon size={14} /> Ver Comprovante
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        )}
-
-                                    </div>
-                                </div>
-                            </React.Fragment>
+                          <User size={18} />
                         )}
-                        
-                                {isEditModalOpen && editingItem && (
-                                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-                                        <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
-                                            <h3 className="text-lg font-bold text-[#002060] mb-4">Editar Item</h3>
-                                            <form onSubmit={handleSaveEdit} className="space-y-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Item Entregue</label>
-                                                    <input type="text" required value={editingItem.nomeItem} onChange={e => setEditingItem({...editingItem, nomeItem: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">C.A. (Opcional)</label>
-                                                        <input type="text" value={editingItem.ca} onChange={e => setEditingItem({...editingItem, ca: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Qtd.</label>
-                                                        <input type="number" min="1" required value={editingItem.qtd} onChange={e => setEditingItem({...editingItem, qtd: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Data da Entrega</label>
-                                                    <input type="date" required value={editingItem.dataEntrega} onChange={e => setEditingItem({...editingItem, dataEntrega: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm" />
-                                                </div>
-                                                <div className="flex gap-3 mt-6">
-                                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 bg-white hover:bg-gray-50 text-gray-600 font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors">Cancelar</button>
-                                                    <button type="submit" className="flex-1 bg-[#002060] hover:bg-[#001848] text-white font-bold py-2.5 px-4 rounded-xl transition-colors">Salvar Alterações</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                )}
-
+                      </div>
+                      <span
+                        className={`font-bold text-sm truncate ${status === "em_dia" ? "text-green-900" : status === "vencido" ? "text-red-900" : "text-gray-600"}`}
+                      >
+                        {emp.nome}
+                      </span>
+                    </button>
+                  );
+                })}
+                {filteredEmployees.length === 0 && (
+                  <div className="text-center p-6 text-gray-400 text-sm font-medium">
+                    Nenhum colaborador encontrado.
+                  </div>
+                )}
+              </div>
+            </div>
+            <div
+              className={`flex-1 flex flex-col md:h-screen overflow-hidden bg-[#F8FAFC] ${selectedEmpId === null ? "hidden md:flex" : "flex"}`}
+            >
+              {selectedEmpId === null ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 hidden md:flex">
+                  <div className="w-24 h-24 bg-white shadow-sm border border-gray-100 rounded-full flex items-center justify-center mb-6">
+                    <User size={40} className="text-gray-300" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-700">
+                    Selecione um Colaborador
+                  </h2>
+                  <p className="text-gray-500 mt-2 max-w-md">
+                    A lista ao lado é inteligente. Ela destacará em{" "}
+                    <strong className="text-green-600">Verde</strong> os
+                    colaboradores em dia e em{" "}
+                    <strong className="text-red-500">Vermelho</strong> aqueles
+                    que necessitam de substituição.
+                  </p>
+                </div>
+              ) : (
+                <React.Fragment>
+                  <div className="bg-white p-5 md:p-8 border-b border-gray-200 shadow-sm z-10 relative mt-0 flex items-start gap-4 w-full">
+                    <button
+                      onClick={() => setSelectedEmpId(null)}
+                      className="md:hidden mt-1 p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
+                    <div className="w-full">
+                      <h2 className="text-xl md:text-3xl font-extrabold text-[#002060]">
+                        {selectedEmployee.nome}
+                      </h2>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-gray-500 flex items-center gap-2 text-xs md:text-sm font-semibold">
+                          <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>{" "}
+                          CPF: {selectedEmployee.cpf}
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mt-4 w-full">
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Função
+                            </span>
+                            <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.cargo || "-"}
+                            </span>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Setor
+                            </span>
+                            <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.setor || "-"}
+                            </span>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Unidade
+                            </span>
+                            <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.unidade || "-"}
+                            </span>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Admissão
+                            </span>
+                            <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.admissao || "--/--/----"}
+                            </span>
+                          </div>
                         </div>
+                      </div>
                     </div>
-                );
-            }
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20">
+                    <div className="flex space-x-6 mb-6 border-b border-gray-200">
+                      <button
+                        onClick={() => setActiveTab("epi")}
+                        className={`pb-3 px-2 font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-colors ${activeTab === "epi" ? "text-[#002060] border-b-[3px] border-[#002060]" : "text-gray-400 hover:text-gray-600"}`}
+                      >
+                        <Shield size={18} /> EPIs
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("farda")}
+                        className={`pb-3 px-2 font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-colors ${activeTab === "farda" ? "text-[#002060] border-b-[3px] border-[#002060]" : "text-gray-400 hover:text-gray-600"}`}
+                      >
+                        <Shirt size={18} /> Fardas
+                      </button>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8">
+                      <h3 className="text-base font-bold text-[#002060] mb-4 flex items-center gap-2">
+                        <ListPlus size={18} className="text-[#E30613]" />{" "}
+                        Adicionar {activeTab === "epi" ? "EPI" : "Fardamento"}
+                      </h3>
+                      <form
+                        onSubmit={handleAddStagedItem}
+                        className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end"
+                      >
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            Item Entregue
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: Bota de Segurança"
+                            value={newItemName}
+                            onChange={(e) => setNewItemName(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                          />
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            C.A. (Opcional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Ex: 12345"
+                            value={newItemCA}
+                            onChange={(e) => setNewItemCA(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                          />
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            Qtd.
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            required
+                            value={newItemQtd}
+                            onChange={(e) => setNewItemQtd(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                          />
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            Data da Entrega
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={newDeliveryDate}
+                            onChange={(e) => setNewDeliveryDate(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                          />
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            Link Comprovante
+                          </label>
+                          <input
+                            type="url"
+                            placeholder="Opcional..."
+                            value={newLink}
+                            onChange={(e) => setNewLink(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                          />
+                        </div>
+                        <div className="md:col-span-1 flex items-end">
+                          <button
+                            type="submit"
+                            className="w-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-[#002060] font-bold py-3 md:py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-200 text-[15px] md:text-sm active:scale-[0.98]"
+                          >
+                            <Plus size={16} /> Incluir
+                          </button>
+                        </div>
+                      </form>
+                      {stagedItems.length > 0 && (
+                        <div className="mt-6 border-t border-gray-100 pt-5">
+                          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                            Prontos para salvar ({stagedItems.length})
+                          </h4>
+                          <div className="space-y-2.5 mb-5">
+                            {stagedItems.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between bg-blue-50/50 border border-blue-100 p-3 rounded-xl"
+                              >
+                                <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4">
+                                  <span className="font-bold text-[#002060] text-sm">
+                                    {item.nomeItem}
+                                    <span className="text-xs text-gray-500 font-normal ml-1">
+                                      (Qtd: {item.qtd}
+                                      {item.ca ? `, CA: ${item.ca}` : ""})
+                                    </span>
+                                  </span>
+                                  <span className="text-xs text-gray-500 font-medium">
+                                    Data:{" "}
+                                    {new Date(
+                                      item.dataEntrega + "T00:00:00",
+                                    ).toLocaleDateString("pt-BR")}
+                                  </span>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleEditClick(item)}
+                                    className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                  >
+                                    <Pencil size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleRemoveStagedItem(item.id)
+                                    }
+                                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            onClick={handleRegisterAll}
+                            className="w-full bg-[#002060] hover:bg-[#001848] active:bg-[#001030] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0 text-[15px] active:scale-[0.98]"
+                          >
+                            <CheckCheck size={18} /> Salvar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-base font-bold text-[#002060]">
+                          Histórico Salvo
+                        </h3>
+                        {((activeTab === "epi" &&
+                          selectedEmployee.epi.ultimaEntrega) ||
+                          (activeTab === "fardamento" &&
+                            selectedEmployee.fardamento.ultimaEntrega)) && (
+                          <button
+                            onClick={() => {
+                              loadHistoryIntoStaged();
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                              if (scrollContainerRef.current)
+                                scrollContainerRef.current.scrollTop = 0;
+                            }}
+                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1"
+                          >
+                            <Activity size={14} /> Nova Entrega/Verificação
+                          </button>
+                        )}
+                      </div>
 
-        // Renderização Final
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+                      {(activeTab === "epi" &&
+                        !selectedEmployee.epi.ultimaEntrega) ||
+                      (activeTab === "fardamento" &&
+                        !selectedEmployee.fardamento.ultimaEntrega) ? (
+                        <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-8 text-center text-gray-400 text-sm font-medium">
+                          Nenhum registro encontrado.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {(() => {
+                            const item =
+                              activeTab === "epi"
+                                ? selectedEmployee.epi
+                                : selectedEmployee.fardamento;
+                            const vencido = item.status === "vencido";
+
+                            // Parse the date back to display it cleanly
+                            let displayDate = item.ultimaEntrega;
+
+                            return (
+                              <div
+                                className={`bg-white p-4 rounded-2xl border ${vencido ? "border-red-300 shadow-sm bg-red-50/20" : "border-gray-100"} flex flex-col justify-between gap-3`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div
+                                    className={`p-2.5 rounded-full mt-0.5 ${vencido ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500"}`}
+                                  >
+                                    {vencido ? (
+                                      <AlertCircle size={16} />
+                                    ) : (
+                                      <CheckCircle2 size={16} />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-bold text-gray-800">
+                                      Última Entrega
+                                    </h4>
+                                    <p className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 font-medium">
+                                      <Calendar size={12} /> {displayDate}
+                                    </p>
+                                    {vencido && (
+                                      <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide">
+                                        Vencido
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {item.itens && (
+                                  <div className="mt-2 text-sm text-gray-700">
+                                    <span className="font-bold">Itens: </span>
+                                    <span>{item.itens}</span>
+                                  </div>
+                                )}
+                                {item.link && (
+                                  <a
+                                    href={
+                                      item.link.startsWith("http")
+                                        ? item.link
+                                        : `https://${item.link}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center gap-2 mt-2 w-full py-2 bg-gray-50 hover:bg-gray-100 text-blue-600 text-xs font-bold rounded-xl transition-colors border border-gray-200"
+                                  >
+                                    <LinkIcon size={14} /> Ver Comprovante
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </React.Fragment>
+              )}
+
+              {isEditModalOpen && editingItem && (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                  <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
+                    <h3 className="text-lg font-bold text-[#002060] mb-4">
+                      Editar Item
+                    </h3>
+                    <form onSubmit={handleSaveEdit} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                          Item Entregue
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editingItem.nomeItem}
+                          onChange={(e) =>
+                            setEditingItem({
+                              ...editingItem,
+                              nomeItem: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            C.A. (Opcional)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingItem.ca}
+                            onChange={(e) =>
+                              setEditingItem({
+                                ...editingItem,
+                                ca: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            Qtd.
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            required
+                            value={editingItem.qtd}
+                            onChange={(e) =>
+                              setEditingItem({
+                                ...editingItem,
+                                qtd: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                          Data da Entrega
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={editingItem.dataEntrega}
+                          onChange={(e) =>
+                            setEditingItem({
+                              ...editingItem,
+                              dataEntrega: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-3 mt-6">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditModalOpen(false)}
+                          className="flex-1 bg-white hover:bg-gray-50 text-gray-600 font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="flex-1 bg-[#002060] hover:bg-[#001848] text-white font-bold py-2.5 px-4 rounded-xl transition-colors"
+                        >
+                          Salvar Alterações
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // Renderização Final
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
     </script>
-</body>
+  </body>
 </html>
