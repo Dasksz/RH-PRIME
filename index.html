@@ -541,24 +541,33 @@ const isExpired = (deliveryDateStr) => {
                             </div>
                         ) : (
                             <React.Fragment>
-                                <div className="bg-white p-5 md:p-8 border-b border-gray-200 shadow-sm z-10 relative mt-0 flex items-start gap-4">
+                                <div className="bg-white p-5 md:p-8 border-b border-gray-200 shadow-sm z-10 relative mt-0 flex items-start gap-4 w-full">
                                     <button onClick={() => setSelectedEmpId(null)} className="md:hidden mt-1 p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0">
                                         <ArrowLeft size={20} />
                                     </button>
-                                    <div>
+                                    <div className="w-full">
                                         <h2 className="text-xl md:text-3xl font-extrabold text-[#002060]">{selectedEmployee.nome}</h2>
                                         <div className="mt-2 space-y-1">
                                             <p className="text-gray-500 flex items-center gap-2 text-xs md:text-sm font-semibold">
                                                 <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span> CPF: {selectedEmployee.cpf}
                                             </p>
-                                            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-600 font-medium bg-gray-50 px-3 py-2 rounded-lg w-max border border-gray-100">
-                                                <span><strong>Função:</strong> {selectedEmployee.cargo}</span>
-                                                <span className="text-gray-300">•</span>
-                                                <span><strong>Setor:</strong> {selectedEmployee.setor}</span>
-                                                <span className="text-gray-300">•</span>
-                                                <span><strong>Unidade:</strong> {selectedEmployee.unidade}</span>
-                                                <span className="text-gray-300">•</span>
-                                                <span><strong>Admissão:</strong> {selectedEmployee.admissao || '--/--/----'}</span>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mt-4 w-full">
+                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Função</span>
+                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.cargo || '-'}</span>
+                                                </div>
+                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Setor</span>
+                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.setor || '-'}</span>
+                                                </div>
+                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Unidade</span>
+                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.unidade || '-'}</span>
+                                                </div>
+                                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">Admissão</span>
+                                                    <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">{selectedEmployee.admissao || '--/--/----'}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
