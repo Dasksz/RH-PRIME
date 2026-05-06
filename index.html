@@ -265,6 +265,16 @@
             const [newItemName, setNewItemName] = useState('');
             const [newDeliveryDate, setNewDeliveryDate] = useState('');
             const [newLink, setNewLink] = useState('');
+            const scrollContainerRef = useRef(null);
+
+            useEffect(() => {
+                if (selectedEmpId !== null) {
+                    window.scrollTo({ top: 0, behavior: 'auto' });
+                    if (scrollContainerRef.current) {
+                        scrollContainerRef.current.scrollTop = 0;
+                    }
+                }
+            }, [selectedEmpId]);
 
             useEffect(() => {
                 setStagedItems([]);
