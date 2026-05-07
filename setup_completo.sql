@@ -235,3 +235,14 @@ INSERT INTO public.funcionarios_epi (nome, funcao, admissao, epi_data, epi_link,
 INSERT INTO public.funcionarios_epi (nome, funcao, admissao, epi_data, epi_link, fardamento_data, fardamento_link, validacao) VALUES ('WADSON ARAUJO DA SILVA', '', '02/01/2025', '', '', '', '', '') ON CONFLICT (nome) DO NOTHING;
 INSERT INTO public.funcionarios_epi (nome, funcao, admissao, epi_data, epi_link, fardamento_data, fardamento_link, validacao) VALUES ('WANDER RIBEIRO DOS SANTOS', '', '06/01/2025', '', '', '', '', '') ON CONFLICT (nome) DO NOTHING;
 INSERT INTO public.funcionarios_epi (nome, funcao, admissao, epi_data, epi_link, fardamento_data, fardamento_link, validacao) VALUES ('WILDO DIAS GOMES', '', '06/01/2025', '', '', '', '', '') ON CONFLICT (nome) DO NOTHING;
+
+-- Enable RLS and add policies for empresas
+ALTER TABLE public.empresas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can view empresas" ON public.empresas;
+CREATE POLICY "Authenticated users can view empresas" ON public.empresas
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Anon users can view empresas" ON public.empresas;
+CREATE POLICY "Anon users can view empresas" ON public.empresas
+  FOR SELECT USING (true);
