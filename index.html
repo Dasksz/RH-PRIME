@@ -581,7 +581,7 @@
 
           // Add the layout HTML
           container.innerHTML = `
-                    <div id="pdf-content" style="width: 297mm; background: white; font-family: Arial, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px;">
+                    <div id="pdf-content" style="width: 287mm; background: white; font-family: Arial, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px;">
                         <!-- Header -->
                         <div style="border: 1px solid black; display: flex; text-align: center; font-weight: bold; margin-bottom: 5px;">
                             <div style="flex: 1; padding: 10px; border-right: 1px solid black; display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -710,7 +710,7 @@
             margin: 5,
             filename: `EPI_Comprovante_${safeName}_${dateFileName}.pdf`,
             image: { type: "jpeg", quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
+            html2canvas: { scale: 2, useCORS: true, windowWidth: 1200 },
             jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
           };
 
