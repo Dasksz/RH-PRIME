@@ -302,6 +302,25 @@
           });
         };
 
+        const fetchEmpresas = async () => {
+          try {
+            const { data, error } = await supabase
+              .from("empresas")
+              .select("*")
+              .order("id", { ascending: true });
+            if (error) throw error;
+            setEmpresas(data);
+            if (data.length > 0) {
+              // Default to Nunes & Vieira (id 1 usually)
+              const defaultEmp =
+                data.find((e) => e.nome.includes("NUNES")) || data[0];
+              setSelectedEmpresaId(defaultEmp.id);
+            }
+          } catch (error) {
+            console.error("Error fetching empresas:", error);
+          }
+        };
+
         const fetchEmployees = async () => {
           try {
             const { data, error } = await supabase
@@ -402,6 +421,8 @@
         const [newItemName, setNewItemName] = useState("");
         const [newDeliveryDate, setNewDeliveryDate] = useState("");
         const [newLink, setNewLink] = useState("");
+        const [empresas, setEmpresas] = useState([]);
+        const [selectedEmpresaId, setSelectedEmpresaId] = useState(null);
         const scrollContainerRef = useRef(null);
         const parseItemString = (itemsStr, defaultDate, defaultLink) => {
           if (!itemsStr) return [];
@@ -572,7 +593,13 @@
           );
         };
 
-        const generatePDF = (emp, items, dateStr) => {
+        const generatePDF = (emp, items, dateStr, empresaInfo) => {
+          const empNome = empresaInfo?.nome || "NUNES & VIEIRA LOGISTICA LTDA";
+          const empCnpj = empresaInfo?.cnpj || "48.986.353/0001-39";
+          const empEnd =
+            empresaInfo?.endereco ||
+            "Tv São Pedro, 426, CEP: 45.604-570, Itabuna/BA";
+
           // Create a hidden div for the PDF content
           const container = document.createElement("div");
           container.style.position = "absolute";
@@ -584,16 +611,16 @@
 
           // Add the layout HTML
           container.innerHTML = `
-                    <div id="pdf-content" style="width: 1080px; background: white; font-family: Arial, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px;">
+                    <div id="pdf-content" style="width: 1080px; background: white; font-family: Arial, Helvetica, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px; letter-spacing: 0.2px; word-spacing: 1px; text-rendering: optimizeLegibility;">
                         <!-- Header -->
                         <div style="border: 1px solid black; display: flex; text-align: center; font-weight: bold; margin-bottom: 5px;">
                             <div style="flex: 1; padding: 10px; border-right: 1px solid black; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                <div style="font-size: 14px;">NUNES & VIEIRA LOGISTICA LTDA</div>
-                                <div>CNPJ: 48.986.353/0001-39</div>
-                                <div>Endereço: Tv São Pedro, 426, CEP: 45.604-570, Itabuna/BA</div>
+                                <div style="font-size: 14px;">${empNome}</div>
+                                <div>CNPJ: ${empCnpj}</div>
+                                <div>Endereço: ${empEnd}</div>
                             </div>
                             <div style="flex: 1; padding: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                                FICHA INDIVIDUAL DE FARDAMENTO E EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - E.P.I.
+                                FICHA INDIVIDUAL DE FARDAMENTO E EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL – E.P.I.
                             </div>
                         </div>
 
@@ -612,21 +639,21 @@
                         </div>
                         
                         <div style="font-size: 9px; margin-bottom: 5px;">
-                            NR 6.1 Para os fins de aplicação desta norma Regulamentadora - NR, considera-se <strong>Equipamento de proteção Individual - EPI</strong> é todo dispositivo de uso individual, de fabricação nacional ou estrangeira, destinado a proteger a saúde e a integridade física do trabalhador.
+                            NR 6.1 Para os fins de aplicação desta norma Regulamentadora – NR, considera-se <strong>Equipamento de proteção Individual – EPI</strong> é todo dispositivo de uso individual, de fabricação nacional ou estrangeira, destinado a proteger a saúde e a integridade física do trabalhador.
                         </div>
 
                         <!-- Obligations -->
                         <div style="display: flex; border: 1px solid black; margin-bottom: 5px;">
                             <div style="flex: 1; padding: 5px; border-right: 1px solid black;">
                                 <strong>Obrigações do Empregador</strong><br>
-                                a) Adquirir o tipo adequado de EPI à atividade do colaborador. NR 06<br>
-                                b) Treinar o colaborador sobre o uso.<br>
-                                c) Fornecer ao colaborador somente EPI aprovado pelo MTb e de empresas cadastradas no DNSST/MTb.<br>
-                                d) Tornar obrigatório o seu uso e acompanhamento do EPI.<br>
-                                e) Substituí-lo, imediatamente, quando danificado, extraviado ou quando pela perda de sua eficácia.<br>
-                                f) Comunicar ao MTb qualquer irregularidade observada no EPI.<br><br>
+                                &#10003; Adquirir o tipo adequado de EPI à atividade do colaborador. NR 06<br>
+                                &#10003; Treinar o colaborador sobre o uso.<br>
+                                &#10003; Fornecer ao colaborador somente EPI aprovado pelo MTb e de empresas cadastradas no DNSST/MTb.<br>
+                                &#10003; Tornar obrigatório o seu uso e acompanhamento do EPI.<br>
+                                &#10003; Substituí-lo, imediatamente, quando danificado, extraviado ou quando pela perda de sua eficácia.<br>
+                                &#10003; Comunicar ao MTb qualquer irregularidade observada no EPI.<br><br>
                                 <strong>1.8. Cabe ao empregado:</strong><br>
-                                a) usar o EPI fornecido pelo empregador;<br>
+                                <strong>b) usar o EPI fornecido pelo empregador;</strong><br>
                                 <strong>1.8.1. Constitui ato faltoso a recusa injustificada do empregado ao cumprimento do disposto no item anterior.</strong>
                             </div>
                             <div style="flex: 1; padding: 5px;">
@@ -643,7 +670,7 @@
                         <div style="border: 1px solid black; padding: 5px; color: red; margin-bottom: 5px;">
                             <strong>Termo de Responsabilidade</strong><br>
                             <span style="color: black; font-size: 9px;">
-                                Recebi, da empresa NUNES & VIEIRA LOGISTICA LTDA., os EPI'S adequados abaixo, os quais desde já me comprometo sempre usar na execução de minhas tarefas, zelando pela sua perfeita guarda e conservação, uso e funcionamento de acordo com as orientações e treinamentos recebidos da CIPA e/ou SESMT, assumindo também o compromisso de devolvê-lo quando solicitado ou em ocasião de rescisão de meu contrato de trabalho.<br>
+                                Recebi, da empresa ${empNome}., os EPI´S adequados abaixo, os quais desde já me comprometo sempre usar na execução de minhas tarefas, zelando pela sua perfeita guarda e conservação, uso e funcionamento de acordo com as orientações e treinamentos recebidos da CIPA e/ou SESMT, assumindo também o compromisso de devolvê-lo quando solicitado ou em ocasião de rescisão de meu contrato de trabalho.<br>
                                 Estou ciente e de pleno acordo que o não cumprimento das condições estabelecidas, acarretará, além de aplicações de penas disciplinares, inclusive rescisão de meu contrato laboral, outras sanções previstas em lei, em especial nas constantes na NR 06, portaria 3.214 de 08/06/1978, do Ministério do Trabalho.<br>
                                 Declaro, também, que estou ciente das disposições do Art. 462 e § 1º da CLT, e autorizo o desconto salarial proporcional ao custo de reparação do dano por mim causado aos EPIs.
                             </span>
@@ -806,7 +833,15 @@
             }));
 
             // Call PDF Generation before clearing items
-            generatePDF(empToUpdate, finalItemsForPDF, formattedDate);
+            const empresaSelecionada = empresas.find(
+              (e) => e.id === selectedEmpresaId,
+            );
+            generatePDF(
+              empToUpdate,
+              finalItemsForPDF,
+              formattedDate,
+              empresaSelecionada,
+            );
 
             // Note: Supabase Realtime will automatically trigger fetchEmployees and update the state!
             setStagedItems([]);
@@ -1311,6 +1346,24 @@
                                 </div>
                               </div>
                             ))}
+                          </div>
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                              Empresa Emissora do Comprovante
+                            </label>
+                            <select
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                              value={selectedEmpresaId || ""}
+                              onChange={(e) =>
+                                setSelectedEmpresaId(Number(e.target.value))
+                              }
+                            >
+                              {empresas.map((emp) => (
+                                <option key={emp.id} value={emp.id}>
+                                  {emp.nome} - CNPJ: {emp.cnpj}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <button
                             onClick={handleRegisterAll}
