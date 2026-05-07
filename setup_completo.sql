@@ -1,4 +1,26 @@
 
+-- Create empresas table
+CREATE TABLE IF NOT EXISTS public.empresas (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    cnpj VARCHAR(20) NOT NULL,
+    endereco TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert initial companies
+INSERT INTO public.empresas (nome, cnpj, endereco) VALUES
+('NUNES & VIEIRA LOGISTICA LTDA', '48.986.353/0001-39', 'Tv São Pedro, 426, CEP: 45.604-570, Itabuna/BA.'),
+('PRIME DISTRIBUICAO LTDA', '52.522.019/0001-00', 'Avenida America, S/N - Iguape. CEP: 45658-460. Ilhéus/BA.'),
+('PRIME DISTRIBUICAO LTDA', '52.522.019/0002-82', 'Rua D Dt Industrial - Mandacaru. CEP: 45.210-164. Jequié - BA.')
+ON CONFLICT DO NOTHING;
+
+-- Permissions
+GRANT SELECT ON public.empresas TO anon;
+GRANT SELECT ON public.empresas TO authenticated;
+
+
+
 -- ==========================================
 -- 1. CONFIGURAÇÃO DE AUTENTICAÇÃO E PERFIS
 -- ==========================================
