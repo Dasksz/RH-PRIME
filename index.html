@@ -343,6 +343,7 @@
         useEffect(() => {
           if (!isAuthChecking) {
             fetchEmployees();
+            fetchEmpresas();
 
             // Set up Realtime subscription
             const channel = supabase
