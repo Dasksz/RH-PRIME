@@ -50,4 +50,16 @@ describe("sync-sheets error handling", () => {
     const body = await response.json();
     expect(body.error).toContain("Failed to fetch sheet: 500 Internal Server Error");
   });
+
+  test("should handle empty CSV string and return empty data array", async () => {
+    // Mock fetch to return a 200 response with empty string
+    global.fetch = mock(() => Promise.resolve(new Response("")));
+
+    const req = new Request("http://localhost");
+    const response = await handler(req);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({ data: [] });
+  });
 });
