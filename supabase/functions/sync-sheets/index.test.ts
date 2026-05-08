@@ -40,8 +40,17 @@ describe("sync-sheets error handling", () => {
   });
 
   test("should catch non-ok fetch response and return status 400", async () => {
-    // Mock fetch to return a 500 response
-    global.fetch = mock(() => Promise.resolve(new Response("Internal Server Error", { status: 500, statusText: "Internal Server Error" })));
+    // Override fetch to explicitly mock response object with ok: false to ensure we hit the
+    // `if (!response.ok)` block which throws a specific Error. Note that just mocking Response
+    // object natively in bun test for 500 status may implicitly handle OK.
+    global.fetch = mock(() => {
+        return Promise.resolve({
+            ok: false,
+            status: 500,
+            statusText: "Internal Server Error",
+            text: () => Promise.resolve("Internal Server Error")
+        } as unknown as Response);
+    });
 
     const req = new Request("http://localhost");
     const response = await handler(req);
