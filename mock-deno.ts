@@ -8,6 +8,9 @@ mock.module("https://deno.land/std@0.168.0/http/server.ts", () => {
 
 mock.module("https://deno.land/std@0.168.0/encoding/csv.ts", () => {
   return {
-    parse: () => []
+    parse: (data: string) => {
+      if (!data) return [];
+      return data.split('\n').map(row => row.split(','));
+    }
   };
 });
