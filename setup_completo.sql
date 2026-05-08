@@ -37,22 +37,37 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 -- Policies
-drop policy if exists "Public profiles are viewable by everyone." on public.profiles;
-create policy "Public profiles are viewable by everyone." on public.profiles
-  for select using (true);
+drop policy if exists "Users can view own profile." on public.profiles;
+create policy "Users can view own profile." on public.profiles
+  for select using (auth.uid() = id);
+
+
 
 drop policy if exists "Users can update own profile." on public.profiles;
 create policy "Users can update own profile." on public.profiles
   for update using (auth.uid() = id);
 
+-- Function to check if user is admin
+create or replace function public.is_admin()
+returns boolean as $$
+declare
+  is_admin boolean;
+begin
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and status = 'admin'
+  ) into is_admin;
+  return is_admin;
+end;
+$$ language plpgsql security definer;
+
+drop policy if exists "Admins can view all profiles." on public.profiles;
+create policy "Admins can view all profiles." on public.profiles
+  for select using (public.is_admin());
+
 drop policy if exists "Admins can update all profiles." on public.profiles;
 create policy "Admins can update all profiles." on public.profiles
-  for update using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and status = 'admin'
-    )
-  );
+  for update using (public.is_admin());
 
 -- Function to handle new user signups
 create or replace function public.handle_new_user()
