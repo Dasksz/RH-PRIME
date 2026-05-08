@@ -515,10 +515,6 @@
           return employees.find((emp) => emp.id === selectedEmpId);
         }, [employees, selectedEmpId]);
 
-        const isExpired = (deliveryDateStr) => {
-          // Not used anymore directly, kept for backwards compatibility if missed somewhere
-          return false;
-        };
 
         const getEmployeeStatus = (emp) => {
           if (!emp.epi.ultimaEntrega && !emp.fardamento.ultimaEntrega)
