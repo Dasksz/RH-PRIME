@@ -56,32 +56,36 @@ export const handler = async (req: Request) => {
     // 6: Link Comprovante (Fardamento)
     // 7: Check / Validação
 
+    const nowTime = Date.now();
+    const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
+
+    // Helper to calculate status based on date
+    const calculateStatus = (dateStr: string) => {
+      if (!dateStr || dateStr.trim() === '') return 'pendente';
+
+      // Try parsing DD/MM/YYYY or MM/DD/YYYY based on the sheet data
+      // Assume MM/DD/YYYY based on previous python check output: '3/20/2025'
+      const parts = dateStr.split('/');
+      let dateObj;
+
+      if (parts.length === 3) {
+          // Assuming format is MM/DD/YYYY from Google Sheets export
+          dateObj = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]));
+      } else {
+          dateObj = new Date(dateStr);
+      }
+
+      const dateTime = dateObj.getTime();
+      if (isNaN(dateTime)) return 'pendente';
+
+      const diffTime = Math.abs(nowTime - dateTime);
+      const diffDays = Math.ceil(diffTime / MILLISECONDS_IN_DAY);
+
+      // Simple logic: if less than 180 days, 'em_dia', else 'vencido'
+      return diffDays < 180 ? 'em_dia' : 'vencido';
+    };
+
     const employees = dataRows.map((row: any, index: number) => {
-      // Helper to calculate status based on date
-      const calculateStatus = (dateStr: string) => {
-        if (!dateStr || dateStr.trim() === '') return 'pendente';
-        
-        // Try parsing DD/MM/YYYY or MM/DD/YYYY based on the sheet data
-        // Assume MM/DD/YYYY based on previous python check output: '3/20/2025'
-        const parts = dateStr.split('/');
-        let dateObj;
-        
-        if (parts.length === 3) {
-            // Assuming format is MM/DD/YYYY from Google Sheets export
-            dateObj = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]));
-        } else {
-            dateObj = new Date(dateStr);
-        }
-
-        if (isNaN(dateObj.getTime())) return 'pendente';
-
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - dateObj.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        // Simple logic: if less than 180 days, 'em_dia', else 'vencido'
-        return diffDays < 180 ? 'em_dia' : 'vencido';
-      };
 
       const name = row[1]?.trim() || '';
       
