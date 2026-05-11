@@ -5,6 +5,11 @@ const allowedOrigins = [
   'https://gcksbfstheavpfgcdndb.supabase.co',
 ];
 
+// In-memory cache
+let cachedEmployees: any[] | null = null;
+let lastFetchTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 export const handler = async (req: Request) => {
   const origin = req.headers.get('origin');
   const corsHeaders: Record<string, string> = {
@@ -20,6 +25,21 @@ export const handler = async (req: Request) => {
   }
 
   try {
+    const now = Date.now();
+    const bypassCache = req.headers.get('x-bypass-cache') === 'true';
+
+    // Check if cache is still valid
+    if (!bypassCache && cachedEmployees && (now - lastFetchTime < CACHE_TTL)) {
+      console.log('Returning cached data');
+      return new Response(JSON.stringify({ data: cachedEmployees }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': `public, max-age=${Math.floor(CACHE_TTL / 1000)}, s-maxage=${Math.floor(CACHE_TTL / 1000)}`
+        },
+      });
+    }
+
     // The Google Sheets URL provided
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/123b1-UJTKMQWY7jdMmMPdPTpANMJSjw3/export?format=csv';
     
@@ -56,15 +76,12 @@ export const handler = async (req: Request) => {
     // 6: Link Comprovante (Fardamento)
     // 7: Check / Validação
 
-    const nowTime = Date.now();
     const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 
     // Helper to calculate status based on date
     const calculateStatus = (dateStr: string) => {
       if (!dateStr || dateStr.trim() === '') return 'pendente';
 
-      // Try parsing DD/MM/YYYY or MM/DD/YYYY based on the sheet data
-      // Assume MM/DD/YYYY based on previous python check output: '3/20/2025'
       const parts = dateStr.split('/');
       let dateObj;
 
@@ -78,7 +95,7 @@ export const handler = async (req: Request) => {
       const dateTime = dateObj.getTime();
       if (isNaN(dateTime)) return 'pendente';
 
-      const diffTime = Math.abs(nowTime - dateTime);
+      const diffTime = Math.abs(now - dateTime);
       const diffDays = Math.ceil(diffTime / MILLISECONDS_IN_DAY);
 
       // Simple logic: if less than 180 days, 'em_dia', else 'vencido'
@@ -119,8 +136,16 @@ export const handler = async (req: Request) => {
 
     console.log(`Parsed ${employees.length} employees`);
 
+    // Update cache
+    cachedEmployees = employees;
+    lastFetchTime = now;
+
     return new Response(JSON.stringify({ data: employees }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${Math.floor(CACHE_TTL / 1000)}, s-maxage=${Math.floor(CACHE_TTL / 1000)}`
+      },
     })
   } catch (error: any) {
     console.error('Error:', error);

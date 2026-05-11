@@ -64,7 +64,9 @@ describe("sync-sheets error handling", () => {
     // Mock fetch to return a 200 response with empty string
     global.fetch = mock(() => Promise.resolve(new Response("")));
 
-    const req = new Request("http://localhost");
+    const req = new Request("http://localhost", {
+      headers: { 'x-bypass-cache': 'true' }
+    });
     const response = await handler(req);
 
     expect(response.status).toBe(200);
@@ -103,7 +105,9 @@ describe("sync-sheets valid behaviors", () => {
     // Mock fetch to return only header row
     global.fetch = mock(() => Promise.resolve(new Response("Admissão,Nome Completo do Funcionário,Função,Data Última Entrega (EPI),Link Comprovante (EPI),Data Última Entrega (Fardamento),Link Comprovante (Fardamento),Check / Validação")));
 
-    const req = new Request("http://localhost");
+    const req = new Request("http://localhost", {
+      headers: { 'x-bypass-cache': 'true' }
+    });
     const response = await handler(req);
 
     expect(response.status).toBe(200);
@@ -129,7 +133,9 @@ describe("sync-sheets valid behaviors", () => {
 
     global.fetch = mock(() => Promise.resolve(new Response(csvData)));
 
-    const req = new Request("http://localhost");
+    const req = new Request("http://localhost", {
+      headers: { 'x-bypass-cache': 'true' }
+    });
     const response = await handler(req);
 
     expect(response.status).toBe(200);
