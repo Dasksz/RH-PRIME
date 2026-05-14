@@ -41,7 +41,7 @@ export const handler = async (req: Request) => {
     }
 
     // The Google Sheets URL provided
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/123b1-UJTKMQWY7jdMmMPdPTpANMJSjw3/export?format=csv';
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg/export?format=csv';
     
     console.log('Fetching Google Sheet...');
     const response = await fetch(sheetUrl);
