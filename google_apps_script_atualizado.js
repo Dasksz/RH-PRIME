@@ -2,7 +2,7 @@
 // CONFIGURAÇÕES DO SUPABASE E PLANILHA
 // ==========================================
 const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
-const SUPABASE_KEY = "SUPABASE_SERVER_KEY_REMOVED"; // Certifique-se de preencher com a chave real
+const SUPABASE_KEY = "CHAVE_API_KEY_AQUI"; // Certifique-se de preencher com a chave real
 const SUPABASE_TABLE = "funcionarios_epi";
 const NOME_DA_ABA = "Controle EPI e Fardamento";
 
