@@ -2,7 +2,7 @@ import { handler } from "./index.ts";
 import { expect, test, beforeAll, afterAll } from "bun:test";
 
 test("benchmark", async () => {
-  const sheetUrl = 'https://docs.google.com/spreadsheets/d/123b1-UJTKMQWY7jdMmMPdPTpANMJSjw3/export?format=csv';
+  const sheetUrl = 'https://docs.google.com/spreadsheets/d/1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg/export?format=csv';
   const csvData = "Admissão,Nome Completo do Funcionário,Função,Data Última Entrega (EPI),Link Comprovante (EPI),Data Última Entrega (Fardamento),Link Comprovante (Fardamento),Check / Validação\n01/01/2023,Alice Silva,Developer,03/20/2025,link_epi_1,03/20/2025,link_fard_1,OK";
 
   let fetchCount = 0;
