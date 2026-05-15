@@ -19,21 +19,164 @@ Substitua TODO o conteúdo do seu arquivo atual no Apps Script por este código 
 const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co"; 
 const SUPABASE_KEY = "SUA_CHAVE_AQUI"; // Coloque a sua chave Service Role verdadeira aqui
 
-// Função auxiliar para formatar datas (Usada pela aba de EPI)
+// Configuração das abas e suas tabelas
+const SHEET_CONFIG = {
+  'Controle EPI e Fardamento': {
+    tableName: 'funcionarios_epi',
+    nameField: 'nome',
+    fields: ['admissao', 'nome', 'cpf', 'funcao', 'setor', 'unidade', 'epi_data', 'epi_itens', 'epi_link', 'fardamento_data', 'fardamento_itens', 'fardamento_link', 'validacao']
+  },
+  'movimentacoes': {
+    tableName: 'rh_movimentacoes',
+    nameField: 'funcionario_nome',
+    fields: ['funcionario_nome', 'data_admissao', 'data_desligamento', 'tipo_movimentacao', 'motivo_saida', 'mes_ref']
+  },
+  'absenteismo': {
+    tableName: 'rh_absenteismo',
+    nameField: 'funcionario_nome',
+    fields: ['funcionario_nome', 'mes_ref', 'horas_previstas', 'horas_perdidas', 'motivo']
+  },
+  'ferias': {
+    tableName: 'rh_ferias',
+    nameField: 'funcionario_nome',
+    fields: ['funcionario_nome', 'data_inicio_aquisitivo', 'data_fim_aquisitivo', 'data_vencimento', 'dias_direito', 'dias_gozados', 'status']
+  }
+};
+
+// Função auxiliar para formatar datas 
 function formatarData(valor) {
   if (valor instanceof Date) {
     const d = valor.getDate().toString().padStart(2, '0');
     const m = (valor.getMonth() + 1).toString().padStart(2, '0');
     const y = valor.getFullYear();
-    return `${d}/${m}/${y}`;
+    // O banco espera YYYY-MM-DD para colunas de data padrão, mas a aba EPI formata para DD/MM/YYYY. 
+    // Para simplificar, usamos o formato YYYY-MM-DD para ser aceito universalmente pelas colunas tipo "date" do Supabase
+    return `${y}-${m}-${d}`;
   }
-  return valor ? valor.toString() : "";
+  return valor ? valor.toString() : null;
+}
+
+// ==========================================
+// FUNÇÕES DE SINCRONIZAÇÃO LINEAR
+// ==========================================
+
+// Atualiza ou Insere um registro no Supabase
+function upsertRecord(tableName, nameField, payload) {
+  const nomeValue = payload[nameField];
+  if (!nomeValue) return;
+
+  try {
+    const existingUrl = `${SUPABASE_URL}/rest/v1/${tableName}?${nameField}=eq.${encodeURIComponent(nomeValue)}&select=id`;
+    const response = UrlFetchApp.fetch(existingUrl, {
+      method: "get",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    
+    const records = JSON.parse(response.getContentText());
+    
+    if (records.length > 0) {
+      // UPDATE
+      const id = records[0].id;
+      UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${tableName}?id=eq.${id}`, {
+        method: "patch",
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify(payload)
+      });
+    } else {
+      // INSERT
+      UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
+        method: "post",
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify([payload])
+      });
+    }
+  } catch (error) {
+    console.error(`Erro ao sincronizar ${nomeValue} na tabela ${tableName}:`, error);
+  }
+}
+
+// Constrói o payload para uma linha baseada na configuração da aba
+function buildPayload(sheetName, rowData) {
+  const config = SHEET_CONFIG[sheetName];
+  if (!config) return null;
+
+  let payload = {};
+  
+  if (sheetName === "Controle EPI e Fardamento") {
+    // A aba EPI tem formato especial DD/MM/YYYY e lida com datas como string formatada
+    const formatarDataEPI = (v) => {
+      if (v instanceof Date) {
+        const d = v.getDate().toString().padStart(2, '0');
+        const m = (v.getMonth() + 1).toString().padStart(2, '0');
+        const y = v.getFullYear();
+        return `${d}/${m}/${y}`;
+      }
+      return v ? v.toString() : "";
+    };
+
+    payload = {
+      admissao: formatarDataEPI(rowData[0]),
+      nome: rowData[1] ? rowData[1].toString() : "",
+      cpf: rowData[2] ? rowData[2].toString() : "",
+      funcao: rowData[3] ? rowData[3].toString() : "",
+      setor: rowData[4] ? rowData[4].toString() : "",
+      unidade: rowData[5] ? rowData[5].toString() : "",
+      epi_data: formatarDataEPI(rowData[6]),
+      epi_itens: rowData[7] ? rowData[7].toString() : "",
+      epi_link: rowData[8] ? rowData[8].toString() : "", 
+      fardamento_data: formatarDataEPI(rowData[9]),
+      fardamento_itens: rowData[10] ? rowData[10].toString() : "",
+      fardamento_link: rowData[11] ? rowData[11].toString() : "",
+      validacao: rowData[12] ? rowData[12].toString() : ""
+    };
+  } else {
+    // Para as demais abas de indicadores (movimentacoes, absenteismo, ferias)
+    config.fields.forEach((field, index) => {
+      let val = rowData[index];
+      
+      if (val instanceof Date) {
+        payload[field] = formatarData(val);
+      } else if (val === '' || val === null || val === undefined) {
+         payload[field] = null; 
+      } else if (typeof val === 'string' && val.trim() === '') {
+         payload[field] = null; 
+      } else {
+        if (config.tableName === 'rh_movimentacoes') {
+           if (field === 'tipo_movimentacao' && val) val = String(val).toLowerCase().trim();
+           if (field === 'motivo_saida' && val) val = String(val).toLowerCase().trim();
+        }
+        if (config.tableName === 'rh_absenteismo') {
+           if (field === 'horas_previstas' && isNaN(Number(val))) val = null;
+           if (field === 'horas_perdidas' && isNaN(Number(val))) val = null;
+        }
+        if (typeof val === 'number' && (field === 'mes_ref' || field === 'funcionario_nome' || field === 'motivo')) {
+           val = String(val);
+        }
+        payload[field] = val;
+      }
+    });
+  }
+  
+  return payload;
 }
 
 // ==========================================
 // 1. GATILHO ON EDIT (Planilha -> Supabase)
 // ==========================================
-// Esta função roda quando você edita a planilha do google sheets e envia a mudança para o Supabase
 function syncToSupabaseOnEdit(e) {
   if (!e || !e.range) return;
   
@@ -41,186 +184,68 @@ function syncToSupabaseOnEdit(e) {
   const sheetName = sheet.getName();
   const row = e.range.getRow();
   
-  // Se for edição na aba de EPI, usa a lógica linha-a-linha:
-  if (sheetName === "Controle EPI e Fardamento") {
-      if (row <= 1) return;
-      
-      const rowData = sheet.getRange(row, 1, 1, 13).getValues()[0];
-      const payload = {
-        admissao: formatarData(rowData[0]),
-        nome: rowData[1] ? rowData[1].toString() : "",
-        cpf: rowData[2] ? rowData[2].toString() : "",
-        funcao: rowData[3] ? rowData[3].toString() : "",
-        setor: rowData[4] ? rowData[4].toString() : "",
-        unidade: rowData[5] ? rowData[5].toString() : "",
-        epi_data: formatarData(rowData[6]),
-        epi_itens: rowData[7] ? rowData[7].toString() : "",
-        epi_link: rowData[8] ? rowData[8].toString() : "", 
-        fardamento_data: formatarData(rowData[9]),
-        fardamento_itens: rowData[10] ? rowData[10].toString() : "",
-        fardamento_link: rowData[11] ? rowData[11].toString() : "",
-        validacao: rowData[12] ? rowData[12].toString() : ""
-      };
-      
-      try {
-        const existingUrl = `${SUPABASE_URL}/rest/v1/funcionarios_epi?nome=eq.${encodeURIComponent(payload.nome)}&select=id`;
-        const response = UrlFetchApp.fetch(existingUrl, {
-          method: "get",
-          headers: {
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`,
-            "Content-Type": "application/json"
-          }
-        });
-        
-        const records = JSON.parse(response.getContentText());
-        
-        if (records.length > 0) {
-          const id = records[0].id;
-          UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/funcionarios_epi?id=eq.${id}`, {
-            method: "patch",
-            headers: {
-              "apikey": SUPABASE_KEY,
-              "Authorization": `Bearer ${SUPABASE_KEY}`,
-              "Content-Type": "application/json",
-              "Prefer": "return=minimal"
-            },
-            payload: JSON.stringify(payload)
-          });
-        } else {
-          UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/funcionarios_epi`, {
-            method: "post",
-            headers: {
-              "apikey": SUPABASE_KEY,
-              "Authorization": `Bearer ${SUPABASE_KEY}`,
-              "Content-Type": "application/json",
-              "Prefer": "return=minimal"
-            },
-            payload: JSON.stringify([payload])
-          });
-        }
-      } catch (error) {
-        console.error("Erro ao sincronizar EPI:", error);
-      }
-  } 
-  // Se for edição nas abas de Indicadores, usa a lógica de sincronização total em massa:
-  else if (['movimentacoes', 'absenteismo', 'ferias'].includes(sheetName)) {
-      syncIndicadores();
+  if (row <= 1) return; // Ignora o cabeçalho
+  
+  const config = SHEET_CONFIG[sheetName];
+  if (!config) return; // Se a aba não estiver configurada, não faz nada
+  
+  const numColumns = config.fields.length;
+  // A aba EPI tem 13 colunas, as demais dependem da configuração
+  const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 13 : numColumns;
+  
+  const rowData = sheet.getRange(row, 1, 1, columnsToFetch).getValues()[0];
+  const payload = buildPayload(sheetName, rowData);
+  
+  if (payload) {
+    upsertRecord(config.tableName, config.nameField, payload);
   }
 }
 
 // ==========================================
-// 2. SINCRONIZAR INDICADORES EM MASSA (Google Sheets -> Supabase)
+// 2. SINCRONIZAÇÃO EM MASSA DE TODAS AS ABAS
 // ==========================================
-function syncIndicadores() {
-  const sheetNames = [
-    { sheetName: 'movimentacoes', tableName: 'rh_movimentacoes', 
-      fields: ['funcionario_nome', 'data_admissao', 'data_desligamento', 'tipo_movimentacao', 'motivo_saida', 'mes_ref'] 
-    },
-    { sheetName: 'absenteismo', tableName: 'rh_absenteismo', 
-      fields: ['funcionario_nome', 'mes_ref', 'horas_previstas', 'horas_perdidas', 'motivo'] 
-    },
-    { sheetName: 'ferias', tableName: 'rh_ferias', 
-      fields: ['funcionario_nome', 'data_inicio_aquisitivo', 'data_fim_aquisitivo', 'data_vencimento', 'dias_direito', 'dias_gozados', 'status'] 
-    }
-  ];
-
+function syncAllToSupabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  sheetNames.forEach(config => {
-    const sheet = ss.getSheetByName(config.sheetName);
+  const sheetNames = Object.keys(SHEET_CONFIG);
+  
+  sheetNames.forEach(sheetName => {
+    const sheet = ss.getSheetByName(sheetName);
     if (!sheet) return;
-
+    
+    const config = SHEET_CONFIG[sheetName];
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return; // Só tem cabeçalho
-
-    const rows = data.slice(1);
-
-    // Deletar os dados da tabela
-    const deleteUrl = `${SUPABASE_URL}/rest/v1/${config.tableName}?id=gt.0`;
-    const optionsDelete = {
-      method: "delete",
-      headers: {
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`
-      },
-      muteHttpExceptions: true
-    };
-    UrlFetchApp.fetch(deleteUrl, optionsDelete);
-
-    // Inserir novas linhas
-    const payload = [];
-    rows.forEach((row, rowIndex) => {
-      let obj = {};
-      let isEmpty = true;
-      config.fields.forEach((field, index) => {
-        let val = row[index];
-        if (val !== "" && val !== undefined && val !== null) isEmpty = false;
-        
-        if (val instanceof Date) {
-          obj[field] = val.toISOString().split('T')[0];
-        } else if (val === '' || val === null || val === undefined) {
-           obj[field] = null; 
-        } else if (typeof val === 'string' && val.trim() === '') {
-           obj[field] = null; 
-        } else {
-          if (config.tableName === 'rh_movimentacoes') {
-             if (field === 'tipo_movimentacao' && val) val = String(val).toLowerCase().trim();
-             if (field === 'motivo_saida' && val) val = String(val).toLowerCase().trim();
-          }
-          if (config.tableName === 'rh_absenteismo') {
-             if (field === 'horas_previstas' && isNaN(Number(val))) val = null;
-             if (field === 'horas_perdidas' && isNaN(Number(val))) val = null;
-          }
-          if (typeof val === 'number' && (field === 'mes_ref' || field === 'funcionario_nome' || field === 'motivo')) {
-             val = String(val);
-          }
-          obj[field] = val;
-        }
-      });
+    
+    const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 13 : config.fields.length;
+    
+    // Começa do índice 1 para pular o cabeçalho
+    for (let i = 1; i < data.length; i++) {
+      // Pega os dados exatos até a quantidade de colunas que a tabela precisa
+      const rowData = data[i].slice(0, columnsToFetch);
       
-      if (!isEmpty) {
-        if ((config.tableName === 'rh_movimentacoes' || config.tableName === 'rh_absenteismo') && !obj['mes_ref']) {
-           console.log(`Pulando linha sem mes_ref na tabela ${config.tableName}:`, obj);
-        } else {
-           payload.push(obj);
-        }
-      }
-    });
-
-    if (payload.length > 0) {
-      const chunkSize = 100;
-      for (let i = 0; i < payload.length; i += chunkSize) {
-          const chunk = payload.slice(i, i + chunkSize);
-          const insertUrl = `${SUPABASE_URL}/rest/v1/${config.tableName}`;
-          const optionsInsert = {
-            method: "post",
-            headers: {
-              "apikey": SUPABASE_KEY,
-              "Authorization": `Bearer ${SUPABASE_KEY}`,
-              "Content-Type": "application/json",
-              "Prefer": "return=minimal"
-            },
-            payload: JSON.stringify(chunk),
-            muteHttpExceptions: true
-          };
-          UrlFetchApp.fetch(insertUrl, optionsInsert);
-      }
+      const payload = buildPayload(sheetName, rowData);
+      if (!payload || !payload[config.nameField]) continue; // Pula linhas vazias sem nome
+      
+      upsertRecord(config.tableName, config.nameField, payload);
+      
+      // Pequena pausa para não estourar os limites da API
+      Utilities.sleep(100);
     }
   });
+  
+  SpreadsheetApp.getUi().alert("Sincronização completa de todas as abas finalizada com sucesso!");
 }
 
 // ==========================================
 // 3. WEBHOOK UNIFICADO (Supabase -> Planilha)
 // ==========================================
-// Lê o webhook do Supabase e decide qual aba preencher
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const type = data.type; // 'INSERT', 'UPDATE', or 'DELETE'
     const record = data.record;
     const oldRecord = data.old_record;
-    const table = data.table; // ex: 'funcionarios_epi', 'rh_ferias'
+    const table = data.table; 
 
     let targetSheetName = "";
     let nomeBusca = null;
@@ -230,19 +255,19 @@ function doPost(e) {
     if (table === 'funcionarios_epi') {
         targetSheetName = 'Controle EPI e Fardamento'; 
         nomeBusca = type === 'DELETE' ? (oldRecord ? oldRecord.nome : null) : (record ? record.nome : null);
-        fields = ['admissao', 'nome', 'cpf', 'funcao', 'setor', 'unidade', 'epi_data', 'epi_itens', 'epi_link', 'fardamento_data', 'fardamento_itens', 'fardamento_link', 'validacao'];
+        fields = SHEET_CONFIG[targetSheetName].fields;
     } else if (table === 'rh_movimentacoes') {
         targetSheetName = 'movimentacoes';
         nomeBusca = type === 'DELETE' ? (oldRecord ? oldRecord.funcionario_nome : null) : (record ? record.funcionario_nome : null);
-        fields = ['funcionario_nome', 'data_admissao', 'data_desligamento', 'tipo_movimentacao', 'motivo_saida', 'mes_ref'];
+        fields = SHEET_CONFIG[targetSheetName].fields;
     } else if (table === 'rh_absenteismo') {
         targetSheetName = 'absenteismo';
         nomeBusca = type === 'DELETE' ? (oldRecord ? oldRecord.funcionario_nome : null) : (record ? record.funcionario_nome : null);
-        fields = ['funcionario_nome', 'mes_ref', 'horas_previstas', 'horas_perdidas', 'motivo'];
+        fields = SHEET_CONFIG[targetSheetName].fields;
     } else if (table === 'rh_ferias') {
         targetSheetName = 'ferias';
         nomeBusca = type === 'DELETE' ? (oldRecord ? oldRecord.funcionario_nome : null) : (record ? record.funcionario_nome : null);
-        fields = ['funcionario_nome', 'data_inicio_aquisitivo', 'data_fim_aquisitivo', 'data_vencimento', 'dias_direito', 'dias_gozados', 'status'];
+        fields = SHEET_CONFIG[targetSheetName].fields;
     }
 
     if (!targetSheetName) return ContentService.createTextOutput("Tabela não mapeada").setMimeType(ContentService.MimeType.TEXT);
