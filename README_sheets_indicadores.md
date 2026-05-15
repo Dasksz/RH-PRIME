@@ -33,7 +33,7 @@ Crie 3 abas novas na sua planilha com os seguintes nomes EXATOS:
 - **G**: `status` (pendente, programadas, concluidas)
 
 ### 5. Código no Apps Script
-Vá em `Extensões > Apps Script` e crie um novo arquivo `indicadores.gs`. Cole o código abaixo:
+Vá em `Extensões > Apps Script` e **adicione esse código ao final do seu arquivo existente** (ou crie um novo `indicadores.gs`). Cole o código abaixo:
 
 ```javascript
 // ATENÇÃO: Substitua pelas suas credenciais reais do Supabase
@@ -150,4 +150,32 @@ function syncIndicadores() {
     }
   });
 }
+
+// ==========================================
+// 6. GATILHOS AUTOMÁTICOS PARA EDIÇÃO BIdirecional
+// ==========================================
+// Esta função roda quando você edita a planilha do google sheets e envia a mudança para o Supabase
+function syncIndicadoresOnEdit(e) {
+  if (!e || !e.range) return;
+  const sheet = e.source.getActiveSheet();
+  const sheetName = sheet.getName();
+  
+  if (['movimentacoes', 'absenteismo', 'ferias'].includes(sheetName)) {
+    // Para simplificar, quando houver edição, a gente dispara o sync total daquela aba (ou de todas).
+    // Para ambientes muito grandes seria melhor um Upsert específico para a linha, mas o syncAll 
+    // garante a integridade já que deleta e re-escreve rapidamente.
+    syncIndicadores();
+  }
+}
 ```
+
+### 6. Como configurar a automação (Trigger Bidirecional da Planilha para o Supabase)
+Para que as alterações feitas nas abas do Google Sheets subam *imediatamente* para o banco (assim como você tem na aba `Controle EPI e Fardamento`):
+1. No Apps Script, clique no ícone do **Relógio** (Triggers / Acionadores) na barra lateral esquerda.
+2. Clique em **"+ Adicionar Acionador"** no canto inferior direito.
+3. Configure da seguinte forma:
+   - Escolha qual função executar: **`syncIndicadoresOnEdit`**
+   - Escolha o tipo de implantação: `Testes / Head`
+   - Selecione a origem do evento: `Da planilha`
+   - Selecione o tipo de evento: `Ao editar`
+4. Clique em **Salvar**. (Se pedir permissões do Google, permita).
