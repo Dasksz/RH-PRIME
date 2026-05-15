@@ -150,23 +150,30 @@ function buildPayload(sheetName, rowData) {
 
       if (val instanceof Date) {
         payload[field] = formatarData(val);
-      } else if (val === '' || val === null || val === undefined) {
-         payload[field] = null;
-      } else if (typeof val === 'string' && val.trim() === '') {
-         payload[field] = null;
+      } else if (val === '' || val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) {
+         // Não enviamos a chave se o valor for nulo/vazio para evitar erros de not-null no Supabase
+         // payload[field] = null;
       } else {
         if (config.tableName === 'rh_movimentacoes') {
            if (field === 'tipo_movimentacao' && val) val = String(val).toLowerCase().trim();
            if (field === 'motivo_saida' && val) val = String(val).toLowerCase().trim();
         }
         if (config.tableName === 'rh_absenteismo') {
-           if (field === 'horas_previstas' && isNaN(Number(val))) val = null;
-           if (field === 'horas_perdidas' && isNaN(Number(val))) val = null;
+           if (field === 'horas_previstas' && isNaN(Number(val))) {
+             val = null;
+           }
+           if (field === 'horas_perdidas' && isNaN(Number(val))) {
+             val = null;
+           }
         }
         if (typeof val === 'number' && (field === 'mes_ref' || field === 'funcionario_nome' || field === 'motivo')) {
            val = String(val);
         }
-        payload[field] = val;
+
+        // Só adiciona ao payload se não foi convertido para nulo pelas regras acima
+        if (val !== null) {
+          payload[field] = val;
+        }
       }
     });
   }
