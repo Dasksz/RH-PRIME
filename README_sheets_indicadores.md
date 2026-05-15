@@ -10,10 +10,10 @@ Crie 3 abas novas na sua planilha com os seguintes nomes EXATOS:
 
 ### 2. Formato das Colunas (Aba "movimentacoes")
 - **A**: `funcionario_nome` (Ex: Joao da Silva)
-- **B**: `data_admissao` (Ex: 2024-01-15)
-- **C**: `data_desligamento` (Ex: 2024-05-10)
+- **B**: `data_admissao` (Ex: 2024-01-15 - pode ficar vazio)
+- **C**: `data_desligamento` (Ex: 2024-05-10 - pode ficar vazio)
 - **D**: `tipo_movimentacao` (entrada ou saida)
-- **E**: `motivo_saida` (voluntario ou involuntario)
+- **E**: `motivo_saida` (voluntario ou involuntario - obrigatório se for saida, vazio se for entrada)
 - **F**: `mes_ref` (Ex: 2024-05)
 
 ### 3. Formato das Colunas (Aba "absenteismo")
@@ -83,18 +83,18 @@ function syncIndicadores() {
 
     // Agora inserimos as novas linhas
     const payload = [];
-    rows.forEach(row => {
+    rows.forEach((row, rowIndex) => {
       let obj = {};
       let isEmpty = true;
       config.fields.forEach((field, index) => {
         let val = row[index];
-        if (val !== "" && val !== undefined) isEmpty = false;
+        if (val !== "" && val !== undefined && val !== null) isEmpty = false;
         
         // Conversão de data do formato Google Sheets para YYYY-MM-DD
         if (val instanceof Date) {
           obj[field] = val.toISOString().split('T')[0];
-        } else if (field === 'motivo_saida' && val === '') {
-           obj[field] = null; // evita erro de constraint
+        } else if (val === '' || val === null || val === undefined) {
+           obj[field] = null; // evita erro de constraint se a data estiver vazia
         } else {
           obj[field] = val;
         }
@@ -103,21 +103,26 @@ function syncIndicadores() {
     });
 
     if (payload.length > 0) {
-      const insertUrl = `${SUPABASE_URL_INDICADORES}/rest/v1/${config.tableName}`;
-      const optionsInsert = {
-        method: "post",
-        headers: {
-          "apikey": SUPABASE_KEY_INDICADORES,
-          "Authorization": `Bearer ${SUPABASE_KEY_INDICADORES}`,
-          "Content-Type": "application/json",
-          "Prefer": "return=minimal"
-        },
-        payload: JSON.stringify(payload),
-        muteHttpExceptions: true
-      };
-      
-      const res = UrlFetchApp.fetch(insertUrl, optionsInsert);
-      console.log(`Tabela ${config.tableName} sync: `, res.getResponseCode());
+      // Chunking payload in groups of 100 to avoid large payload errors, just in case
+      const chunkSize = 100;
+      for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const insertUrl = `${SUPABASE_URL_INDICADORES}/rest/v1/${config.tableName}`;
+          const optionsInsert = {
+            method: "post",
+            headers: {
+              "apikey": SUPABASE_KEY_INDICADORES,
+              "Authorization": `Bearer ${SUPABASE_KEY_INDICADORES}`,
+              "Content-Type": "application/json",
+              "Prefer": "return=minimal"
+            },
+            payload: JSON.stringify(chunk),
+            muteHttpExceptions: true
+          };
+          
+          const res = UrlFetchApp.fetch(insertUrl, optionsInsert);
+          console.log(`Tabela ${config.tableName} sync chunk ${i/chunkSize}: `, res.getResponseCode(), res.getContentText());
+      }
     }
   });
 }
