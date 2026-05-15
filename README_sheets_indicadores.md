@@ -14,11 +14,11 @@ Crie 3 abas novas na sua planilha com os seguintes nomes EXATOS:
 - **C**: `data_desligamento` (Ex: 2024-05-10 - pode ficar vazio)
 - **D**: `tipo_movimentacao` (entrada ou saida - minúsculo, obrigatório)
 - **E**: `motivo_saida` (voluntario ou involuntario - obrigatório se for saida, vazio se for entrada)
-- **F**: `mes_ref` (Ex: 2024-05)
+- **F**: `mes_ref` (Ex: 2024-05 - **OBRIGATÓRIO**)
 
 ### 3. Formato das Colunas (Aba "absenteismo")
 - **A**: `funcionario_nome` (Ex: Joao da Silva)
-- **B**: `mes_ref` (Ex: 2024-05)
+- **B**: `mes_ref` (Ex: 2024-05 - **OBRIGATÓRIO**)
 - **C**: `horas_previstas` (Ex: 220 - número, pode ficar vazio se não souber)
 - **D**: `horas_perdidas` (Ex: 8.5 - número, pode ficar vazio)
 - **E**: `motivo` (Ex: Atestado)
@@ -107,10 +107,23 @@ function syncIndicadores() {
              if (field === 'horas_previstas' && isNaN(Number(val))) val = null;
              if (field === 'horas_perdidas' && isNaN(Number(val))) val = null;
           }
+          // Garante que campos de texto sejam strings
+          if (typeof val === 'number' && (field === 'mes_ref' || field === 'funcionario_nome' || field === 'motivo')) {
+             val = String(val);
+          }
           obj[field] = val;
         }
       });
-      if (!isEmpty) payload.push(obj);
+      
+      // Validação: Ignora linhas que estão completamente vazias ou que não tem mes_ref (se for obrigatório na tabela)
+      if (!isEmpty) {
+        if ((config.tableName === 'rh_movimentacoes' || config.tableName === 'rh_absenteismo') && !obj['mes_ref']) {
+           // Se a linha tem nome mas não tem mês ref, vamos pular ela para não dar erro
+           console.log(`Pulando linha sem mes_ref na tabela ${config.tableName}:`, obj);
+        } else {
+           payload.push(obj);
+        }
+      }
     });
 
     if (payload.length > 0) {
