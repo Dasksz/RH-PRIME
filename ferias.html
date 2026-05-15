@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PRIME RH - Controle de Férias</title>
+
+    <!-- Carregando Tailwind CSS para o Design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Carregando React via CDN -->
+    <script
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+      crossorigin
+    ></script>
+
+    <!-- Carregando Babel para ler o código React dentro do HTML -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      body {
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+      }
+    </style>
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useMemo, useEffect, useRef } = React;
+
+      // Configuração do Supabase
+      const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
+      const SUPABASE_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // ==========================================
+      // 1. ÍCONES (Componentes SVG Nativos)
+      // ==========================================
+      const Icon = ({ size = 24, className = "", children }) => (
+        <svg
+          width={size}
+          height={size}
+          className={className}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {children}
+        </svg>
+      );
+
+      const Shield = (p) => (
+        <Icon {...p}>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </Icon>
+      );
+      const Shirt = (p) => (
+        <Icon {...p}>
+          <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" />
+        </Icon>
+      );
+      const Search = (p) => (
+        <Icon {...p}>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </Icon>
+      );
+      const Plus = (p) => (
+        <Icon {...p}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </Icon>
+      );
+      const AlertCircle = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </Icon>
+      );
+      const CheckCircle2 = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="m9 12 2 2 4-4" />
+        </Icon>
+      );
+      const User = (p) => (
+        <Icon {...p}>
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </Icon>
+      );
+      const Calendar = (p) => (
+        <Icon {...p}>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </Icon>
+      );
+      const LinkIcon = (p) => (
+        <Icon {...p}>
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </Icon>
+      );
+      const Trash2 = (p) => (
+        <Icon {...p}>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </Icon>
+      );
+      const ListPlus = (p) => (
+        <Icon {...p}>
+          <path d="M11 12H3" />
+          <path d="M16 6H3" />
+          <path d="M16 18H3" />
+          <path d="M18 9v6" />
+          <path d="M21 12h-6" />
+        </Icon>
+      );
+      const CheckCheck = (p) => (
+        <Icon {...p}>
+          <polyline points="18 6 7 17 2 12" />
+          <polyline points="22 10 11 21 6 16" />
+        </Icon>
+      );
+      const Activity = (p) => (
+        <Icon {...p}>
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </Icon>
+      );
+      const HardHat = (p) => (
+        <Icon {...p}>
+          <path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z" />
+          <path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
+          <path d="M4 15v-3a6 6 0 0 1 6-6h0" />
+          <path d="M14 6h0a6 6 0 0 1 6 6v3" />
+        </Icon>
+      );
+      const XCircle = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </Icon>
+      );
+      const ArrowLeft = (p) => (
+        <Icon {...p}>
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </Icon>
+      );
+
+      const ChevronDown = (p) => (
+        <Icon {...p}>
+          <path d="m6 9 6 6 6-6" />
+        </Icon>
+      );
+
+      const Pencil = (p) => (
+        <Icon {...p}>
+          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+          <path d="m15 5 4 4" />
+        </Icon>
+      );
+
+      // ==========================================
+      // 3. APLICATIVO REACT PRINCIPAL
+      // ==========================================
+
+      function App() {
+        const [session, setSession] = useState(null);
+        const [isAuthChecking, setIsAuthChecking] = useState(true);
+        const [ferias, setFerias] = useState([]);
+        const [isLoading, setIsLoading] = useState(true);
+        
+        // Navegação mobile
+        const [menuOpen, setMenuOpen] = useState(false);
+        const [filtroStatus, setFiltroStatus] = useState("todos");
+        const [searchTerm, setSearchTerm] = useState("");
+
+        useEffect(() => {
+          checkSession();
+        }, []);
+
+        const checkSession = async () => {
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error) throw error;
+            
+            if (!session) {
+              window.location.href = "login.html";
+              return;
+            }
+            
+            setSession(session);
+
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("status")
+              .eq("id", session.user.id)
+              .single();
+
+            if (!profile || profile.status !== "aprovado") {
+              window.location.href = "login.html";
+              return;
+            }
+
+            setIsAuthChecking(false);
+            loadData();
+          } catch (error) {
+            console.error("Error checking auth:", error);
+            window.location.href = "login.html";
+          }
+        };
+
+        const loadData = async () => {
+          setIsLoading(true);
+          try {
+            const { data } = await supabase.from("rh_ferias").select("*").order("data_vencimento", { ascending: true });
+            setFerias(data || []);
+          } catch (error) {
+            console.error("Erro ao carregar ferias:", error);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        const handleLogout = async () => {
+          await supabase.auth.signOut();
+          window.location.href = "login.html";
+        };
+
+        const formatData = (dateStr) => {
+          if (!dateStr) return "-";
+          // expects YYYY-MM-DD
+          const [ano, mes, dia] = dateStr.split("-");
+          if (!dia) return dateStr; // fallback
+          return `${dia}/${mes}/${ano}`;
+        };
+
+        // Calcula dias para o vencimento
+        const calcDiasVencimento = (dataVencimento) => {
+          if (!dataVencimento) return 9999;
+          const venc = new Date(dataVencimento);
+          const hoje = new Date();
+          const diffTime = venc - hoje;
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        };
+
+        const feriasFiltradas = ferias.filter(f => {
+          const matchTerm = f.funcionario_nome.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchStatus = filtroStatus === "todos" || f.status === filtroStatus;
+          return matchTerm && matchStatus;
+        });
+
+        // Estatisticas
+        const statVencendo = ferias.filter(f => calcDiasVencimento(f.data_vencimento) <= 90 && f.dias_saldo > 0).length;
+        const statSaldoTotal = ferias.reduce((acc, curr) => acc + (curr.dias_saldo || 0), 0);
+
+        if (isAuthChecking) {
+          return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
+            <header className="bg-[#002060] text-white shadow-md sticky top-0 z-50">
+              <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Shield size={28} className="text-[#E30613]" />
+                  <div>
+                    <h1 className="text-xl font-extrabold tracking-tight leading-none">PRIME RH</h1>
+                    <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">Controle de Férias</p>
+                  </div>
+                </div>
+                
+                <button className="md:hidden p-2 text-white" onClick={() => setMenuOpen(!menuOpen)}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+
+                <nav className="hidden md:flex items-center gap-6">
+                  <a href="index.html" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">EPI/Fardamento</a>
+                  <span className="text-sm font-bold text-white border-b-2 border-[#E30613] pb-1">Férias</span>
+                  <a href="indicadores.html" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Indicadores</a>
+                  <button onClick={handleLogout} className="flex items-center gap-2 text-red-300 hover:text-white ml-4 text-sm font-medium">Sair</button>
+                </nav>
+              </div>
+
+              {menuOpen && (
+                <nav className="md:hidden bg-[#001848] px-5 py-3 flex flex-col gap-3">
+                  <a href="index.html" className="text-sm font-medium text-slate-300">EPI/Fardamento</a>
+                  <span className="text-sm font-bold text-white">Controle de Férias</span>
+                  <a href="indicadores.html" className="text-sm font-medium text-slate-300">Indicadores de RH</a>
+                  <hr className="border-slate-700 my-1"/>
+                  <button onClick={handleLogout} className="text-sm font-medium text-red-300 text-left">Sair do Sistema</button>
+                </nav>
+              )}
+            </header>
+
+            <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+              
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Calendário e Saldos</h2>
+                  <p className="text-slate-500 text-sm">Acompanhe férias a vencer e saldos de dias pendentes.</p>
+                </div>
+
+                <div className="flex gap-4 w-full md:w-auto">
+                  <div className="bg-orange-50 border border-orange-200 px-4 py-2 rounded-xl flex items-center gap-3">
+                    <AlertCircle size={20} className="text-orange-500"/>
+                    <div>
+                      <p className="text-[10px] font-bold text-orange-600 uppercase">Vencendo (90 dias)</p>
+                      <p className="text-lg font-black text-orange-700 leading-none">{statVencendo}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl flex items-center gap-3">
+                    <Activity size={20} className="text-blue-500"/>
+                    <div>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase">Total Dias (Passivo)</p>
+                      <p className="text-lg font-black text-blue-700 leading-none">{statSaldoTotal}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center">
+                  
+                  <div className="relative w-full md:w-96">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar colaborador..." 
+                      className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex w-full md:w-auto bg-slate-200 p-1 rounded-lg">
+                    {["todos", "pendente", "programadas", "concluidas"].map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setFiltroStatus(status)}
+                        className={`flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-colors ${filtroStatus === status ? "bg-white text-[#002060] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+
+                </div>
+
+                <div className="overflow-x-auto">
+                  {isLoading ? (
+                    <div className="flex justify-center py-10">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#002060]"></div>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
+                      <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-3">Colaborador</th>
+                          <th className="px-4 py-3">Período Aquisitivo</th>
+                          <th className="px-4 py-3">Vencimento</th>
+                          <th className="px-4 py-3 text-center">Dias Direito</th>
+                          <th className="px-4 py-3 text-center">Gozados</th>
+                          <th className="px-4 py-3 text-center">Saldo</th>
+                          <th className="px-4 py-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {feriasFiltradas.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="px-4 py-8 text-center text-slate-400">Nenhum registro encontrado.</td>
+                          </tr>
+                        ) : feriasFiltradas.map((f, i) => {
+                          const diasVenc = calcDiasVencimento(f.data_vencimento);
+                          const isVencendo = diasVenc <= 90 && f.dias_saldo > 0;
+                          
+                          let statusColor = "bg-slate-100 text-slate-600";
+                          if(f.status === 'programadas') statusColor = "bg-blue-100 text-blue-700";
+                          if(f.status === 'concluidas') statusColor = "bg-green-100 text-green-700";
+                          if(f.status === 'pendente') statusColor = "bg-yellow-100 text-yellow-700";
+
+                          return (
+                            <tr key={f.id || i} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 font-bold text-gray-800">{f.funcionario_nome}</td>
+                              <td className="px-4 py-3 text-xs">
+                                {formatData(f.data_inicio_aquisitivo)} a {formatData(f.data_fim_aquisitivo)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-semibold ${isVencendo ? 'text-red-600' : ''}`}>
+                                    {formatData(f.data_vencimento)}
+                                  </span>
+                                  {isVencendo && <span className="flex h-2 w-2 rounded-full bg-red-500" title="Vence em breve"></span>}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-center">{f.dias_direito}</td>
+                              <td className="px-4 py-3 text-center">{f.dias_gozados}</td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`inline-flex items-center justify-center min-w-[30px] px-2 py-1 rounded font-bold text-xs ${f.dias_saldo > 0 ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  {f.dias_saldo}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
+                                  {f.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </main>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
