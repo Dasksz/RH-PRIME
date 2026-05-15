@@ -12,15 +12,15 @@ Crie 3 abas novas na sua planilha com os seguintes nomes EXATOS:
 - **A**: `funcionario_nome` (Ex: Joao da Silva)
 - **B**: `data_admissao` (Ex: 2024-01-15 - pode ficar vazio)
 - **C**: `data_desligamento` (Ex: 2024-05-10 - pode ficar vazio)
-- **D**: `tipo_movimentacao` (entrada ou saida)
+- **D**: `tipo_movimentacao` (entrada ou saida - minúsculo, obrigatório)
 - **E**: `motivo_saida` (voluntario ou involuntario - obrigatório se for saida, vazio se for entrada)
 - **F**: `mes_ref` (Ex: 2024-05)
 
 ### 3. Formato das Colunas (Aba "absenteismo")
 - **A**: `funcionario_nome` (Ex: Joao da Silva)
 - **B**: `mes_ref` (Ex: 2024-05)
-- **C**: `horas_previstas` (Ex: 220)
-- **D**: `horas_perdidas` (Ex: 8.5)
+- **C**: `horas_previstas` (Ex: 220 - número, pode ficar vazio se não souber)
+- **D**: `horas_perdidas` (Ex: 8.5 - número, pode ficar vazio)
 - **E**: `motivo` (Ex: Atestado)
 
 ### 4. Formato das Colunas (Aba "ferias")
@@ -94,8 +94,19 @@ function syncIndicadores() {
         if (val instanceof Date) {
           obj[field] = val.toISOString().split('T')[0];
         } else if (val === '' || val === null || val === undefined) {
-           obj[field] = null; // evita erro de constraint se a data estiver vazia
+           obj[field] = null; // Evita erros em dados nulos
+        } else if (typeof val === 'string' && val.trim() === '') {
+           obj[field] = null; // Evita erros em strings vazias com espaços
         } else {
+          // Prevenindo Constraint Checking errors:
+          if (config.tableName === 'rh_movimentacoes') {
+             if (field === 'tipo_movimentacao' && val) val = String(val).toLowerCase().trim();
+             if (field === 'motivo_saida' && val) val = String(val).toLowerCase().trim();
+          }
+          if (config.tableName === 'rh_absenteismo') {
+             if (field === 'horas_previstas' && isNaN(Number(val))) val = null;
+             if (field === 'horas_perdidas' && isNaN(Number(val))) val = null;
+          }
           obj[field] = val;
         }
       });
