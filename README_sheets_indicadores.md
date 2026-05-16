@@ -52,6 +52,12 @@ function formatarData(valor) {
     // O banco espera YYYY-MM-DD para colunas de data padrão, mas a aba EPI formata para DD/MM/YYYY. 
     // Para simplificar, usamos o formato YYYY-MM-DD para ser aceito universalmente pelas colunas tipo "date" do Supabase
     return `${y}-${m}-${d}`;
+  } else if (typeof valor === 'string') {
+    // Tenta converter string do formato DD/MM/YYYY para YYYY-MM-DD
+    const parts = valor.split('/');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
   }
   return valor ? valor.toString() : null;
 }
@@ -91,6 +97,7 @@ function upsertRecord(tableName, nameField, payload) {
         },
         payload: JSON.stringify(payload)
       });
+      console.log(`Atualizado registro de ${nomeValue} na tabela ${tableName}`);
     } else {
       // INSERT
       UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
@@ -103,9 +110,10 @@ function upsertRecord(tableName, nameField, payload) {
         },
         payload: JSON.stringify([payload])
       });
+      console.log(`Inserido novo registro de ${nomeValue} na tabela ${tableName}`);
     }
   } catch (error) {
-    console.error(`Erro ao sincronizar ${nomeValue} na tabela ${tableName}:`, error);
+    console.error(`Erro ao sincronizar ${nomeValue} na tabela ${tableName}: O payload era `, JSON.stringify(payload), ` | Erro: `, error.message);
   }
 }
 
@@ -124,6 +132,11 @@ function buildPayload(sheetName, rowData) {
         const m = (v.getMonth() + 1).toString().padStart(2, '0');
         const y = v.getFullYear();
         return `${d}/${m}/${y}`;
+      } else if (typeof v === 'string') {
+        const parts = v.split('/');
+        if (parts.length === 3) {
+            return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+        }
       }
       return v ? v.toString() : "";
     };
@@ -148,7 +161,8 @@ function buildPayload(sheetName, rowData) {
     config.fields.forEach((field, index) => {
       let val = rowData[index];
       
-      if (val instanceof Date) {
+      // Se for data ou uma string que se parece com data DD/MM/YYYY, formatamos com formatarData (que retorna YYYY-MM-DD)
+      if (val instanceof Date || (typeof val === 'string' && /\d{1,2}\/\d{1,2}\/\d{4}/.test(val))) {
         payload[field] = formatarData(val);
       } else if (val === '' || val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) {
          // Não enviamos a chave se o valor for nulo/vazio para evitar erros de not-null no Supabase
@@ -339,3 +353,51 @@ function doPost(e) {
    - Salve.
 
 Agora as 4 abas estão 100% integradas e sincronizadas para enviar e receber informações automaticamente!
+
+---
+
+## 📝 Guia de Preenchimento das Planilhas
+
+Para que o Front-End (Painel de Indicadores) funcione corretamente, os dados devem ser preenchidos exatamente nos padrões abaixo. Atenção especial para os campos `tipo_movimentacao` e `motivo_saida`, que **devem** seguir as palavras-chave exatas.
+
+### Aba: `movimentacoes`
+
+Colunas esperadas na linha 1: `funcionario_nome`, `data_admissao`, `data_desligamento`, `tipo_movimentacao`, `motivo_saida`, `mes_ref`
+
+**Regras:**
+* `tipo_movimentacao`: Preencher **apenas** com a palavra `entrada` ou `saida`
+* `motivo_saida` (Se for saída): Preencher **apenas** com a palavra `voluntario` (ex: pediu demissão) ou `involuntario` (ex: empresa demitiu)
+* `data_desligamento` e `motivo_saida`: Deixar **em branco** no caso de `entrada` (Admissão)
+* As datas podem ser preenchidas no formato **DD/MM/YYYY** (O sistema converterá automaticamente para o formato que o banco de dados aceita).
+
+| funcionario_nome | data_admissao | data_desligamento | tipo_movimentacao | motivo_saida | mes_ref |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| João da Silva | 15/01/2021 | 20/10/2023 | saida | voluntario | 10/2023 |
+| Maria Oliveira | 05/11/2023 | | entrada | | 11/2023 |
+| Carlos Souza | 10/05/2020 | 25/10/2023 | saida | involuntario | 10/2023 |
+
+---
+
+### Aba: `absenteismo`
+
+Colunas esperadas na linha 1: `funcionario_nome`, `mes_ref`, `horas_previstas`, `horas_perdidas`, `motivo`
+
+**Regras:**
+* `horas_previstas` e `horas_perdidas`: Devem ser números. Não insira texto junto com o número (como "h").
+
+| funcionario_nome | mes_ref | horas_previstas | horas_perdidas | motivo |
+| :--- | :--- | :--- | :--- | :--- |
+| João da Silva | 10/2023 | 220 | 8 | Atestado médico |
+| Maria Oliveira | 11/2023 | 220 | 0 | |
+| Carlos Souza | 11/2023 | 220 | 4.5 | Atraso justificado |
+
+---
+
+### Aba: `ferias`
+
+Colunas esperadas na linha 1: `funcionario_nome`, `data_inicio_aquisitivo`, `data_fim_aquisitivo`, `data_vencimento`, `dias_direito`, `dias_gozados`, `status`
+
+| funcionario_nome | data_inicio_aquisitivo | data_fim_aquisitivo | data_vencimento | dias_direito | dias_gozados | status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Carlos Souza | 10/03/2021 | 09/03/2022 | 09/03/2023 | 30 | 30 | Concluído |
+| Maria Oliveira | 05/11/2023 | 04/11/2024 | 04/11/2025 | 30 | 0 | Pendente |

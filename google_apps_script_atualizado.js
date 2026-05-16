@@ -13,6 +13,11 @@ function formatarData(valor) {
     const m = (valor.getMonth() + 1).toString().padStart(2, '0');
     const y = valor.getFullYear();
     return `${d}/${m}/${y}`;
+  } else if (typeof valor === 'string') {
+    const parts = valor.split('/');
+    if (parts.length === 3) {
+      return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+    }
   }
   return valor ? valor.toString() : "";
 }
