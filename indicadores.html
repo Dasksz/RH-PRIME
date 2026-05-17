@@ -266,15 +266,7 @@
             const mesesArray = Array.from(meses).sort().reverse();
             setMesesDisponiveis(mesesArray);
             
-            if (mesesArray.length > 0) {
-              // Pegar o mes mais recente
-              setMesFiltro(mesesArray[0]);
-            } else {
-              // Fallback pro mês atual
-              const now = new Date();
-              const mesAtual = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0');
-              setMesFiltro(mesAtual);
-            }
+            setMesFiltro("TODOS");
 
           } catch (error) {
             console.error("Erro ao carregar indicadores:", error);
@@ -290,8 +282,8 @@
 
         // Cálculos dos indicadores para o mês selecionado
         const kpis = useMemo(() => {
-          const movMes = movimentacoes.filter(m => m.mes_ref === mesFiltro);
-          const absMes = absenteismo.filter(a => a.mes_ref === mesFiltro);
+          const movMes = mesFiltro === "TODOS" ? movimentacoes : movimentacoes.filter(m => m.mes_ref === mesFiltro);
+          const absMes = mesFiltro === "TODOS" ? absenteismo : absenteismo.filter(a => a.mes_ref === mesFiltro);
 
           // Turnover
           // Aqui precisaríamos do número total de ativos. Como não temos uma tabela histórica de ativos fácil, 
@@ -414,10 +406,11 @@
                     value={mesFiltro}
                     onChange={(e) => setMesFiltro(e.target.value)}
                   >
+                    <option value="TODOS">Geral (Todos os Meses)</option>
                     {mesesDisponiveis.map(m => (
                       <option key={m} value={m}>{formatarMes(m)}</option>
                     ))}
-                    {mesesDisponiveis.length === 0 && <option value={mesFiltro}>{formatarMes(mesFiltro)}</option>}
+                    {mesesDisponiveis.length === 0 && mesFiltro !== "TODOS" && <option value={mesFiltro}>{formatarMes(mesFiltro)}</option>}
                   </select>
                 </div>
               </div>

@@ -238,6 +238,7 @@ function syncAllToSupabase() {
     if (data.length <= 1) return; // Só tem cabeçalho
     
     const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 13 : config.fields.length;
+    let nomesNaPlanilha = [];
     
     // Começa do índice 1 para pular o cabeçalho
     for (let i = 1; i < data.length; i++) {
@@ -247,14 +248,47 @@ function syncAllToSupabase() {
       const payload = buildPayload(sheetName, rowData);
       if (!payload || !payload[config.nameField]) continue; // Pula linhas vazias sem nome
       
+      nomesNaPlanilha.push(payload[config.nameField]);
       upsertRecord(config.tableName, config.nameField, payload);
       
       // Pequena pausa para não estourar os limites da API
       Utilities.sleep(100);
     }
+
+    // EXCLUSÃO: Busca no Supabase registros que não existem mais na planilha
+    if (nomesNaPlanilha.length > 0) {
+       try {
+         const response = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${config.tableName}?select=id,${config.nameField}`, {
+            method: "get",
+            headers: {
+              "apikey": SUPABASE_KEY,
+              "Authorization": `Bearer ${SUPABASE_KEY}`,
+              "Content-Type": "application/json"
+            }
+         });
+         const records = JSON.parse(response.getContentText());
+
+         records.forEach(record => {
+            const nameInDb = record[config.nameField];
+            if (!nomesNaPlanilha.includes(nameInDb)) {
+               // Deleta do Supabase
+               UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${config.tableName}?id=eq.${record.id}`, {
+                  method: "delete",
+                  headers: {
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": `Bearer ${SUPABASE_KEY}`
+                  }
+               });
+               console.log(`Removido registro órfão: ${nameInDb} da tabela ${config.tableName}`);
+            }
+         });
+       } catch (e) {
+         console.error("Erro na verificação de exclusão da tabela", config.tableName, e.message);
+       }
+    }
   });
   
-  SpreadsheetApp.getUi().alert("Sincronização completa de todas as abas finalizada com sucesso!");
+  SpreadsheetApp.getUi().alert("Sincronização completa (inserção, atualização e remoção) finalizada com sucesso!");
 }
 
 // ==========================================
@@ -401,3 +435,11 @@ Colunas esperadas na linha 1: `funcionario_nome`, `data_inicio_aquisitivo`, `dat
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | Carlos Souza | 10/03/2021 | 09/03/2022 | 09/03/2023 | 30 | 30 | Concluído |
 | Maria Oliveira | 05/11/2023 | 04/11/2024 | 04/11/2025 | 30 | 0 | Pendente |
+
+### Sincronizando Exclusões
+O Google Apps Script nativo (`onEdit`) não detecta quando você exclui uma linha inteira e a deleta do banco de dados na mesma hora.
+Se você precisar excluir linhas e quiser que isso reflita no painel:
+1. Apague a linha na aba do Google Sheets.
+2. Abra o editor de código do Apps Script.
+3. No topo, selecione a função **`syncAllToSupabase`** e clique em **Executar**.
+   - Isso fará uma varredura completa. Tudo o que está na planilha será atualizado, e o que estava no banco de dados mas "sumiu" da planilha será deletado automaticamente do sistema.
