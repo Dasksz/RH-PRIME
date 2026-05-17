@@ -348,9 +348,16 @@
 
         const formatarMes = (mesStr) => {
           if (!mesStr) return "";
-          const [ano, mes] = mesStr.split("-");
+          let ano, mes;
+          if (mesStr.includes("-")) {
+            [ano, mes] = mesStr.split("-");
+          } else if (mesStr.includes("/")) {
+            [mes, ano] = mesStr.split("/");
+          } else {
+            return mesStr; // fallback
+          }
           const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-          return `${meses[parseInt(mes) - 1]}/${ano}`;
+          return `${meses[parseInt(mes, 10) - 1]}/${ano}`;
         };
 
         return (
