@@ -197,16 +197,16 @@
       "parameters": {
         "resource": "Chatting",
         "operation": "Send Text",
-        "session": "={{ $json.body.session }}",
-        "chatId": "={{ $json.body.chatId }}",
+        "session": "default",
+        "chatId": "={{ $('Receber do Python').item.json.body.chatId }}",
         "text": "={{ $json.body.caption }}",
         "requestOptions": {}
       },
       "type": "n8n-nodes-waha.WAHA",
       "typeVersion": 202411,
       "position": [
-        -1968,
-        1264
+        -2100,
+        1152
       ],
       "id": "b65623db-8876-4b01-b5a0-847b094a10fb",
       "name": "Enviar Link Holerite WAHA",
@@ -215,7 +215,8 @@
           "id": "4fYhjZ68W0BhN58H",
           "name": "WAHA account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -238,6 +239,31 @@
           "name": "Redis account"
         }
       }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "default",
+        "chatId": "={{ $('Receber do Python').item.json.body.chatId.replace(/^(\\d{2})(\\d{8})@c\\.us$/, '$19$2@c.us') }}",
+        "text": "={{ $('Receber do Python').item.json.body.caption }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -1700,
+        1300
+      ],
+      "id": "fallback-enviar-waha-9-digit",
+      "name": "Fallback Link Holerite WAHA",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      },
+      "onError": "continueErrorOutput"
     }
   ],
   "pinData": {},
@@ -291,6 +317,18 @@
         [
           {
             "node": "Enviar Link Holerite WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Link Holerite WAHA": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fallback Link Holerite WAHA",
             "type": "main",
             "index": 0
           }

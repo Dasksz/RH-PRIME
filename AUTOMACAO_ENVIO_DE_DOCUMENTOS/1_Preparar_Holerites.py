@@ -77,7 +77,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 # ⚙️ CONFIGURAÇÕES DO GOOGLE DRIVE ⚙️
-ARQUIVO_CREDENCIAS = '../credenciais_drive.json' 
+ARQUIVO_CREDENCIAS = '../credenciais_drive.json'
 ARQUIVO_TOKEN = '../token.json'
 ID_PASTA_ATIVOS = "195JwYHEJdRY1u5DEL7tB7dSHn16DRVb4"
 ID_PASTA_EX_FUNCIONARIOS = "1v2Pt5YWqnW_bWRA9R7l6OQeMM7G_Tlrm"
@@ -119,7 +119,7 @@ def obter_ou_criar_pasta_funcionario(servico, nome_pasta, id_ativos, id_ex):
     res_ativos = servico.files().list(q=query_ativos, spaces='drive', fields='files(id, name)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
     itens_ativos = res_ativos.get('files', [])
     if itens_ativos: return itens_ativos[0].get('id')
-        
+
     print(f"   📂 A criar nova pasta: {nome_pasta} em ATIVOS...")
     metadados = {
         'name': nome_pasta,
@@ -133,7 +133,7 @@ def obter_ou_criar_pasta(servico, nome_pasta, id_pai):
     query = f"name='{nome_pasta}' and '{id_pai}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
     resultados = servico.files().list(q=query, spaces='drive', fields='files(id, name)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
     itens = resultados.get('files', [])
-    
+
     if not itens:
         print(f"   📂 A criar subpasta: {nome_pasta}...")
         metadados = {
@@ -176,7 +176,7 @@ def iniciar_envio():
         print(f"❌ Erro ao ler a planilha.")
         input("Pressione ENTER para sair...")
         return
-        
+
     df = pd.concat(df_list, ignore_index=True)
 
     # ==========================================================
@@ -207,7 +207,7 @@ def iniciar_envio():
     sucessos = 0
     erros = 0
     removidos = 0
-    
+
     # Contador para a pausa longa
     mensagens_enviadas_sessao = 0
 
@@ -229,7 +229,7 @@ def iniciar_envio():
             print(f"⏭️ PULO: O PDF de {nome} foi retirado da pasta.")
             removidos += 1
             continue
-            
+
         ja_processado = False
         if os.path.exists(caminho_log_temp):
             ja_processado = True
@@ -253,12 +253,12 @@ def iniciar_envio():
             continue
 
         print(f"A processar: {nome} [{tipo_func}]...")
-        
+
         try:
             # --- 1. NAVEGAR NAS PASTAS DO GOOGLE DRIVE COM INTELIGÊNCIA ---
             id_pasta_funcionario = obter_ou_criar_pasta_funcionario(servico_drive, nome, ID_PASTA_ATIVOS, ID_PASTA_EX_FUNCIONARIOS)
             id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_funcionario)
-            
+
             id_pasta_ano = obter_ou_criar_pasta(servico_drive, "{ano_competencia}", id_pasta_tipo)
             id_pasta_mes = obter_ou_criar_pasta(servico_drive, "{mes_competencia}.{ano_competencia}", id_pasta_ano)
 
@@ -269,7 +269,7 @@ def iniciar_envio():
 
             id_ficheiro = None
             link_pdf = None
-            
+
             # Procura exatamente o nosso arquivo na lista daquela pasta
             for arq in arquivos_na_pasta:
                 if arq.get('name') == nome_arquivo:
@@ -315,14 +315,14 @@ def iniciar_envio():
                     print("  ✅ Sucesso! Ficheiro guardado e Mensagem enviada para o n8n.")
                     sucessos += 1
                     mensagens_enviadas_sessao += 1
-                    
+
                     id_msg_whatsapp = "N/A"
                     try:
                         dados_resposta = resposta.json()
                         if isinstance(dados_resposta, list) and len(dados_resposta) > 0: id_msg_whatsapp = dados_resposta[0].get("id", "N/A")
                         elif isinstance(dados_resposta, dict): id_msg_whatsapp = dados_resposta.get("id", "N/A")
                     except: pass
-                    
+
                     # LOG COMPLETO DE WHATSAPP
                     try:
                         hash_pdf = hashlib.sha256()
@@ -349,32 +349,32 @@ def iniciar_envio():
                                         f"Resposta Bruta do Servidor: {resposta.text.strip()}\\n"
                                         f"=========================================\\n"
                                         f"Documento gerado automaticamente com rastreabilidade técnica.")
-                        
+
                         with open(caminho_log_temp, "w", encoding="utf-8") as f_log:
                             f_log.write(conteudo_log)
-                            
+
                         print("   📝 A guardar comprovante auditável no Drive...")
-                        
+
                         id_log_existente = None
                         for arq in arquivos_na_pasta:
                             if arq.get('name') == nome_arquivo_log:
                                 id_log_existente = arq.get('id')
                                 break
-                                
+
                         media_log = MediaFileUpload(caminho_log_temp, mimetype='text/plain')
                         if id_log_existente:
                             servico_drive.files().update(fileId=id_log_existente, media_body=media_log, supportsAllDrives=True).execute()
                         else:
                             metadados_log = {'name': nome_arquivo_log, 'parents': [id_pasta_mes]}
                             servico_drive.files().create(body=metadados_log, media_body=media_log, fields='id', supportsAllDrives=True).execute()
-                        
+
                     except Exception as err_log:
                         print(f"  ⚠️ Aviso: A mensagem foi enviada, mas falhou ao guardar o log no Drive: {err_log}")
                 else:
                     print(f"  ❌ O Drive funcionou, mas houve falha no n8n (Status: {resposta.status_code})")
                     erros += 1
                     with open("falhas_envio.txt", "a", encoding="utf-8") as f_falha: f_falha.write(nome_arquivo + "\\n")
-            
+
             else:
                 # É EX-FUNCIONARIO (Upload Silencioso)
                 sucessos += 1
@@ -396,7 +396,7 @@ def iniciar_envio():
                 # Pausa base maior
                 tempo_espera = random.randint(15, 25)
                 print(f"   ⏳ Pausa anti-bloqueio: aguardando {tempo_espera} segundos antes do próximo...")
-            
+
             time.sleep(tempo_espera)
 
     print("\\n=========================================================")
@@ -439,6 +439,11 @@ def extrair_cpf_do_texto(texto):
 def formatar_numero_whatsapp(numero_bruto):
     numero_limpo = re.sub(r'\D', '', str(numero_bruto))
     if not numero_limpo or numero_limpo == 'nan': return None
+
+    # Remove o 55 temporariamente caso já venha na string para padronizar a contagem
+    if numero_limpo.startswith('55') and len(numero_limpo) >= 12:
+        numero_limpo = numero_limpo[2:]
+
     if not numero_limpo.startswith('55'): numero_limpo = '55' + numero_limpo
     return f"{numero_limpo}@c.us"
 
@@ -446,7 +451,7 @@ def preparar_lote():
     print("=========================================================")
     print("  FASE 1: PREPARADOR DE DOCUMENTOS E MAPEAMENTO DE DADOS ")
     print("=========================================================\n")
-    
+
     # ==========================================================
     # MENU DE GESTÃO DE LOTES
     # ==========================================================
@@ -468,10 +473,10 @@ def preparar_lote():
     print("[2] INFORME DE RENDIMENTOS")
     print("[3] OUTRO (ex: AVISO DE FÉRIAS)")
     opcao_doc = input("👉 Escolha 1, 2 ou 3 (Padrão: 1): ").strip()
-    
+
     tipo_documento = "HOLERITE"
     paginas_por_funcionario = 1
-    
+
     if opcao_doc == '2':
         tipo_documento = "INFORME DE RENDIMENTOS"
         paginas_por_funcionario = 2
@@ -530,7 +535,7 @@ def preparar_lote():
             codigo_robo_final = CODIGO_ROBO_DISPARO.replace("{ano_competencia}", ano_lote).replace("{mes_competencia}", mes_lote).replace("{tipo_documento}", tipo_documento)
             with open(os.path.join(pasta_escolhida, "2_Enviar_WhatsApp.py"), "w", encoding="utf-8") as f:
                 f.write(codigo_robo_final)
-                
+
             print(f"\n✅ SUCESSO! A pasta '{pasta_escolhida}' foi atualizada.")
             input("\nPressione ENTER para sair...")
             return
@@ -561,11 +566,11 @@ def preparar_lote():
                 return
 
             print(f"\n📖 Lendo o relatório antigo: {caminho_relatorio_antigo}...")
-            
+
             print("🔐 Conectando ao Google Drive para a Prova Real...")
             servico_fase1 = autenticar_drive_fase1()
             print("🕵️ Auditando arquivos diretamente no Drive (Isso evita reenvios desnecessários)...")
-            
+
             arquivos_com_falha = []
             caminho_falhas = os.path.join(pasta_escolhida, "falhas_envio.txt")
             if os.path.exists(caminho_falhas):
@@ -587,16 +592,16 @@ def preparar_lote():
                     tipo = str(linha.get('Tipo', 'Ativo'))
                     arq_gerado = str(linha.get('Arquivo Gerado', ''))
                     pasta_local = str(linha.get('Pasta Local', 'PDFs_Separados'))
-                    
+
                     cpf_limpo = re.sub(r'\D', '', str(linha.get('CPF Completo', ''))).zfill(11)
                     chave = cpf_limpo if tipo == 'Ativo' else str(linha.get('Nome', ''))
-                    
+
                     # 1. Ativos sem WhatsApp na planilha original
                     falta_numero = (tipo == 'Ativo' and wpp in ['nan', 'none', '', 'null', '<na>'])
-                    
+
                     # 2. Arquivo listado explicitamente no falhas_envio.txt
                     falhou_registro = arq_gerado in arquivos_com_falha
-                    
+
                     # 3. Falta do arquivo físico de comprovante na pasta antiga (Local)
                     faltou_comprovante_local = False
                     if tipo == 'Ativo':
@@ -615,15 +620,15 @@ def preparar_lote():
                             except: pass
                         if not achou_ex:
                             faltou_comprovante_local = True
-                    
+
                     # Se localmente parece que falhou, tira a "Prova Real" no Drive
                     if falta_numero or falhou_registro or faltou_comprovante_local:
                         ja_esta_no_drive = False
-                        
+
                         if servico_fase1 and arq_gerado and str(arq_gerado) != 'nan':
                             nome_busca = f"COMPROVANTE - {arq_gerado.replace('.pdf', '.txt')}" if tipo == 'Ativo' else arq_gerado
                             nome_busca_escaped = nome_busca.replace("'", "\\'")
-                            
+
                             try:
                                 query_drive = f"name='{nome_busca_escaped}' and trashed=false"
                                 res_drive = servico_fase1.files().list(q=query_drive, spaces='drive', fields='files(id)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
@@ -631,13 +636,13 @@ def preparar_lote():
                                     ja_esta_no_drive = True
                             except:
                                 pass
-                        
+
                         if not ja_esta_no_drive:
                             chaves_pendentes.append(chave)
                         else:
                             print(f"   ✅ {linha.get('Nome', 'Funcionário')} já possui comprovante no Drive. Ignorando.")
 
-            chaves_pendentes = list(set(chaves_pendentes)) 
+            chaves_pendentes = list(set(chaves_pendentes))
             if not chaves_pendentes:
                 print("\n✅ Incrível! Todos os funcionários desse lote já tinham WhatsApp e foram enviados.")
                 input("Pressione ENTER para sair...")
@@ -652,18 +657,18 @@ def preparar_lote():
             return
 
     url_google_sheets = "https://docs.google.com/spreadsheets/d/1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg/export?format=csv"
-    
+
     arquivos_locais = [f for f in os.listdir('.') if os.path.isfile(f) and f.lower().endswith('.pdf')]
     if not arquivos_locais:
         print("❌ Erro: Nenhum PDF encontrado na pasta!")
         print("Coloque o PDF com todas as páginas aqui e rode novamente.")
         input("Pressione ENTER para sair...")
         return
-        
+
     arquivo_pdf_gigante = None
     palavra_chave = tipo_documento.split()[0].lower()
     pdfs_sugeridos = [f for f in arquivos_locais if palavra_chave in f.lower()]
-    
+
     if len(pdfs_sugeridos) == 1: arquivo_pdf_gigante = pdfs_sugeridos[0]
     elif len(arquivos_locais) == 1: arquivo_pdf_gigante = arquivos_locais[0]
     else:
@@ -680,10 +685,10 @@ def preparar_lote():
 
     mes_lote = ""
     ano_lote = ""
-    
+
     padrao_data = re.search(r'(\d{2})[_\-](\d{4})', arquivo_pdf_gigante)
     padrao_ano = re.search(r'(20\d{2})', arquivo_pdf_gigante)
-    
+
     if padrao_data:
         mes_lote = padrao_data.group(1)
         ano_lote = padrao_data.group(2)
@@ -709,14 +714,14 @@ def preparar_lote():
 
     prefixo_pasta = "Lote_Envio_" if tipo_documento == "HOLERITE" else "Lote_Informes_"
     nome_pasta_lote = datetime.now().strftime(f"{prefixo_pasta}%d-%m-%Y_%Hh%M")
-    
+
     pasta_pdfs_separados = os.path.join(nome_pasta_lote, "PDFs_Separados")
     pasta_pdfs_ex = os.path.join(nome_pasta_lote, "PDFs_Ex_Funcionarios")
     pasta_sem_dono = os.path.join(nome_pasta_lote, "PDFs_Sem_Dono")
-    
+
     os.makedirs(pasta_pdfs_separados, exist_ok=True)
     # AS PASTAS ABAIXO SÓ SERÃO CRIADAS SE FOREM NECESSÁRIAS DURANTE O LOOP!
-    # os.makedirs(pasta_pdfs_ex, exist_ok=True) 
+    # os.makedirs(pasta_pdfs_ex, exist_ok=True)
     # os.makedirs(pasta_sem_dono, exist_ok=True)
     print(f"📁 Pasta de Lote criada: {nome_pasta_lote}\n")
 
@@ -724,7 +729,7 @@ def preparar_lote():
     # Se o serviço já foi iniciado na Prova Real, não precisa autenticar de novo
     if 'servico_fase1' not in locals() or not servico_fase1:
         servico_fase1 = autenticar_drive_fase1()
-        
+
     pastas_ex_funcionarios = []
     if servico_fase1:
         pastas_ex_funcionarios = mapear_ex_funcionarios(servico_fase1, "1v2Pt5YWqnW_bWRA9R7l6OQeMM7G_Tlrm")
@@ -740,7 +745,7 @@ def preparar_lote():
         return
 
     print("🔍 A fatiar PDF e analisar páginas...\n")
-    
+
     encontrados = []
     nao_encontrados_pdf = []
     cpfs_achados_no_pdf = []
@@ -748,22 +753,22 @@ def preparar_lote():
     with pdfplumber.open(arquivo_pdf_gigante) as pdf_leitor:
         pdf_fatiador = PdfReader(arquivo_pdf_gigante)
         total_paginas = len(pdf_leitor.pages)
-        
+
         for i in range(0, total_paginas, paginas_por_funcionario):
             pagina_principal = pdf_leitor.pages[i]
             texto_pagina = pagina_principal.extract_text()
             if not texto_pagina: texto_pagina = ""
-            
+
             cpf_encontrado = extrair_cpf_do_texto(texto_pagina)
             texto_norm = normalizar_texto(texto_pagina)
-            
+
             funcionario = pd.DataFrame()
             is_ex = False
             nome_ex_encontrado = None
-            
+
             if cpf_encontrado:
                 funcionario = df[df['CPF_LIMPO'] == cpf_encontrado]
-            
+
             if funcionario.empty:
                 for index, linha in df.iterrows():
                     nome_planilha = str(linha['Nome Completo do Funcionário'])
@@ -773,7 +778,7 @@ def preparar_lote():
                             funcionario = df.iloc[[index]]
                             cpf_encontrado = str(linha['CPF_LIMPO'])
                             break
-                            
+
             # SE NÃO ACHOU NOS ATIVOS, PROCURA NOS EX-FUNCIONARIOS DO DRIVE
             if funcionario.empty:
                 for nome_ex in pastas_ex_funcionarios:
@@ -788,7 +793,7 @@ def preparar_lote():
                 os.makedirs(pasta_sem_dono, exist_ok=True) # Cria só se precisar!
                 nome_arquivo_sem_dono = f"{tipo_documento}_Pagina_{i + 1}_SemDono.pdf"
                 caminho_salvar_sem_dono = os.path.join(pasta_sem_dono, nome_arquivo_sem_dono)
-                
+
                 escritor_pdf_sd = PdfWriter()
                 for j in range(i, min(i + paginas_por_funcionario, total_paginas)):
                     escritor_pdf_sd.add_page(pdf_fatiador.pages[j])
@@ -803,9 +808,9 @@ def preparar_lote():
             # --- FILTRO DO MODO RECUPERAÇÃO ---
             if chaves_pendentes is not None:
                 if chave_rastreio not in chaves_pendentes:
-                    continue 
+                    continue
             # ----------------------------------
-                
+
             if is_ex:
                 nome = nome_ex_encontrado
                 whatsapp = ""
@@ -822,13 +827,13 @@ def preparar_lote():
                 pasta_local_relatorio = "PDFs_Separados"
                 tipo_func = "Ativo"
                 cpf_formatado = f"{cpf_encontrado[:3]}.{cpf_encontrado[3:6]}.{cpf_encontrado[6:9]}-{cpf_encontrado[9:]}"
-            
+
             if mes_lote and ano_lote:
                 if mes_lote == "ANUAL": nome_arquivo_pdf = f"{tipo_documento} - {nome} {ano_lote}.pdf"
                 else: nome_arquivo_pdf = f"{tipo_documento} - {nome} {mes_lote}-{ano_lote}.pdf"
             else:
                 nome_arquivo_pdf = f"{tipo_documento} - {nome}.pdf"
-            
+
             # --- NOVA INTELIGÊNCIA: VERIFICAÇÃO DIRETA NO DRIVE (LOTE NOVO) ---
             ja_esta_no_drive = False
             if opcao_modo == '1' and servico_fase1:
@@ -848,29 +853,29 @@ def preparar_lote():
                     cpfs_achados_no_pdf.append(chave_rastreio)
                 continue
             # ------------------------------------------------------------------
-            
+
             caminho_salvar = os.path.join(pasta_alvo, nome_arquivo_pdf)
-            
+
             escritor_pdf = PdfWriter()
             for j in range(i, min(i + paginas_por_funcionario, total_paginas)):
                 escritor_pdf.add_page(pdf_fatiador.pages[j])
-                
+
             # APLICAR SENHA AO PDF (Os 5 primeiros números do CPF)
             if cpf_encontrado and len(cpf_encontrado) >= 5:
                 senha_pdf = cpf_encontrado[:5]
                 escritor_pdf.encrypt(senha_pdf)
-                
+
             with open(caminho_salvar, "wb") as arquivo_saida:
                 escritor_pdf.write(arquivo_saida)
-                
+
             # NOVA MENSAGEM COM O STATUS VISUAL DO WHATSAPP!
             if is_ex:
                 wpp_status = "Ex-Funcionário"
             else:
                 wpp_status = "✅ Com WhatsApp" if whatsapp else "⚠️ SEM WHATSAPP NA PLANILHA"
-                
+
             print(f"✂️ Extraído e Protegido ({tipo_func}): {nome_arquivo_pdf} -> [{wpp_status}]")
-            
+
             if chave_rastreio not in cpfs_achados_no_pdf:
                 encontrados.append({
                     'Nome': nome,
@@ -904,15 +909,15 @@ def preparar_lote():
 
     caminho_excel = os.path.join(nome_pasta_lote, "Relatorio_Mapeamento.xlsx")
     df_todos_encontrados = pd.DataFrame(encontrados)
-    
+
     with pd.ExcelWriter(caminho_excel, engine='openpyxl') as writer:
         if not df_todos_encontrados.empty:
             df_ativos = df_todos_encontrados[df_todos_encontrados['Tipo'] == 'Ativo']
             df_ex = df_todos_encontrados[df_todos_encontrados['Tipo'] == 'Ex-Funcionario']
-            
+
             if not df_ativos.empty: df_ativos.to_excel(writer, sheet_name='Prontos para Envio', index=False)
             else: pd.DataFrame(columns=['Nome', 'CPF Completo', 'WhatsApp', 'Pasta Local', 'Tipo', 'Arquivo Gerado']).to_excel(writer, sheet_name='Prontos para Envio', index=False)
-            
+
             if not df_ex.empty: df_ex.to_excel(writer, sheet_name='Ex-Funcionarios', index=False)
         else:
             pd.DataFrame(columns=['Nome', 'CPF Completo', 'WhatsApp', 'Pasta Local', 'Tipo', 'Arquivo Gerado']).to_excel(writer, sheet_name='Prontos para Envio', index=False)
@@ -924,7 +929,7 @@ def preparar_lote():
 
     with open(os.path.join(nome_pasta_lote, "2_Enviar_WhatsApp.py"), "w", encoding="utf-8") as f:
         f.write(codigo_robo_final)
-        
+
     with open(os.path.join(nome_pasta_lote, "Disparar_Holerites.bat"), "w", encoding="utf-8") as f:
         f.write(CODIGO_BAT_DISPARO)
 
