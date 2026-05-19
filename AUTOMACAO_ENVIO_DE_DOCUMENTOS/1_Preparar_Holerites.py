@@ -388,13 +388,13 @@ def iniciar_envio():
 
         # --- SISTEMA ANTI-BLOQUEIO DO WHATSAPP (APENAS PARA ATIVOS E PROGRESSIVO) ---
         if tipo_func == 'Ativo':
-            if mensagens_enviadas_sessao > 0 and mensagens_enviadas_sessao % 5 == 0:
-                # Pausa longa a cada 5 mensagens
-                tempo_espera = random.randint(45, 90)
-                print(f"   ⏳ Pausa longa anti-bloqueio: aguardando {tempo_espera} segundos após 5 envios...")
+            if mensagens_enviadas_sessao > 0 and mensagens_enviadas_sessao % 4 == 0:
+                # Pausa bem mais longa e conservadora para não tomar shadowban
+                tempo_espera = random.randint(60, 120)
+                print(f"   ⏳ Pausa longa anti-bloqueio: aguardando {tempo_espera} segundos após 4 envios...")
             else:
-                # Pausa base maior
-                tempo_espera = random.randint(15, 25)
+                # Pausa base estendida imitando comportamento humano
+                tempo_espera = random.randint(25, 45)
                 print(f"   ⏳ Pausa anti-bloqueio: aguardando {tempo_espera} segundos antes do próximo...")
 
             time.sleep(tempo_espera)
