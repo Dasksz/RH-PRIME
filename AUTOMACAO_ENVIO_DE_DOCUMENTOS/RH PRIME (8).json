@@ -1,0 +1,314 @@
+{
+  "name": "RH PRIME",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "a0cc965f-b7e3-410c-89fa-ac527d012e10",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2192,
+        912
+      ],
+      "id": "c42f9ea8-5025-46f8-b684-1e014719210b",
+      "name": "Webhook",
+      "webhookId": "a0cc965f-b7e3-410c-89fa-ac527d012e10"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f7013d17-e595-4bce-9c6e-e819168e8ed5",
+              "name": "session",
+              "value": "={{ $json.body.session }}",
+              "type": "string"
+            },
+            {
+              "id": "15288603-6faf-4049-a37f-c427b29ae1f2",
+              "name": "chatid",
+              "value": "={{ String($json.body.payload.fromMe ? ($json.body.payload.to || $json.body.payload.from) : $json.body.payload.from) }}",
+              "type": "string"
+            },
+            {
+              "id": "43e55c64-a3df-413c-bd16-f6c610793b0e",
+              "name": "pushname",
+              "value": "={{ $json.body.payload._data.Info.PushName }}",
+              "type": "string"
+            },
+            {
+              "id": "2fb0f29b-1828-4e9a-9b45-3375f579c4ab",
+              "name": "payload_id",
+              "value": "={{ $json.body.payload.id }}",
+              "type": "string"
+            },
+            {
+              "id": "a2295d3d-87a7-48ca-b995-d27c3466c958",
+              "name": "event",
+              "value": "={{ $json.body.event }}",
+              "type": "string"
+            },
+            {
+              "id": "b8fd89d3-9639-41b0-be0d-1a9c1d185b24",
+              "name": "message",
+              "value": "={{ $json.body.payload.body }}",
+              "type": "string"
+            },
+            {
+              "id": "0896a014-f39e-4adb-b6a7-9420d029d5b6",
+              "name": "fromme",
+              "value": "={{ $json.body.payload.fromMe }}",
+              "type": "boolean"
+            },
+            {
+              "id": "f7f46cb7-d5f3-436d-87f0-843d09017fc5",
+              "name": "phone_number",
+              "value": "={{ '+' + $json.body.payload._data.Info.SenderAlt.split(/[:@]/)[0] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1968,
+        912
+      ],
+      "id": "4650f715-c84e-4dbc-8b18-4406091a8e92",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4a1a40a9-b494-433b-bb87-3ad2838adc5a",
+              "leftValue": "={{ $json.fromme }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "54f1dbbd-8929-4775-990b-5aeccef1abdf",
+              "leftValue": "={{ $json.message.toLowerCase() }}",
+              "rightValue": "atendimento finalizado",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1744,
+        912
+      ],
+      "id": "ce346d3c-a562-441e-b6ea-d63c5572338e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Seen",
+        "session": "={{ $('Edit Fields').item.json.session }}",
+        "chatId": "={{ $('Edit Fields').item.json.chatid }}",
+        "messageId": "={{ $('Edit Fields').item.json.payload_id }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -1360,
+        896
+      ],
+      "id": "1bcce7ab-dd9f-4cea-b881-da5d084cf1d3",
+      "name": "Send Seen1",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $('Edit Fields').item.json.session }}",
+        "chatId": "={{ $('Edit Fields').item.json.chatid }}",
+        "text": "={{ $('Limpar Mensagem IA1 Ajustado1').item.json.output_limpo }}",
+        "linkPreview": "",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -1120,
+        896
+      ],
+      "id": "59287eed-cdd0-4c7d-8bb8-34f78d94b8a1",
+      "name": "Send a text message",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "holerites",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "2c9f527c-8946-4668-8aed-cd28221c4a9d",
+      "name": "Receber do Python",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2192,
+        1264
+      ],
+      "webhookId": "36081825-c41e-4a82-87da-3b7f7f5b0288"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $json.body.session }}",
+        "chatId": "={{ $json.body.chatId }}",
+        "text": "={{ $json.body.caption }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -1968,
+        1264
+      ],
+      "id": "b65623db-8876-4b01-b5a0-847b094a10fb",
+      "name": "Enviar Link Holerite WAHA",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=chat_V83_{{ $('Edit Fields').item.json.chatid }}",
+        "sessionTTL": 1800,
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        -2176,
+        1104
+      ],
+      "id": "a3a9522d-b313-4170-b0e3-ccdc091cf5e6",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "redis": {
+          "id": "n9ZbwQC0bFIzr41K",
+          "name": "Redis account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send Seen1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Seen1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receber do Python": {
+      "main": [
+        [
+          {
+            "node": "Enviar Link Holerite WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "8febfdae-470e-457b-9c8c-e28538cc80ff",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "30ebc79fa17c8c247630f2c60a2ce65275ba18ea39202d11baafdeec3fac67f8"
+  },
+  "id": "w1XyKBuyrjpGS6Y9",
+  "tags": []
+}
