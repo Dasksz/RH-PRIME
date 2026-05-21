@@ -262,8 +262,7 @@
           "id": "4fYhjZ68W0BhN58H",
           "name": "WAHA account"
         }
-      },
-      "onError": "continueErrorOutput"
+      }
     }
   ],
   "pinData": {},
