@@ -266,15 +266,8 @@
             const mesesArray = Array.from(meses).sort().reverse();
             setMesesDisponiveis(mesesArray);
             
-            if (mesesArray.length > 0) {
-              // Pegar o mes mais recente
-              setMesFiltro(mesesArray[0]);
-            } else {
-              // Fallback pro mês atual
-              const now = new Date();
-              const mesAtual = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0');
-              setMesFiltro(mesAtual);
-            }
+            // Set default filter to "todos" as requested
+            setMesFiltro("todos");
 
           } catch (error) {
             console.error("Erro ao carregar indicadores:", error);
@@ -290,8 +283,8 @@
 
         // Cálculos dos indicadores para o mês selecionado
         const kpis = useMemo(() => {
-          const movMes = movimentacoes.filter(m => m.mes_ref === mesFiltro);
-          const absMes = absenteismo.filter(a => a.mes_ref === mesFiltro);
+          const movMes = mesFiltro === "todos" ? movimentacoes : movimentacoes.filter(m => m.mes_ref === mesFiltro);
+          const absMes = mesFiltro === "todos" ? absenteismo : absenteismo.filter(a => a.mes_ref === mesFiltro);
 
           // Turnover
           // Aqui precisaríamos do número total de ativos. Como não temos uma tabela histórica de ativos fácil, 
@@ -302,10 +295,10 @@
           // Para simplificar, como o usuário não detalhou a fórmula exata, faremos Turnover Total como a soma das saídas
           // ou uma fórmula simples de taxa de evasão se soubermos a base. Vamos mostrar valores absolutos e uma taxa simulada ou apenas focar nas métricas pedidas.
           
-          const entradas = movMes.filter(m => m.tipo_movimentacao === 'entrada').length;
-          const saidasTotal = movMes.filter(m => m.tipo_movimentacao === 'saida').length;
-          const saidasVol = movMes.filter(m => m.tipo_movimentacao === 'saida' && m.motivo_saida === 'voluntario').length;
-          const saidasInvol = movMes.filter(m => m.tipo_movimentacao === 'saida' && m.motivo_saida === 'involuntario').length;
+          const entradas = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'entrada').length;
+          const saidasTotal = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida').length;
+          const saidasVol = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida' && m.motivo_saida?.trim().toLowerCase() === 'voluntario').length;
+          const saidasInvol = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida' && m.motivo_saida?.trim().toLowerCase() === 'involuntario').length;
 
           // Absenteismo = Horas Perdidas / Horas Previstas
           const horasPrevistas = absMes.reduce((acc, curr) => acc + (curr.horas_previstas || 0), 0);
@@ -348,6 +341,7 @@
 
         const formatarMes = (mesStr) => {
           if (!mesStr) return "";
+          if (mesStr === "todos") return "Todos os Meses";
           let ano, mes;
           if (mesStr.includes("-")) {
             [ano, mes] = mesStr.split("-");
@@ -414,10 +408,11 @@
                     value={mesFiltro}
                     onChange={(e) => setMesFiltro(e.target.value)}
                   >
+                    <option value="todos">Todos os Meses</option>
                     {mesesDisponiveis.map(m => (
                       <option key={m} value={m}>{formatarMes(m)}</option>
                     ))}
-                    {mesesDisponiveis.length === 0 && <option value={mesFiltro}>{formatarMes(mesFiltro)}</option>}
+                    {mesesDisponiveis.length === 0 && mesFiltro !== "todos" && <option value={mesFiltro}>{formatarMes(mesFiltro)}</option>}
                   </select>
                 </div>
               </div>
