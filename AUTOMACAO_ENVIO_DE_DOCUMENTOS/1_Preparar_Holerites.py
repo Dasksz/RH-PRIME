@@ -439,6 +439,11 @@ def extrair_cpf_do_texto(texto):
 def formatar_numero_whatsapp(numero_bruto):
     numero_limpo = re.sub(r'\D', '', str(numero_bruto))
     if not numero_limpo or numero_limpo == 'nan': return None
+    
+    # Remove o 55 temporariamente caso já venha na string para padronizar a contagem
+    if numero_limpo.startswith('55') and len(numero_limpo) >= 12:
+        numero_limpo = numero_limpo[2:]
+        
     if not numero_limpo.startswith('55'): numero_limpo = '55' + numero_limpo
     return f"{numero_limpo}@c.us"
 
