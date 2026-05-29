@@ -314,8 +314,10 @@ def iniciar_envio():
                 else:
                     texto_referencia = "referente a {mes_competencia}.{ano_competencia}"
 
+                artigo_pronome = "A sua" if TIPO_DOCUMENTO == "FOLHA DE PONTO" else "O seu"
+
                 mensagem = (f"Olá, *{nome}*!\\n\\n"
-                            f"Aqui é do Setor de RH. O seu {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\\n\\n"
+                            f"Aqui é do Setor de RH. {artigo_pronome} {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\\n\\n"
                             f"🔒 *DOCUMENTO PROTEGIDO*\\n"
                             f"Para garantir a sua privacidade (LGPD), o ficheiro possui uma senha.\\n"
                             f"👉 A senha são os *5 PRIMEIROS NÚMEROS DO SEU CPF* (Apenas os números).\\n\\n"
