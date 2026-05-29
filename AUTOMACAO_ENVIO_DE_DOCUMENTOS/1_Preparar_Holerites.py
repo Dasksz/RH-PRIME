@@ -256,8 +256,18 @@ def iniciar_envio():
 
         try:
             # --- 1. NAVEGAR NAS PASTAS DO GOOGLE DRIVE COM INTELIGÊNCIA ---
-            id_pasta_funcionario = obter_ou_criar_pasta_funcionario(servico_drive, nome, ID_PASTA_ATIVOS, ID_PASTA_EX_FUNCIONARIOS)
-            id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_funcionario)
+
+            # Normalizar o nome do funcionário para procurar sem acentos no Drive
+            import unicodedata
+            nome_normalizado = ''.join(c for c in unicodedata.normalize('NFD', nome) if unicodedata.category(c) != 'Mn')
+
+            id_pasta_funcionario = obter_ou_criar_pasta_funcionario(servico_drive, nome_normalizado, ID_PASTA_ATIVOS, ID_PASTA_EX_FUNCIONARIOS)
+
+            if TIPO_DOCUMENTO == "FOLHA DE PONTO":
+                id_pasta_jornada = obter_ou_criar_pasta(servico_drive, "JORNADA E SEGURANÇA", id_pasta_funcionario)
+                id_pasta_tipo = obter_ou_criar_pasta(servico_drive, "FOLHA DE PONTO", id_pasta_jornada)
+            else:
+                id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_funcionario)
 
             id_pasta_ano = obter_ou_criar_pasta(servico_drive, "{ano_competencia}", id_pasta_tipo)
             id_pasta_mes = obter_ou_criar_pasta(servico_drive, "{mes_competencia}.{ano_competencia}", id_pasta_ano)
@@ -476,8 +486,9 @@ def preparar_lote():
     print("📋 QUAL O TIPO DE DOCUMENTO NESTE LOTE?")
     print("[1] HOLERITE")
     print("[2] INFORME DE RENDIMENTOS")
-    print("[3] OUTRO (ex: AVISO DE FÉRIAS)")
-    opcao_doc = input("👉 Escolha 1, 2 ou 3 (Padrão: 1): ").strip()
+    print("[3] FOLHA DE PONTO")
+    print("[4] OUTRO (ex: AVISO DE FÉRIAS)")
+    opcao_doc = input("👉 Escolha 1, 2, 3 ou 4 (Padrão: 1): ").strip()
 
     tipo_documento = "HOLERITE"
     paginas_por_funcionario = 1
@@ -486,6 +497,9 @@ def preparar_lote():
         tipo_documento = "INFORME DE RENDIMENTOS"
         paginas_por_funcionario = 2
     elif opcao_doc == '3':
+        tipo_documento = "FOLHA DE PONTO"
+        paginas_por_funcionario = 1
+    elif opcao_doc == '4':
         tipo_documento = input("👉 Digite o nome do documento (ex: RECIBO DE FERIAS): ").strip().upper()
 
     print("\n---------------------------------------------------------")
@@ -771,10 +785,9 @@ def preparar_lote():
             is_ex = False
             nome_ex_encontrado = None
 
-            if cpf_encontrado:
-                funcionario = df[df['CPF_LIMPO'] == cpf_encontrado]
-
-            if funcionario.empty:
+            # Priorizar busca por nome primeiro se for FOLHA DE PONTO,
+            # já que pode não ter CPF ou a formatação estar confusa
+            if tipo_documento == "FOLHA DE PONTO":
                 for index, linha in df.iterrows():
                     nome_planilha = str(linha['Nome Completo do Funcionário'])
                     if nome_planilha != 'nan' and nome_planilha.strip() != '':
@@ -783,6 +796,22 @@ def preparar_lote():
                             funcionario = df.iloc[[index]]
                             cpf_encontrado = str(linha['CPF_LIMPO'])
                             break
+                # Se não achar por nome, tenta por CPF (mesmo sendo folha de ponto)
+                if funcionario.empty and cpf_encontrado:
+                    funcionario = df[df['CPF_LIMPO'] == cpf_encontrado]
+            else:
+                if cpf_encontrado:
+                    funcionario = df[df['CPF_LIMPO'] == cpf_encontrado]
+
+                if funcionario.empty:
+                    for index, linha in df.iterrows():
+                        nome_planilha = str(linha['Nome Completo do Funcionário'])
+                        if nome_planilha != 'nan' and nome_planilha.strip() != '':
+                            nome_norm = normalizar_texto(nome_planilha)
+                            if nome_norm and len(nome_norm) > 5 and nome_norm in texto_norm:
+                                funcionario = df.iloc[[index]]
+                                cpf_encontrado = str(linha['CPF_LIMPO'])
+                                break
 
             # SE NÃO ACHOU NOS ATIVOS, PROCURA NOS EX-FUNCIONARIOS DO DRIVE
             if funcionario.empty:
@@ -833,11 +862,14 @@ def preparar_lote():
                 tipo_func = "Ativo"
                 cpf_formatado = f"{cpf_encontrado[:3]}.{cpf_encontrado[3:6]}.{cpf_encontrado[6:9]}-{cpf_encontrado[9:]}"
 
+            # Normalizar nome para gerar PDF sem acentos, facilitando buscas no Drive
+            nome_pdf_limpo = ''.join(c for c in unicodedata.normalize('NFD', nome) if unicodedata.category(c) != 'Mn')
+
             if mes_lote and ano_lote:
-                if mes_lote == "ANUAL": nome_arquivo_pdf = f"{tipo_documento} - {nome} {ano_lote}.pdf"
-                else: nome_arquivo_pdf = f"{tipo_documento} - {nome} {mes_lote}-{ano_lote}.pdf"
+                if mes_lote == "ANUAL": nome_arquivo_pdf = f"{tipo_documento} - {nome_pdf_limpo} {ano_lote}.pdf"
+                else: nome_arquivo_pdf = f"{tipo_documento} - {nome_pdf_limpo} {mes_lote}-{ano_lote}.pdf"
             else:
-                nome_arquivo_pdf = f"{tipo_documento} - {nome}.pdf"
+                nome_arquivo_pdf = f"{tipo_documento} - {nome_pdf_limpo}.pdf"
 
             # --- NOVA INTELIGÊNCIA: VERIFICAÇÃO DIRETA NO DRIVE (LOTE NOVO) ---
             ja_esta_no_drive = False
