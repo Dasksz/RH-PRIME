@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PRIME RH - Controle de Férias</title>
-    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg">
+    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg" />
 
     <!-- Carregando Tailwind CSS para o Design -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -208,11 +208,21 @@
         const [isAuthChecking, setIsAuthChecking] = useState(true);
         const [ferias, setFerias] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
-        
+
         // Navegação mobile
         const [menuOpen, setMenuOpen] = useState(false);
         const [filtroStatus, setFiltroStatus] = useState("todos");
         const [searchTerm, setSearchTerm] = useState("");
+
+        // Estado para Programação de Férias
+        const [modalOpen, setModalOpen] = useState(false);
+        const [feriasSelecionada, setFeriasSelecionada] = useState(null);
+        const [dataInicioProg, setDataInicioProg] = useState("");
+        const [diasProg, setDiasProg] = useState("");
+        const [dataFimProg, setDataFimProg] = useState("");
+        const [dataRetornoCalc, setDataRetornoCalc] = useState("");
+        const [erroProg, setErroProg] = useState("");
+        const [isSaving, setIsSaving] = useState(false);
 
         useEffect(() => {
           checkSession();
@@ -220,14 +230,17 @@
 
         const checkSession = async () => {
           try {
-            const { data: { session }, error } = await supabase.auth.getSession();
+            const {
+              data: { session },
+              error,
+            } = await supabase.auth.getSession();
             if (error) throw error;
-            
+
             if (!session) {
               window.location.href = "login.html";
               return;
             }
-            
+
             setSession(session);
 
             const { data: profile } = await supabase
@@ -252,7 +265,10 @@
         const loadData = async () => {
           setIsLoading(true);
           try {
-            const { data } = await supabase.from("rh_ferias").select("*").order("data_vencimento", { ascending: true });
+            const { data } = await supabase
+              .from("rh_ferias")
+              .select("*")
+              .order("data_vencimento", { ascending: true });
             setFerias(data || []);
           } catch (error) {
             console.error("Erro ao carregar ferias:", error);
@@ -283,15 +299,139 @@
           return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         };
 
-        const feriasFiltradas = ferias.filter(f => {
-          const matchTerm = f.funcionario_nome.toLowerCase().includes(searchTerm.toLowerCase());
-          const matchStatus = filtroStatus === "todos" || f.status === filtroStatus;
+        const calcularDataRetorno = (dataInicioStr, quantidadeDias) => {
+          if (!dataInicioStr || !quantidadeDias || isNaN(quantidadeDias))
+            return null;
+
+          let dias = parseInt(quantidadeDias);
+          let dataAtual = new Date(dataInicioStr + "T00:00:00");
+          let dataFim = new Date(dataInicioStr + "T00:00:00");
+          dataFim.setDate(dataFim.getDate() + dias - 1);
+
+          let dataRetorno = new Date(dataFim);
+          dataRetorno.setDate(dataRetorno.getDate() + 1);
+
+          // Se o retorno cair no sabado, passa pra segunda
+          if (dataRetorno.getDay() === 6) {
+            dataRetorno.setDate(dataRetorno.getDate() + 2);
+          }
+          // Se cair no domingo, passa pra segunda
+          else if (dataRetorno.getDay() === 0) {
+            dataRetorno.setDate(dataRetorno.getDate() + 1);
+          }
+
+          return {
+            fim: dataFim.toISOString().split("T")[0],
+            retorno: dataRetorno.toISOString().split("T")[0],
+          };
+        };
+
+        useEffect(() => {
+          if (dataInicioProg && diasProg) {
+            // Validaçoes
+            const dateObj = new Date(dataInicioProg + "T00:00:00");
+            const dayOfWeek = dateObj.getDay();
+
+            // Quinta(4), Sexta(5), Sabado(6), Domingo(0) não pode iniciar
+            if (
+              dayOfWeek === 4 ||
+              dayOfWeek === 5 ||
+              dayOfWeek === 6 ||
+              dayOfWeek === 0
+            ) {
+              setErroProg(
+                "As férias não podem iniciar na quinta, sexta, sábado ou domingo.",
+              );
+              setDataFimProg("");
+              setDataRetornoCalc("");
+            } else if (
+              parseInt(diasProg) > (feriasSelecionada?.dias_saldo || 0)
+            ) {
+              setErroProg(
+                `A quantidade de dias não pode ser maior que o saldo (${feriasSelecionada?.dias_saldo} dias).`,
+              );
+              setDataFimProg("");
+              setDataRetornoCalc("");
+            } else if (parseInt(diasProg) <= 0) {
+              setErroProg("A quantidade de dias deve ser maior que zero.");
+              setDataFimProg("");
+              setDataRetornoCalc("");
+            } else {
+              setErroProg("");
+              const result = calcularDataRetorno(dataInicioProg, diasProg);
+              if (result) {
+                setDataFimProg(result.fim);
+                setDataRetornoCalc(result.retorno);
+              }
+            }
+          } else {
+            setDataFimProg("");
+            setDataRetornoCalc("");
+            setErroProg("");
+          }
+        }, [dataInicioProg, diasProg]);
+
+        const handleSalvarProgramacao = async () => {
+          if (erroProg || !dataInicioProg || !diasProg || !dataRetornoCalc) {
+            alert("Corrija os erros antes de salvar.");
+            return;
+          }
+          setIsSaving(true);
+          try {
+            const { error } = await supabase
+              .from("rh_ferias")
+              .update({
+                status: "programadas",
+                data_inicio_programada: dataInicioProg,
+                dias_programados: parseInt(diasProg),
+                data_fim_programada: dataFimProg,
+                data_retorno: dataRetornoCalc,
+              })
+              .eq("id", feriasSelecionada.id);
+
+            if (error) throw error;
+
+            setModalOpen(false);
+            setFeriasSelecionada(null);
+            setDataInicioProg("");
+            setDiasProg("");
+            loadData();
+          } catch (err) {
+            console.error("Erro ao salvar:", err);
+            alert("Erro ao salvar programação.");
+          } finally {
+            setIsSaving(false);
+          }
+        };
+
+        const feriasFiltradas = ferias.filter((f) => {
+          const matchTerm = f.funcionario_nome
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase());
+
+          let matchStatus = false;
+          if (filtroStatus === "todos") {
+            matchStatus = true;
+          } else if (filtroStatus === "pendente") {
+            matchStatus = f.dias_saldo > 0 && f.status !== "programadas";
+          } else if (filtroStatus === "programadas") {
+            matchStatus = f.status === "programadas";
+          } else if (filtroStatus === "concluidas") {
+            matchStatus = f.dias_gozados > 0;
+          }
+
           return matchTerm && matchStatus;
         });
 
         // Estatisticas
-        const statVencendo = ferias.filter(f => calcDiasVencimento(f.data_vencimento) <= 90 && f.dias_saldo > 0).length;
-        const statSaldoTotal = ferias.reduce((acc, curr) => acc + (curr.dias_saldo || 0), 0);
+        const statVencendo = ferias.filter(
+          (f) =>
+            calcDiasVencimento(f.data_vencimento) <= 90 && f.dias_saldo > 0,
+        ).length;
+        const statSaldoTotal = ferias.reduce(
+          (acc, curr) => acc + (curr.dias_saldo || 0),
+          0,
+        );
 
         if (isAuthChecking) {
           return (
@@ -308,56 +448,117 @@
                 <div className="flex items-center gap-3">
                   <Shield size={28} className="text-[#E30613]" />
                   <div>
-                    <h1 className="text-xl font-extrabold tracking-tight leading-none">PRIME RH</h1>
-                    <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">Controle de Férias</p>
+                    <h1 className="text-xl font-extrabold tracking-tight leading-none">
+                      PRIME RH
+                    </h1>
+                    <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">
+                      Controle de Férias
+                    </p>
                   </div>
                 </div>
-                
-                <button className="md:hidden p-2 text-white" onClick={() => setMenuOpen(!menuOpen)}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+
+                <button
+                  className="md:hidden p-2 text-white"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                >
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M4 6h16M4 12h16M4 18h16"></path>
+                  </svg>
                 </button>
 
                 <nav className="hidden md:flex items-center gap-6">
-                  <a href="index.html" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">EPI/Fardamento</a>
-                  <span className="text-sm font-bold text-white border-b-2 border-[#E30613] pb-1">Férias</span>
-                  <a href="indicadores.html" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Indicadores</a>
-                  <button onClick={handleLogout} className="flex items-center gap-2 text-red-300 hover:text-white ml-4 text-sm font-medium">Sair</button>
+                  <a
+                    href="index.html"
+                    className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+                  >
+                    EPI/Fardamento
+                  </a>
+                  <span className="text-sm font-bold text-white border-b-2 border-[#E30613] pb-1">
+                    Férias
+                  </span>
+                  <a
+                    href="indicadores.html"
+                    className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+                  >
+                    Indicadores
+                  </a>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-red-300 hover:text-white ml-4 text-sm font-medium"
+                  >
+                    Sair
+                  </button>
                 </nav>
               </div>
 
               {menuOpen && (
                 <nav className="md:hidden bg-[#001848] px-5 py-3 flex flex-col gap-3">
-                  <a href="index.html" className="text-sm font-medium text-slate-300">EPI/Fardamento</a>
-                  <span className="text-sm font-bold text-white">Controle de Férias</span>
-                  <a href="indicadores.html" className="text-sm font-medium text-slate-300">Indicadores de RH</a>
-                  <hr className="border-slate-700 my-1"/>
-                  <button onClick={handleLogout} className="text-sm font-medium text-red-300 text-left">Sair do Sistema</button>
+                  <a
+                    href="index.html"
+                    className="text-sm font-medium text-slate-300"
+                  >
+                    EPI/Fardamento
+                  </a>
+                  <span className="text-sm font-bold text-white">
+                    Controle de Férias
+                  </span>
+                  <a
+                    href="indicadores.html"
+                    className="text-sm font-medium text-slate-300"
+                  >
+                    Indicadores de RH
+                  </a>
+                  <hr className="border-slate-700 my-1" />
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm font-medium text-red-300 text-left"
+                  >
+                    Sair do Sistema
+                  </button>
                 </nav>
               )}
             </header>
 
             <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
-              
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-800">Calendário e Saldos</h2>
-                  <p className="text-slate-500 text-sm">Acompanhe férias a vencer e saldos de dias pendentes.</p>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Calendário e Saldos
+                  </h2>
+                  <p className="text-slate-500 text-sm">
+                    Acompanhe férias a vencer e saldos de dias pendentes.
+                  </p>
                 </div>
 
                 <div className="flex gap-4 w-full md:w-auto">
                   <div className="bg-orange-50 border border-orange-200 px-4 py-2 rounded-xl flex items-center gap-3">
-                    <AlertCircle size={20} className="text-orange-500"/>
+                    <AlertCircle size={20} className="text-orange-500" />
                     <div>
-                      <p className="text-[10px] font-bold text-orange-600 uppercase">Vencendo (90 dias)</p>
-                      <p className="text-lg font-black text-orange-700 leading-none">{statVencendo}</p>
+                      <p className="text-[10px] font-bold text-orange-600 uppercase">
+                        Vencendo (90 dias)
+                      </p>
+                      <p className="text-lg font-black text-orange-700 leading-none">
+                        {statVencendo}
+                      </p>
                     </div>
                   </div>
-                  
+
                   <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl flex items-center gap-3">
-                    <Activity size={20} className="text-blue-500"/>
+                    <Activity size={20} className="text-blue-500" />
                     <div>
-                      <p className="text-[10px] font-bold text-blue-600 uppercase">Total Dias (Passivo)</p>
-                      <p className="text-lg font-black text-blue-700 leading-none">{statSaldoTotal}</p>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase">
+                        Total Dias (Passivo)
+                      </p>
+                      <p className="text-lg font-black text-blue-700 leading-none">
+                        {statSaldoTotal}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -365,12 +566,14 @@
 
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center">
-                  
                   <div className="relative w-full md:w-96">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="text" 
-                      placeholder="Buscar colaborador..." 
+                    <Search
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      size={18}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Buscar colaborador..."
                       className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -378,17 +581,18 @@
                   </div>
 
                   <div className="flex w-full md:w-auto bg-slate-200 p-1 rounded-lg">
-                    {["todos", "pendente", "programadas", "concluidas"].map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => setFiltroStatus(status)}
-                        className={`flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-colors ${filtroStatus === status ? "bg-white text-[#002060] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                      >
-                        {status}
-                      </button>
-                    ))}
+                    {["todos", "pendente", "programadas", "concluidas"].map(
+                      (status) => (
+                        <button
+                          key={status}
+                          onClick={() => setFiltroStatus(status)}
+                          className={`flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-colors ${filtroStatus === status ? "bg-white text-[#002060] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                        >
+                          {status}
+                        </button>
+                      ),
+                    )}
                   </div>
-
                 </div>
 
                 <div className="overflow-x-auto">
@@ -403,61 +607,228 @@
                           <th className="px-4 py-3">Colaborador</th>
                           <th className="px-4 py-3">Período Aquisitivo</th>
                           <th className="px-4 py-3">Vencimento</th>
-                          <th className="px-4 py-3 text-center">Dias Direito</th>
+                          <th className="px-4 py-3 text-center">
+                            Dias Direito
+                          </th>
                           <th className="px-4 py-3 text-center">Gozados</th>
                           <th className="px-4 py-3 text-center">Saldo</th>
                           <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-center">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {feriasFiltradas.length === 0 ? (
                           <tr>
-                            <td colSpan="7" className="px-4 py-8 text-center text-slate-400">Nenhum registro encontrado.</td>
+                            <td
+                              colSpan="7"
+                              className="px-4 py-8 text-center text-slate-400"
+                            >
+                              Nenhum registro encontrado.
+                            </td>
                           </tr>
-                        ) : feriasFiltradas.map((f, i) => {
-                          const diasVenc = calcDiasVencimento(f.data_vencimento);
-                          const isVencendo = diasVenc <= 90 && f.dias_saldo > 0;
-                          
-                          let statusColor = "bg-slate-100 text-slate-600";
-                          if(f.status === 'programadas') statusColor = "bg-blue-100 text-blue-700";
-                          if(f.status === 'concluidas') statusColor = "bg-green-100 text-green-700";
-                          if(f.status === 'pendente') statusColor = "bg-yellow-100 text-yellow-700";
+                        ) : (
+                          feriasFiltradas.map((f, i) => {
+                            const diasVenc = calcDiasVencimento(
+                              f.data_vencimento,
+                            );
+                            const isVencendo =
+                              diasVenc <= 90 && f.dias_saldo > 0;
 
-                          return (
-                            <tr key={f.id || i} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3 font-bold text-gray-800">{f.funcionario_nome}</td>
-                              <td className="px-4 py-3 text-xs">
-                                {formatData(f.data_inicio_aquisitivo)} a {formatData(f.data_fim_aquisitivo)}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  <span className={`font-semibold ${isVencendo ? 'text-red-600' : ''}`}>
-                                    {formatData(f.data_vencimento)}
+                            let statusColor = "bg-slate-100 text-slate-600";
+                            if (f.status === "programadas")
+                              statusColor = "bg-blue-100 text-blue-700";
+                            if (f.status === "concluidas")
+                              statusColor = "bg-green-100 text-green-700";
+                            if (f.status === "pendente")
+                              statusColor = "bg-yellow-100 text-yellow-700";
+
+                            return (
+                              <tr
+                                key={f.id || i}
+                                className="hover:bg-slate-50 transition-colors"
+                              >
+                                <td className="px-4 py-3 font-bold text-gray-800">
+                                  {f.funcionario_nome}
+                                </td>
+                                <td className="px-4 py-3 text-xs">
+                                  {formatData(f.data_inicio_aquisitivo)} a{" "}
+                                  {formatData(f.data_fim_aquisitivo)}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`font-semibold ${isVencendo ? "text-red-600" : ""}`}
+                                    >
+                                      {formatData(f.data_vencimento)}
+                                    </span>
+                                    {isVencendo && (
+                                      <span
+                                        className="flex h-2 w-2 rounded-full bg-red-500"
+                                        title="Vence em breve"
+                                      ></span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {f.dias_direito}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {f.dias_gozados}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span
+                                    className={`inline-flex items-center justify-center min-w-[30px] px-2 py-1 rounded font-bold text-xs ${f.dias_saldo > 0 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}
+                                  >
+                                    {f.dias_saldo}
                                   </span>
-                                  {isVencendo && <span className="flex h-2 w-2 rounded-full bg-red-500" title="Vence em breve"></span>}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-center">{f.dias_direito}</td>
-                              <td className="px-4 py-3 text-center">{f.dias_gozados}</td>
-                              <td className="px-4 py-3 text-center">
-                                <span className={`inline-flex items-center justify-center min-w-[30px] px-2 py-1 rounded font-bold text-xs ${f.dias_saldo > 0 ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
-                                  {f.dias_saldo}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
-                                  {f.status}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col items-start gap-1">
+                                    <span
+                                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}
+                                    >
+                                      {f.status}
+                                    </span>
+                                    {f.status === "programadas" &&
+                                      f.data_inicio_programada && (
+                                        <span className="text-[10px] text-slate-500 font-medium">
+                                          {formatData(f.data_inicio_programada)}{" "}
+                                          a {formatData(f.data_fim_programada)}{" "}
+                                          ({f.dias_programados}d)
+                                        </span>
+                                      )}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {f.dias_saldo > 0 &&
+                                    f.status !== "programadas" && (
+                                      <button
+                                        onClick={() => {
+                                          setFeriasSelecionada(f);
+                                          setDataInicioProg("");
+                                          setDiasProg("");
+                                          setModalOpen(true);
+                                        }}
+                                        className="inline-flex items-center gap-1 bg-[#002060] text-white px-2 py-1.5 rounded text-xs font-medium hover:bg-blue-800 transition-colors"
+                                      >
+                                        <Calendar size={14} />
+                                        Programar
+                                      </button>
+                                    )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   )}
                 </div>
               </div>
             </main>
+
+            {modalOpen && feriasSelecionada && (
+              <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <Calendar size={20} />
+                      Programar Férias
+                    </h3>
+                    <button
+                      onClick={() => setModalOpen(false)}
+                      className="text-white/80 hover:text-white"
+                    >
+                      <XCircle size={24} />
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">
+                        {feriasSelecionada.funcionario_nome}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Saldo disponível:{" "}
+                        <span className="font-bold text-blue-600">
+                          {feriasSelecionada.dias_saldo} dias
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          Data Início
+                        </label>
+                        <input
+                          type="date"
+                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={dataInicioProg}
+                          onChange={(e) => setDataInicioProg(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          Qtd. Dias
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={diasProg}
+                          onChange={(e) => setDiasProg(e.target.value)}
+                          min="1"
+                          max={feriasSelecionada.dias_saldo}
+                        />
+                      </div>
+                    </div>
+
+                    {erroProg && (
+                      <div className="bg-red-50 text-red-700 text-xs p-2.5 rounded-lg border border-red-200 flex items-start gap-2">
+                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                        <span>{erroProg}</span>
+                      </div>
+                    )}
+
+                    {dataRetornoCalc && !erroProg && (
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 space-y-1">
+                        <p className="text-xs text-slate-600">
+                          Período: <strong>{formatData(dataInicioProg)}</strong>{" "}
+                          a <strong>{formatData(dataFimProg)}</strong>
+                        </p>
+                        <p className="text-sm text-blue-800">
+                          Retorno ao trabalho:{" "}
+                          <strong>{formatData(dataRetornoCalc)}</strong>
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+                      <button
+                        onClick={() => setModalOpen(false)}
+                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSalvarProgramacao}
+                        disabled={
+                          !!erroProg || !dataInicioProg || !diasProg || isSaving
+                        }
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2"
+                      >
+                        {isSaving ? (
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        ) : (
+                          <CheckCircle2 size={16} />
+                        )}
+                        Salvar Programação
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
