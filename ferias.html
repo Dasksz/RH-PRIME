@@ -663,6 +663,28 @@
                             const isVencendo =
                               diasVenc <= 90 && f.dias_saldo > 0;
 
+                            // Check if currently on vacation
+                            let isEmFerias = false;
+                            if (
+                              f.status === "programadas" &&
+                              f.data_inicio_programada &&
+                              f.data_fim_programada
+                            ) {
+                              const hoje = new Date();
+                              hoje.setHours(0, 0, 0, 0);
+
+                              const dataInicio = new Date(
+                                f.data_inicio_programada + "T00:00:00",
+                              );
+                              const dataFim = new Date(
+                                f.data_fim_programada + "T00:00:00",
+                              );
+
+                              if (hoje >= dataInicio && hoje <= dataFim) {
+                                isEmFerias = true;
+                              }
+                            }
+
                             let statusColor = "bg-slate-100 text-slate-600";
                             if (f.status === "programadas")
                               statusColor = "bg-blue-100 text-blue-700";
@@ -677,7 +699,14 @@
                                 className="hover:bg-slate-50 transition-colors"
                               >
                                 <td className="px-4 py-3 font-bold text-gray-800">
-                                  {f.funcionario_nome}
+                                  <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                    <span>{f.funcionario_nome}</span>
+                                    {isEmFerias && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-purple-100 text-purple-700 border border-purple-200 shadow-sm w-max">
+                                        Em Férias
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 text-xs">
                                   {formatData(f.data_inicio_aquisitivo)} a{" "}
@@ -759,8 +788,17 @@
                                             );
                                             setModalOpen(true);
                                           }}
-                                          className="inline-flex items-center justify-center p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
-                                          title="Editar Programação"
+                                          disabled={isEmFerias}
+                                          className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
+                                            isEmFerias
+                                              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                              : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                          }`}
+                                          title={
+                                            isEmFerias
+                                              ? "Edição desabilitada durante o gozo de férias"
+                                              : "Editar Programação"
+                                          }
                                         >
                                           <Pencil size={14} />
                                         </button>
@@ -768,8 +806,17 @@
                                           onClick={() =>
                                             handleCancelarProgramacao(f)
                                           }
-                                          className="inline-flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
-                                          title="Cancelar Programação"
+                                          disabled={isEmFerias}
+                                          className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
+                                            isEmFerias
+                                              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                              : "bg-red-50 text-red-600 hover:bg-red-100"
+                                          }`}
+                                          title={
+                                            isEmFerias
+                                              ? "Cancelamento desabilitado durante o gozo de férias"
+                                              : "Cancelar Programação"
+                                          }
                                         >
                                           <Trash2 size={14} />
                                         </button>
