@@ -69,6 +69,7 @@ import pandas as pd
 import requests
 import hashlib
 import random
+import unicodedata
 from datetime import datetime
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -82,6 +83,11 @@ ARQUIVO_TOKEN = '../token.json'
 ID_PASTA_ATIVOS = "195JwYHEJdRY1u5DEL7tB7dSHn16DRVb4"
 ID_PASTA_EX_FUNCIONARIOS = "1v2Pt5YWqnW_bWRA9R7l6OQeMM7G_Tlrm"
 TIPO_DOCUMENTO = "{tipo_documento}"
+
+def remover_acentos(texto):
+    if not texto: return ""
+    texto = str(texto).strip()
+    return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
 def autenticar_drive():
     escopos = ['https://www.googleapis.com/auth/drive']
@@ -110,12 +116,17 @@ def autenticar_drive():
         return None
 
 def obter_ou_criar_pasta_funcionario(servico, nome_pasta, id_ativos, id_ex):
-    query_ex = f"name='{nome_pasta}' and '{id_ex}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    nome_escaped = nome_pasta.replace("'", "\'")
+    nome_sem_acento = remover_acentos(nome_pasta).replace("'", "\'")
+
+    # Busca por ex-funcionários
+    query_ex = f"(name='{nome_escaped}' or name='{nome_sem_acento}') and '{id_ex}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
     res_ex = servico.files().list(q=query_ex, spaces='drive', fields='files(id, name)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
     itens_ex = res_ex.get('files', [])
     if itens_ex: return itens_ex[0].get('id')
 
-    query_ativos = f"name='{nome_pasta}' and '{id_ativos}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    # Busca por ativos
+    query_ativos = f"(name='{nome_escaped}' or name='{nome_sem_acento}') and '{id_ativos}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
     res_ativos = servico.files().list(q=query_ativos, spaces='drive', fields='files(id, name)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
     itens_ativos = res_ativos.get('files', [])
     if itens_ativos: return itens_ativos[0].get('id')
@@ -635,7 +646,8 @@ def preparar_lote():
                             nome_busca_escaped = nome_busca.replace("'", "\\'")
 
                             try:
-                                query_drive = f"name='{nome_busca_escaped}' and trashed=false"
+                                nome_busca_sem_acento = ''.join(c for c in unicodedata.normalize('NFD', nome_busca) if unicodedata.category(c) != 'Mn').replace("'", "\\'")
+                                query_drive = f"(name='{nome_busca_escaped}' or name='{nome_busca_sem_acento}') and trashed=false"
                                 res_drive = servico_fase1.files().list(q=query_drive, spaces='drive', fields='files(id)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
                                 if res_drive.get('files', []):
                                     ja_esta_no_drive = True
@@ -845,7 +857,8 @@ def preparar_lote():
                 nome_busca = f"COMPROVANTE - {nome_arquivo_pdf.replace('.pdf', '.txt')}" if tipo_func == 'Ativo' else nome_arquivo_pdf
                 nome_busca_escaped = nome_busca.replace("'", "\\'")
                 try:
-                    query_drive = f"name='{nome_busca_escaped}' and trashed=false"
+                    nome_busca_sem_acento = ''.join(c for c in unicodedata.normalize('NFD', nome_busca) if unicodedata.category(c) != 'Mn').replace("'", "\\'")
+                    query_drive = f"(name='{nome_busca_escaped}' or name='{nome_busca_sem_acento}') and trashed=false"
                     res_drive = servico_fase1.files().list(q=query_drive, spaces='drive', fields='files(id)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
                     if res_drive.get('files', []):
                         ja_esta_no_drive = True
