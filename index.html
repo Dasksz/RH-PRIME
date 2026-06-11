@@ -495,17 +495,17 @@
 
           let allowed = [];
           if (tab === "epi") {
-            if (roleRule.capacete) allowed.push("Capacete");
-            if (roleRule.protetor_auricular) allowed.push("Protetor Auricular");
-            if (roleRule.colete_refletivo) allowed.push("Colete Refletivo");
-            if (roleRule.protetor_dorsal) allowed.push("Protetor Dorsal");
-            if (roleRule.luva) allowed.push("Luva");
-            if (roleRule.calca) allowed.push("Calça");
-            if (roleRule.bota) allowed.push("Bota");
+            if (roleRule.capacete) allowed.push("CAPACETE");
+            if (roleRule.protetor_auricular) allowed.push("PROTETOR AURICULAR");
+            if (roleRule.colete_refletivo) allowed.push("COLETE REFLETIVO");
+            if (roleRule.protetor_dorsal) allowed.push("PROTETOR DORSAL");
+            if (roleRule.calca_faixa_refletiva) allowed.push("CALÇA C/ FAIXA REFLETIVA");
+            if (roleRule.bota_marluvas) allowed.push("BOTA MARLUVAS");
+            if (roleRule.oculos_policarbonato) allowed.push("OCULOS DE POLICARBONATO");
           } else if (tab === "fardamento") {
-            if (roleRule.camisa) allowed.push("Camisa");
-            if (roleRule.regata) allowed.push("Regata");
-            if (roleRule.camisa_copa) allowed.push("Camisa Copa");
+            if (roleRule.camisa_elma) allowed.push("CAMISA ELMA");
+            if (roleRule.regata_elma) allowed.push("REGATA ELMA");
+            if (roleRule.camisa_copa) allowed.push("CAMISA COPA");
           }
           return allowed;
         };
