@@ -701,9 +701,50 @@
           container.style.zIndex = "-9999";
           container.style.top = "0";
 
+          
+          // Helper to generate table headers
+          const generateTableHeaders = () => `
+            <table style="width: 100%; border-collapse: collapse; text-align: center;">
+                <thead style="display: table-header-group;">
+                    <tr>
+                        <th colspan="8" style="background-color: #003399; color: white; text-align: center; font-weight: bold; padding: 3px; border: 1px solid black;">
+                            CONTROLE DE EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - EPI
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="8" style="background-color: #e0e0e0; text-align: center; font-weight: bold; padding: 3px; border: 1px solid black;">
+                            EQUIPAMENTOS DE PROTEÇÃO INDIVIDUAL RECEBIDOS:
+                        </th>
+                    </tr>
+                    <tr style="font-weight: bold; page-break-inside: avoid;">
+                        <th style="border: 1px solid black; padding: 3px; width: 8%;">DATA DE<br>ENTREGA</th>
+                        <th style="border: 1px solid black; padding: 3px; width: 30%;">DESCRIÇÃO/ MATERIAL</th>
+                        <th style="border: 1px solid black; padding: 3px; width: 8%;">C.A. Nº</th>
+                        <th style="border: 1px solid black; padding: 3px; width: 5%;">QTD.</th>
+                        <th style="border: 1px solid black; padding: 3px; width: 15%;">ASSINATURA DE ENTREGA</th>
+                        <th style="border: 1px solid black; padding: 3px; width: 8%;">DATA DE<br>DEVOLUÇÃO</th>
+                        <th style="border: 1px solid black; padding: 3px; width: 11%;">MOTIVO DA<br>DEVOLUÇÃO</th>
+                        <th style="border: 1px solid black; padding: 3px; width: 15%;">ASSINATURA DE DEVOLUÇÃO</th>
+                    </tr>
+                </thead>
+                <tbody>
+          `;
+
           // Add the layout HTML
-          container.innerHTML = `
-                    <div id="pdf-content" style="width: 1080px; background: white; font-family: Arial, Helvetica, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px; letter-spacing: 0.2px; word-spacing: 1px; text-rendering: optimizeLegibility;">
+          // Pagination logic: first page max 5 items, subsequent pages max 15 items.
+          const firstPageLimit = 5;
+          const subsequentPageLimit = 15;
+          
+          let pagesHtml = '';
+          let currentItemIndex = 0;
+          let pageNum = 1;
+          
+          while (currentItemIndex < items.length || currentItemIndex === 0) {
+             const isFirstPage = pageNum === 1;
+             const limit = isFirstPage ? firstPageLimit : subsequentPageLimit;
+             const chunk = items.slice(currentItemIndex, currentItemIndex + limit);
+             
+             let pageContent = isFirstPage ? `
                         <!-- Header -->
                         <div style="border: 1px solid black; display: flex; text-align: center; font-weight: bold; margin-bottom: 5px;">
                             <div style="flex: 1; padding: 10px; border-right: 1px solid black; display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -734,21 +775,16 @@
                             NR 6.1 Para os fins de aplicação desta norma Regulamentadora – NR, considera-se <strong>Equipamento de proteção Individual – EPI</strong> é todo dispositivo de uso individual, de fabricação nacional ou estrangeira, destinado a proteger a saúde e a integridade física do trabalhador.
                         </div>
 
-                        <!-- Obligations -->
-                        <div style="display: flex; border: 1px solid black; margin-bottom: 5px;">
-                            <div style="flex: 1; padding: 5px; border-right: 1px solid black;">
+                        <div style="display: flex; font-size: 9px; margin-bottom: 5px; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 5px 0;">
+                            <div style="flex: 1; padding-right: 10px; border-right: 1px solid #ccc;">
                                 <strong>Obrigações do Empregador</strong><br>
-                                &#10003; Adquirir o tipo adequado de EPI à atividade do colaborador. NR 06<br>
-                                &#10003; Treinar o colaborador sobre o uso.<br>
-                                &#10003; Fornecer ao colaborador somente EPI aprovado pelo MTb e de empresas cadastradas no DNSST/MTb.<br>
-                                &#10003; Tornar obrigatório o seu uso e acompanhamento do EPI.<br>
-                                &#10003; Substituí-lo, imediatamente, quando danificado, extraviado ou quando pela perda de sua eficácia.<br>
-                                &#10003; Comunicar ao MTb qualquer irregularidade observada no EPI.<br><br>
-                                <strong>1.8. Cabe ao empregado:</strong><br>
-                                <strong>b) usar o EPI fornecido pelo empregador;</strong><br>
-                                <strong>1.8.1. Constitui ato faltoso a recusa injustificada do empregado ao cumprimento do disposto no item anterior.</strong>
+                                <strong>6.6.1 Cabe ao empregador quanto ao EPI:</strong><br>
+                                a) adquirir o adequado ao risco de cada atividade;<br>
+                                b) exigir seu uso;<br>
+                                c) fornecer ao trabalhador somente o aprovado pelo órgão nacional competente em matéria de segurança e saúde no trabalho;<br>
+                                d) orientar e treinar o trabalhador sobre o uso adequado, guarda e conservação;
                             </div>
-                            <div style="flex: 1; padding: 5px;">
+                            <div style="flex: 1; padding-left: 10px;">
                                 <strong>Obrigações dos Colaboradores</strong><br>
                                 <strong>6.7.1. Cabe ao empregado quanto ao EPI</strong><br>
                                 <strong>a) usar, utilizando-o apenas para a finalidade a que se destina;</strong><br>
@@ -767,62 +803,52 @@
                                 Declaro, também, que estou ciente das disposições do Art. 462 e § 1º da CLT, e autorizo o desconto salarial proporcional ao custo de reparação do dano por mim causado aos EPIs.
                             </span>
                         </div>
-
-
-                        <!-- Items Table -->
-                        <table style="width: 100%; border-collapse: collapse; text-align: center;">
-                            <thead style="display: table-header-group;">
-                                <tr>
-                                    <th colspan="8" style="background-color: #003399; color: white; text-align: center; font-weight: bold; padding: 3px; border: 1px solid black;">
-                                        CONTROLE DE EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - EPI
-                                    </th>
-                                </tr>
-                                <tr>
-                                    <th colspan="8" style="background-color: #e0e0e0; text-align: center; font-weight: bold; padding: 3px; border: 1px solid black;">
-                                        EQUIPAMENTOS DE PROTEÇÃO INDIVIDUAL RECEBIDOS:
-                                    </th>
-                                </tr>
-                                <tr style="font-weight: bold; page-break-inside: avoid;">
-                                    <th style="border: 1px solid black; padding: 3px; width: 8%;">DATA DE<br>ENTREGA</th>
-                                    <th style="border: 1px solid black; padding: 3px; width: 30%;">DESCRIÇÃO/ MATERIAL</th>
-                                    <th style="border: 1px solid black; padding: 3px; width: 8%;">C.A. Nº</th>
-                                    <th style="border: 1px solid black; padding: 3px; width: 5%;">QTD.</th>
-                                    <th style="border: 1px solid black; padding: 3px; width: 15%;">ASSINATURA DE ENTREGA</th>
-                                    <th style="border: 1px solid black; padding: 3px; width: 8%;">DATA DE<br>DEVOLUÇÃO</th>
-                                    <th style="border: 1px solid black; padding: 3px; width: 11%;">MOTIVO DA<br>DEVOLUÇÃO</th>
-                                    <th style="border: 1px solid black; padding: 3px; width: 15%;">ASSINATURA DE DEVOLUÇÃO</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${items
-                                  .map((item) => {
-                                    // format item.dataEntrega from YYYY-MM-DD to DD/MM/YYYY
-                                    const dParts = item.dataEntrega.split("-");
-                                    const dStr =
-                                      dParts.length === 3
-                                        ? `${dParts[2]}/${dParts[1]}/${dParts[0]}`
-                                        : item.dataEntrega;
-                                    return `
-                                        <tr style="page-break-inside: avoid;">
-                                            <td style="border: 1px solid black; padding: 8px 3px;">${dStr}</td>
-                                            <td style="border: 1px solid black; padding: 8px 3px; text-align: left;">${item.nomeItem}</td>
-                                            <td style="border: 1px solid black; padding: 8px 3px;">${item.ca || ""}</td>
-                                            <td style="border: 1px solid black; padding: 8px 3px;">${item.qtd}</td>
-                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                                        </tr>
-                                    `;
-                                  })
-                                  .join("")}
-                                
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-
-          document.body.appendChild(container);
+             ` : '';
+             
+             // Build table
+             let tableContent = `
+                ${generateTableHeaders()}
+                ${chunk.map((item) => {
+                    const dParts = item.dataEntrega.split("-");
+                    const dStr = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : item.dataEntrega;
+                    return `
+                        <tr style="page-break-inside: avoid;">
+                            <td style="border: 1px solid black; padding: 8px 3px;">${dStr}</td>
+                            <td style="border: 1px solid black; padding: 8px 3px; text-align: left;">${item.nomeItem}</td>
+                            <td style="border: 1px solid black; padding: 8px 3px;">${item.ca || ""}</td>
+                            <td style="border: 1px solid black; padding: 8px 3px;">${item.qtd}</td>
+                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                        </tr>
+                    `;
+                }).join("")}
+                </tbody>
+            </table>
+             `;
+             
+             pagesHtml += `
+                <div style="${!isFirstPage ? 'page-break-before: always; margin-top: 20px;' : ''}">
+                    ${pageContent}
+                    ${tableContent}
+                </div>
+             `;
+             
+             currentItemIndex += limit;
+             pageNum++;
+             
+             // break if array is empty and we rendered the first empty page
+             if (items.length === 0) break;
+          }
+          
+          container.innerHTML = `
+            <div id="pdf-content" style="width: 1080px; background: white; font-family: Arial, Helvetica, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px; letter-spacing: 0.2px; word-spacing: 1px; text-rendering: optimizeLegibility;">
+                ${pagesHtml}
+            </div>
+          `;
+          
+document.body.appendChild(container);
 
           const element = document.getElementById("pdf-content");
           const safeName = (emp.nome || "Funcionario").replace(
@@ -837,7 +863,7 @@
             image: { type: "jpeg", quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-            pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
+            pagebreak: { mode: ["css", "legacy"] },
           };
 
           html2pdf()
