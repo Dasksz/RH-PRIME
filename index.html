@@ -779,7 +779,7 @@
                         <!-- Items Table -->
                         <table style="width: 100%; border-collapse: collapse; text-align: center;">
                             <thead>
-                                <tr style="font-weight: bold;">
+                                <tr style="font-weight: bold; page-break-inside: avoid;">
                                     <th style="border: 1px solid black; padding: 3px; width: 8%;">DATA DE<br>ENTREGA</th>
                                     <th style="border: 1px solid black; padding: 3px; width: 30%;">DESCRIÇÃO/ MATERIAL</th>
                                     <th style="border: 1px solid black; padding: 3px; width: 8%;">C.A. Nº</th>
@@ -800,7 +800,7 @@
                                         ? `${dParts[2]}/${dParts[1]}/${dParts[0]}`
                                         : item.dataEntrega;
                                     return `
-                                        <tr>
+                                        <tr style="page-break-inside: avoid;">
                                             <td style="border: 1px solid black; padding: 8px 3px;">${dStr}</td>
                                             <td style="border: 1px solid black; padding: 8px 3px; text-align: left;">${item.nomeItem}</td>
                                             <td style="border: 1px solid black; padding: 8px 3px;">${item.ca || ""}</td>
@@ -834,6 +834,7 @@
             image: { type: "jpeg", quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+            pagebreak: { mode: ["avoid-all", "css", "legacy"] },
           };
 
           html2pdf()
