@@ -44,7 +44,7 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
-    <script type="text/babel">
+    <script type="text/babel" data-type="module">
       const { useState, useMemo, useEffect, useRef } = React;
 
       // Configuração do Supabase
@@ -478,6 +478,7 @@
         const [newItemCA, setNewItemCA] = useState("");
         const [newItemQtd, setNewItemQtd] = useState(1);
         const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
+        const [isNewVerification, setIsNewVerification] = useState(false);
         const [isEditModalOpen, setIsEditModalOpen] = useState(false);
         const [editingItem, setEditingItem] = useState(null);
         const [newItemName, setNewItemName] = useState("");
@@ -520,7 +521,7 @@
           return parts.map((part, index) => {
             // Match "Nome (CA: valor, Qtd: valor)" or just "Nome"
             const match = part.match(
-              /^(.*?)\s*\((?:CA:\s*(.*?),\s*)?Qtd:\s*(.*?)\)$/i,
+              /^(.*?)\s*\((?:CA:\s*(.*?),\s*)?Qtd:\s*(.*?)(?:\s*-\s*(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}))?\)$/i,
             );
             if (match) {
               return {
@@ -529,7 +530,7 @@
                 ca: (match[2] || "").trim(),
                 qtd: match[3].trim(),
                 dataEntrega:
-                  defaultDate || new Date().toISOString().split("T")[0],
+                  (match[4] ? (match[4].includes('/') ? match[4].split('/').reverse().join('-') : match[4]) : defaultDate) || new Date().toISOString().split("T")[0],
                 linkComprovante: defaultLink || "",
               };
             } else {
@@ -568,6 +569,7 @@
 
         // Reset history loaded flag when changing employee or tab
         useEffect(() => {
+          setIsNewVerification(false);
           setHasLoadedHistory(false);
           setStagedItems([]);
           setNewItemName("");
@@ -889,7 +891,10 @@ document.body.appendChild(container);
           ];
           let finalDateToUse = stagedItems[stagedItems.length - 1].dataEntrega;
 
-          if (uniqueDates.length > 1) {
+          let finalItemsForSupabase = [...stagedItems];
+          let pdfItems = [...stagedItems];
+
+          if (isNewVerification && uniqueDates.length > 1) {
             // Sort dates to find the latest
             const sortedDates = [...uniqueDates].sort(
               (a, b) => new Date(b) - new Date(a),
@@ -902,9 +907,13 @@ document.body.appendChild(container);
             if (!confirmed) return;
 
             // Update all items to the latest date
-            setStagedItems((prev) =>
-              prev.map((item) => ({ ...item, dataEntrega: finalDateToUse })),
-            );
+            finalItemsForSupabase = finalItemsForSupabase.map((item) => ({ ...item, dataEntrega: finalDateToUse }));
+            pdfItems = [...finalItemsForSupabase];
+            setStagedItems(finalItemsForSupabase);
+          } else if (!isNewVerification) {
+            // Se for inclusão individual, apenas itens NOVOS (com a data mais recente) devem ir pro PDF
+            // A nova data é a do item que está sendo incluído
+            pdfItems = finalItemsForSupabase.filter(i => i.dataEntrega === finalDateToUse);
           }
 
           try {
@@ -922,11 +931,11 @@ document.body.appendChild(container);
             const latestLink =
               stagedItems[stagedItems.length - 1].linkComprovante;
 
-            // Generate string format: "Nome (CA: valor, Qtd: valor)"
-            const itemsJoined = stagedItems
+            // Generate string format: "Nome (CA: valor, Qtd: valor - YYYY-MM-DD)"
+            const itemsJoined = finalItemsForSupabase
               .map((i) => {
                 const caStr = i.ca ? `CA: ${i.ca}, ` : "";
-                return `${i.nomeItem} (${caStr}Qtd: ${i.qtd})`;
+                return `${i.nomeItem} (${caStr}Qtd: ${i.qtd} - ${i.dataEntrega})`;
               })
               .join("; ");
 
@@ -948,11 +957,10 @@ document.body.appendChild(container);
 
             if (error) throw error;
 
-            // Ensure all items passed to PDF generation have the final normalized date
-            const finalItemsForPDF = stagedItems.map((item) => ({
-              ...item,
-              dataEntrega: finalDateToUse,
-            }));
+            // Ensure all items passed to PDF generation have the final normalized date (if unifying)
+            const finalItemsForPDF = isNewVerification
+              ? pdfItems.map((item) => ({ ...item, dataEntrega: finalDateToUse }))
+              : pdfItems;
 
             // Call PDF Generation before clearing items
             const empresaSelecionada = empresas.find(
@@ -966,6 +974,7 @@ document.body.appendChild(container);
             );
 
             // Note: Supabase Realtime will automatically trigger fetchEmployees and update the state!
+            setIsNewVerification(false);
             setStagedItems([]);
             setHasLoadedHistory(false);
           } catch (err) {
@@ -1634,6 +1643,7 @@ document.body.appendChild(container);
                             selectedEmployee.fardamento.ultimaEntrega)) && (
                           <button
                             onClick={() => {
+                              setIsNewVerification(true);
                               loadHistoryIntoStaged();
                               window.scrollTo({ top: 0, behavior: "smooth" });
                               if (scrollContainerRef.current)
