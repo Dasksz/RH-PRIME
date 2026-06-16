@@ -44,7 +44,7 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
-    <script type="text/babel" data-type="module">
+    <script type="text/babel" data-presets="env,react">
       const { useState, useMemo, useEffect, useRef } = React;
 
       // Configuração do Supabase
@@ -958,7 +958,7 @@ document.body.appendChild(container);
             if (error) throw error;
 
             // Ensure all items passed to PDF generation have the final normalized date (if unifying)
-            const finalItemsForPDF = isNewVerification
+            const finalItemsForPDF = isNewVerification 
               ? pdfItems.map((item) => ({ ...item, dataEntrega: finalDateToUse }))
               : pdfItems;
 
