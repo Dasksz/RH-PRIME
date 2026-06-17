@@ -652,6 +652,11 @@
           e.preventDefault();
           if (!newItemName || !newDeliveryDate) return;
 
+          const newItem = {
+            id: Date.now() + Math.random(),
+            nomeItem: newItemName,
+            ca: newItemCA,
+            qtd: newItemQtd,
             dataEntrega: newDeliveryDate,
             linkComprovante: newLink,
           };
@@ -1717,7 +1722,7 @@ document.body.appendChild(container);
                               });
                               return groups;
                             })();
-
+                            
                             const sortedDates = Object.keys(groupedItems).sort((a, b) => new Date(b) - new Date(a));
 
                             return (
@@ -1731,9 +1736,9 @@ document.body.appendChild(container);
                                   const isLatest = index === 0;
                                   const itemsForDate = groupedItems[date];
                                   const isVencido = isLatest && vencido;
-
+                                  
                                   const linkForDate = itemsForDate.find(i => i.linkComprovante)?.linkComprovante || (isLatest ? item.link : null);
-
+                                  
                                   let formattedDate = date;
                                   if (date.includes("-")) {
                                     const parts = date.split("-");
