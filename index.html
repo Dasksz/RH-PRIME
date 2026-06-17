@@ -652,15 +652,6 @@
           e.preventDefault();
           if (!newItemName || !newDeliveryDate) return;
 
-          if (!hasLoadedHistory) {
-            loadHistoryIntoStaged();
-          }
-
-          const newItem = {
-            id: Date.now() + Math.random(),
-            nomeItem: newItemName,
-            ca: newItemCA,
-            qtd: newItemQtd,
             dataEntrega: newDeliveryDate,
             linkComprovante: newLink,
           };
@@ -939,12 +930,36 @@ document.body.appendChild(container);
               stagedItems[stagedItems.length - 1].linkComprovante;
 
             // Generate string format: "Nome (CA: valor, Qtd: valor - YYYY-MM-DD)"
-            const itemsJoined = finalItemsForSupabase
+            let itemsJoined = finalItemsForSupabase
               .map((i) => {
                 const caStr = i.ca ? `CA: ${i.ca}, ` : "";
                 return `${i.nomeItem} (${caStr}Qtd: ${i.qtd} - ${i.dataEntrega})`;
               })
               .join("; ");
+
+            if (!isNewVerification) {
+              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
+              if (currentHistory && currentHistory.trim() !== "") {
+                itemsJoined = itemsJoined + "; " + currentHistory;
+              }
+            }
+
+
+            if (!isNewVerification) {
+              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
+              if (currentHistory && currentHistory.trim() !== "") {
+                itemsJoined = itemsJoined + "; " + currentHistory;
+              }
+            }
+
+
+            if (!isNewVerification) {
+              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
+              if (currentHistory && currentHistory.trim() !== "") {
+                itemsJoined = itemsJoined + "; " + currentHistory;
+              }
+            }
+
 
             const updatePayload = {};
             if (activeTab === "epi") {
@@ -1691,57 +1706,98 @@ document.body.appendChild(container);
                                 : selectedEmployee.fardamento;
                             const vencido = item.status === "vencido";
 
-                            // Parse the date back to display it cleanly
-                            let displayDate = item.ultimaEntrega;
+                            const groupedItems = (() => {
+                              if (!item.itens) return {};
+                              const parsed = parseItemString(item.itens, item.ultimaEntrega, item.link);
+                              const groups = {};
+                              parsed.forEach(p => {
+                                const dt = (p.dataEntrega && p.dataEntrega.trim() !== "") ? p.dataEntrega : item.ultimaEntrega;
+                                if (!groups[dt]) groups[dt] = [];
+                                groups[dt].push(p);
+                              });
+                              return groups;
+                            })();
+
+                            const sortedDates = Object.keys(groupedItems).sort((a, b) => new Date(b) - new Date(a));
 
                             return (
-                              <div
-                                className={`bg-white p-4 rounded-2xl border ${vencido ? "border-red-300 shadow-sm bg-red-50/20" : "border-gray-100"} flex flex-col justify-between gap-3`}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div
-                                    className={`p-2.5 rounded-full mt-0.5 ${vencido ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500"}`}
-                                  >
-                                    {vencido ? (
-                                      <AlertCircle size={16} />
-                                    ) : (
-                                      <CheckCircle2 size={16} />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <h4 className="text-sm font-bold text-gray-800">
-                                      Última Entrega
-                                    </h4>
-                                    <p className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 font-medium">
-                                      <Calendar size={12} /> {displayDate}
-                                    </p>
-                                    {vencido && (
-                                      <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide">
-                                        Vencido
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                {item.itens && (
-                                  <div className="mt-2 text-sm text-gray-700">
-                                    <span className="font-bold">Itens: </span>
-                                    <span>{item.itens}</span>
+                              <div className="flex flex-col gap-4">
+                                {sortedDates.length === 0 && (
+                                  <div className="bg-white p-4 rounded-2xl border border-gray-100">
+                                    <p className="text-sm text-gray-500 text-center">Nenhum item salvo no histórico.</p>
                                   </div>
                                 )}
-                                {item.link && (
-                                  <a
-                                    href={
-                                      item.link.startsWith("http")
-                                        ? item.link
-                                        : `https://${item.link}`
+                                {sortedDates.map((date, index) => {
+                                  const isLatest = index === 0;
+                                  const itemsForDate = groupedItems[date];
+                                  const isVencido = isLatest && vencido;
+
+                                  const linkForDate = itemsForDate.find(i => i.linkComprovante)?.linkComprovante || (isLatest ? item.link : null);
+
+                                  let formattedDate = date;
+                                  if (date.includes("-")) {
+                                    const parts = date.split("-");
+                                    if (parts.length === 3) {
+                                      formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
                                     }
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center justify-center gap-2 mt-2 w-full py-2 bg-gray-50 hover:bg-gray-100 text-blue-600 text-xs font-bold rounded-xl transition-colors border border-gray-200"
-                                  >
-                                    <LinkIcon size={14} /> Ver Comprovante
-                                  </a>
-                                )}
+                                  }
+
+                                  return (
+                                    <div
+                                      key={date}
+                                      className={`bg-white p-4 rounded-2xl border ${isVencido ? "border-red-300 shadow-sm bg-red-50/20" : "border-gray-100"} flex flex-col justify-between gap-3`}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <div
+                                          className={`p-2.5 rounded-full mt-0.5 ${isVencido ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500"}`}
+                                        >
+                                          {isVencido ? (
+                                            <AlertCircle size={16} />
+                                          ) : (
+                                            <CheckCircle2 size={16} />
+                                          )}
+                                        </div>
+                                        <div>
+                                          <h4 className="text-sm font-bold text-gray-800">
+                                            {isLatest ? "Última Entrega" : "Entrega Anterior"}
+                                          </h4>
+                                          <p className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 font-medium">
+                                            <Calendar size={12} /> {formattedDate}
+                                          </p>
+                                          {isVencido && (
+                                            <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide">
+                                              Vencido
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="mt-2 text-sm text-gray-700">
+                                        <span className="font-bold mb-1 block">Itens: </span>
+                                        <ul className="list-disc pl-5 mt-1 space-y-1">
+                                          {itemsForDate.map((i, idx) => (
+                                            <li key={idx} className="text-xs">
+                                              {i.nomeItem} {i.ca ? `(CA: ${i.ca})` : ""} - Qtd: {i.qtd}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      {linkForDate && (
+                                        <a
+                                          href={
+                                            linkForDate.startsWith("http")
+                                              ? linkForDate
+                                              : `https://${linkForDate}`
+                                          }
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center justify-center gap-2 mt-2 w-full py-2 bg-gray-50 hover:bg-gray-100 text-blue-600 text-xs font-bold rounded-xl transition-colors border border-gray-200"
+                                        >
+                                          <LinkIcon size={14} /> Ver Comprovante
+                                        </a>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             );
                           })()}
