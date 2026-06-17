@@ -652,6 +652,11 @@
           e.preventDefault();
           if (!newItemName || !newDeliveryDate) return;
 
+          const newItem = {
+            id: Date.now() + Math.random(),
+            nomeItem: newItemName,
+            ca: newItemCA,
+            qtd: newItemQtd,
             dataEntrega: newDeliveryDate,
             linkComprovante: newLink,
           };
