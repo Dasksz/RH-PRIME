@@ -950,22 +950,6 @@ document.body.appendChild(container);
             }
 
 
-            if (!isNewVerification) {
-              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
-              if (currentHistory && currentHistory.trim() !== "") {
-                itemsJoined = itemsJoined + "; " + currentHistory;
-              }
-            }
-
-
-            if (!isNewVerification) {
-              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
-              if (currentHistory && currentHistory.trim() !== "") {
-                itemsJoined = itemsJoined + "; " + currentHistory;
-              }
-            }
-
-
             const updatePayload = {};
             if (activeTab === "epi") {
               updatePayload.epi_data = formattedDate;
