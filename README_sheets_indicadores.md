@@ -302,8 +302,10 @@ function buildPayload(sheetName, rowData) {
             val = String(val).toLowerCase().trim();
         }
         if (config.tableName === "rh_absenteismo") {
-          if (field === "horas_previstas" && isNaN(Number(val))) {
-            val = null;
+          if (field === "horas_previstas") {
+             if (val === "" || val === null || val === undefined || isNaN(Number(val))) {
+                val = 220; // Default inteligente
+             }
           }
           if (field === "horas_perdidas" && isNaN(Number(val))) {
             val = null;
@@ -630,10 +632,11 @@ Colunas esperadas na linha 1: `funcionario_nome`, `data_admissao`, `data_desliga
 Colunas esperadas na linha 1: `funcionario_nome`, `data_inicio`, `data_fim`, `horas_previstas`, `horas_perdidas`, `motivo`
 
 **Regras Inteligentes do Sistema:**
-* As horas_previstas padrão são **220**, e você pode preencher manualmente.
+* A coluna `horas_previstas` assumirá **automaticamente 220 horas** caso você deixe a célula em branco. Mas se precisar, você pode preencher manualmente um valor diferente.
 * Se você preencher `data_inicio` e `data_fim` (formato DD/MM/YYYY), o sistema calculará as `horas_perdidas` **automaticamente** (8h/dia útil, 4h/sábado, 0h/domingo).
 * Se for apenas um atraso de algumas horas, você deixa `data_fim` em branco e preenche manualmente as `horas_perdidas` (ex: `2`).
 * A coluna de `mes_ref` foi removida da planilha e agora é detectada automaticamente a partir da `data_inicio`.
+* **Afastamentos longos (que viram o mês):** Divida em duas linhas. Ex: Se afastou de 15/10 a 15/11, crie uma linha de 15/10 a 31/10 e outra linha de 01/11 a 15/11. Isso garante que o cálculo das taxas seja proporcional ao mês exato.
 
 | funcionario_nome | data_inicio | data_fim | horas_previstas | horas_perdidas | motivo |
 | :--- | :--- | :--- | :--- | :--- | :--- |
