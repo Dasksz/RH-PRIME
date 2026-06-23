@@ -259,12 +259,23 @@
             setMovimentacoes(movData || []);
             setAbsenteismo(absData || []);
 
-            // Obter todos os meses únicos das duas tabelas
+            // Obter todos os meses únicos (agora APENAS da tabela de absenteísmo, conforme solicitado)
             const meses = new Set();
-            (movData || []).forEach(m => meses.add(m.mes_ref));
-            (absData || []).forEach(a => meses.add(a.mes_ref));
+            (absData || []).forEach(a => {
+                if (a.mes_ref && typeof a.mes_ref === 'string' && a.mes_ref.trim() !== '') {
+                    meses.add(a.mes_ref);
+                }
+            });
             
-            const mesesArray = Array.from(meses).sort().reverse();
+            // Função para ordenar meses no formato MM/YYYY
+            const ordenarMesesAno = (a, b) => {
+              const [mesA, anoA] = a.split('/');
+              const [mesB, anoB] = b.split('/');
+              if (anoA !== anoB) return parseInt(anoB) - parseInt(anoA);
+              return parseInt(mesB) - parseInt(mesA);
+            };
+
+            const mesesArray = Array.from(meses).sort(ordenarMesesAno);
             setMesesDisponiveis(mesesArray);
             
             // Set default filter to "todos" as requested
@@ -283,35 +294,160 @@
         };
 
         // Cálculos dos indicadores para o mês selecionado
+        // Função auxiliar para calcular horas úteis entre duas datas (8h seg-sex, 4h sáb)
+        const calcularHorasUteis = (inicio, fim) => {
+            if (inicio > fim) return 0;
+            let horas = 0;
+            let atual = new Date(inicio);
+            while (atual <= fim) {
+                const dia = atual.getDay();
+                if (dia >= 1 && dia <= 5) horas += 8;
+                else if (dia === 6) horas += 4;
+                atual.setDate(atual.getDate() + 1);
+            }
+            return horas;
+        };
+
         const kpis = useMemo(() => {
           const movMes = mesFiltro === "todos" ? movimentacoes : movimentacoes.filter(m => m.mes_ref === mesFiltro);
           const absMes = mesFiltro === "todos" ? absenteismo : absenteismo.filter(a => a.mes_ref === mesFiltro);
 
-          // Turnover
-          // Aqui precisaríamos do número total de ativos. Como não temos uma tabela histórica de ativos fácil, 
-          // a fórmula clássica de Turnover seria: ((Admissões + Desligamentos) / 2) / Total Ativos
-          // Como aproximação, vamos mostrar as perdas ou solicitar que a entrada/saída reflita isso.
-          // Para ser dinâmico: vamos assumir que as movimentacoes trazem o retrato ou usaremos uma aproximação 
-          // ou calcularemos o índice como Saídas / Total de Funcionários (se tivéssemos o total).
-          // Para simplificar, como o usuário não detalhou a fórmula exata, faremos Turnover Total como a soma das saídas
-          // ou uma fórmula simples de taxa de evasão se soubermos a base. Vamos mostrar valores absolutos e uma taxa simulada ou apenas focar nas métricas pedidas.
-          
+          // Entradas e Saídas
           const entradas = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'entrada').length;
           const saidasTotal = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida').length;
           const saidasVol = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida' && m.motivo_saida?.trim().toLowerCase() === 'voluntario').length;
           const saidasInvol = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida' && m.motivo_saida?.trim().toLowerCase() === 'involuntario').length;
 
-          // Absenteismo = Horas Perdidas / Horas Previstas
-          const horasPrevistas = absMes.reduce((acc, curr) => acc + (curr.horas_previstas || 0), 0);
-          const horasPerdidas = absMes.reduce((acc, curr) => acc + (curr.horas_perdidas || 0), 0);
-          
           let taxaAbsenteismo = 0;
-          if (horasPrevistas > 0) {
-            taxaAbsenteismo = (horasPerdidas / horasPrevistas) * 100;
+          let totalHorasPrevistasGlobais = 0;
+          let totalHorasPerdidasGlobais = 0;
+          let totalAtivosMesSelecionado = 0;
+
+          if (mesFiltro !== "todos") {
+              const [mesStr, anoStr] = mesFiltro.split("/");
+              const mes = parseInt(mesStr, 10);
+              const ano = parseInt(anoStr, 10);
+
+              const dataInicioMes = new Date(ano, mes - 1, 1);
+              const dataFimMes = new Date(ano, mes, 0); // Último dia do mês
+
+              let totalHorasPrevistasMes = 0;
+              let ativosNoMes = 0;
+
+              // Para cada movimentacao, verificar se estava ativo neste mês e calcular as horas
+              // OBS: Assume que 'movimentacoes' contém TODOS os registros únicos de funcionários (admissões)
+              movimentacoes.forEach(m => {
+                  if (m.data_admissao) {
+                      const adm = new Date(m.data_admissao + "T00:00:00");
+                      if (adm <= dataFimMes) { // Foi admitido antes do fim deste mês
+                          let desligamento = null;
+                          if (m.data_desligamento) {
+                              desligamento = new Date(m.data_desligamento + "T00:00:00");
+                          }
+
+                          if (!desligamento || desligamento >= dataInicioMes) {
+                              // Estava ativo em algum momento deste mês
+                              ativosNoMes++;
+
+                              // Descobrir o período trabalhado dentro deste mês
+                              const dataCalculoInicio = adm > dataInicioMes ? adm : dataInicioMes;
+                              const dataCalculoFim = (desligamento && desligamento < dataFimMes) ? desligamento : dataFimMes;
+
+                              // Se trabalhou o mês todo (entrou antes do dia 1 e não saiu antes do fim) = assume 220 horas
+                              if (dataCalculoInicio.getTime() === dataInicioMes.getTime() && dataCalculoFim.getTime() === dataFimMes.getTime()) {
+                                  totalHorasPrevistasMes += 220;
+                              } else {
+                                  // Trabalhou parcialmente, calcular exato
+                                  totalHorasPrevistasMes += calcularHorasUteis(dataCalculoInicio, dataCalculoFim);
+                              }
+                          }
+                      }
+                  }
+              });
+
+              totalAtivosMesSelecionado = ativosNoMes;
+              const horasPerdidasMes = absMes.reduce((acc, curr) => acc + (Number(curr.horas_perdidas) || 0), 0);
+
+              totalHorasPrevistasGlobais = totalHorasPrevistasMes;
+              totalHorasPerdidasGlobais = horasPerdidasMes;
+
+              if (totalHorasPrevistasMes > 0) {
+                  taxaAbsenteismo = (horasPerdidasMes / totalHorasPrevistasMes) * 100;
+              }
+
+          } else {
+              // Quando "todos" for selecionado, precisamos calcular a Média dos Percentuais Mensais
+              // e acumular os totais
+              totalHorasPerdidasGlobais = absMes.reduce((acc, curr) => acc + (Number(curr.horas_perdidas) || 0), 0);
+
+              // Para "todos", mostrar total de funcionários ATIVOS atuais
+              const hoje = new Date();
+              let ativosHoje = 0;
+              movimentacoes.forEach(m => {
+                  if (m.data_admissao) {
+                      const adm = new Date(m.data_admissao + "T00:00:00");
+                      if (adm <= hoje) {
+                          if (!m.data_desligamento) {
+                              ativosHoje++;
+                          } else {
+                              const des = new Date(m.data_desligamento + "T00:00:00");
+                              if (des >= hoje) ativosHoje++;
+                          }
+                      }
+                  }
+              });
+              totalAtivosMesSelecionado = ativosHoje;
+
+              const taxasMensais = [];
+              let somaHorasPrevistas = 0;
+
+              // Calcular para cada mês disponível
+              mesesDisponiveis.forEach(mesBase => {
+                  const [mStr, yStr] = mesBase.split("/");
+                  const mBase = parseInt(mStr, 10);
+                  const yBase = parseInt(yStr, 10);
+
+                  const dtIni = new Date(yBase, mBase - 1, 1);
+                  const dtFim = new Date(yBase, mBase, 0);
+
+                  let prevMes = 0;
+                  movimentacoes.forEach(m => {
+                      if (m.data_admissao) {
+                          const adm = new Date(m.data_admissao + "T00:00:00");
+                          if (adm <= dtFim) {
+                              let des = m.data_desligamento ? new Date(m.data_desligamento + "T00:00:00") : null;
+                              if (!des || des >= dtIni) {
+                                  const cIni = adm > dtIni ? adm : dtIni;
+                                  const cFim = (des && des < dtFim) ? des : dtFim;
+
+                                  if (cIni.getTime() === dtIni.getTime() && cFim.getTime() === dtFim.getTime()) {
+                                      prevMes += 220;
+                                  } else {
+                                      prevMes += calcularHorasUteis(cIni, cFim);
+                                  }
+                              }
+                          }
+                      }
+                  });
+
+                  somaHorasPrevistas += prevMes;
+
+                  // Perdas desse mês
+                  const perdasMes = absenteismo.filter(a => a.mes_ref === mesBase).reduce((acc, curr) => acc + (Number(curr.horas_perdidas) || 0), 0);
+
+                  if (prevMes > 0) {
+                      taxasMensais.push((perdasMes / prevMes) * 100);
+                  }
+              });
+
+              totalHorasPrevistasGlobais = somaHorasPrevistas;
+
+              if (taxasMensais.length > 0) {
+                  const somaTaxas = taxasMensais.reduce((a, b) => a + b, 0);
+                  taxaAbsenteismo = somaTaxas / taxasMensais.length;
+              }
           }
 
-          // Para a taxa de perda/turnover se precisarmos de um divisor, sem base total é díficil ter a porcentagem exata, 
-          // Mas mostraremos o % das perdas em relação ao total de saídas.
           let percVol = 0;
           let percInvol = 0;
           if (saidasTotal > 0) {
@@ -326,11 +462,12 @@
             saidasInvol,
             percVol: percVol.toFixed(1),
             percInvol: percInvol.toFixed(1),
-            horasPrevistas,
-            horasPerdidas,
-            taxaAbsenteismo: taxaAbsenteismo.toFixed(2)
+            horasPrevistas: Math.round(totalHorasPrevistasGlobais),
+            horasPerdidas: Math.round(totalHorasPerdidasGlobais),
+            taxaAbsenteismo: taxaAbsenteismo.toFixed(2),
+            totalAtivos: totalAtivosMesSelecionado
           };
-        }, [movimentacoes, absenteismo, mesFiltro]);
+        }, [movimentacoes, absenteismo, mesFiltro, mesesDisponiveis]);
 
         if (isAuthChecking) {
           return (
@@ -427,13 +564,18 @@
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
                   {/* Absenteísmo Card */}
-                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-between">
+                  <div className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start mb-4">
                         <h3 className="text-lg font-bold text-gray-800">Índice de Absenteísmo</h3>
                         <div className="p-2 bg-blue-50 rounded-lg">
                           <Activity size={24} className="text-blue-600"/>
                         </div>
+                      </div>
+                      <div className="absolute top-4 right-4">
+                        <button onClick={() => window.location.href = `detalhes_absenteismo.html?mes=${mesFiltro}`} className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1 border border-blue-200">
+                            Ver detalhes
+                        </button>
                       </div>
                       <p className="text-sm text-slate-500 mb-6">Mede a proporção de horas perdidas em relação às horas previstas de trabalho.</p>
                       
