@@ -315,7 +315,7 @@ function buildPayload(sheetName, rowData) {
           payload[field] = val;
         }
       }
-    });    });
+    });
   }
 
   return payload;
