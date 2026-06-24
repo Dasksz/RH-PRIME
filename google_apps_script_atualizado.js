@@ -40,15 +40,15 @@ const SHEET_CONFIG = {
   },
   absenteismo: {
     tableName: "rh_absenteismo",
-    nameField: "funcionario_nome",
+    nameField: "id", // Use ID to identify rows uniquely for updates
     fields: [
-      "funcionario_nome",
-      "mes_ref",
-      "data_inicio",
-      "data_fim",
-      "horas_previstas",
-      "horas_perdidas",
-      "motivo",
+      "id", // Coluna A
+      "funcionario_nome", // Coluna B
+      "data_inicio", // Coluna C
+      "data_fim", // Coluna D
+      "horas_previstas", // Coluna E
+      "horas_perdidas", // Coluna F
+      "motivo", // Coluna G
     ],
   },
   ferias: {
@@ -108,8 +108,29 @@ function formatarData(valor) {
 
 // Atualiza ou Insere um registro no Supabase
 function upsertRecord(tableName, nameField, payload) {
-  const nomeValue = payload[nameField];
-  if (!nomeValue) return;
+  const identificador = payload[nameField];
+
+  // Se a tabela usar "id" como chave e ele estiver ausente no payload (linha nova na planilha), é um INSERT direto
+  if (nameField === "id" && (!identificador || identificador === "")) {
+      try {
+          UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
+            method: "post",
+            headers: {
+              apikey: SUPABASE_KEY,
+              Authorization: `Bearer ${SUPABASE_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "return=minimal",
+            },
+            payload: JSON.stringify([payload]),
+          });
+          console.log(`Inserido novo registro na tabela ${tableName} (sem ID definido)`);
+      } catch (error) {
+          console.error(`Erro ao inserir na tabela ${tableName}: `, error.message);
+      }
+      return;
+  }
+
+  if (!identificador && nameField !== "id") return; // Para tabelas normais onde nome é obrigatório
 
   try {
     // Se for a aba absenteismo, vamos buscar pelo ID único se existir, mas não temos ID gerado pelo GSheet.
@@ -122,22 +143,13 @@ function upsertRecord(tableName, nameField, payload) {
 
     let existingUrl;
     let urlWithSelect;
-    if (tableName === 'rh_absenteismo') {
-        // Se formos tentar atualizar, teríamos que saber o ID do registro exato.
-        // Já que a planilha tem múltiplos registros para o mesmo funcionário no mesmo mês,
-        // e nós adicionamos um 'id' como UUID gen_random_uuid(), a busca apenas por nome vai achar
-        // o primeiro e atualizar. O ideal seria ter uma chave na planilha, ou o script deve assumir INSERTS novos,
-        // ou buscar todos do funcionário naquele mes e atualizar...
-        // Como o script GSheets envia a planilha TODA, e o backend usa UPSERT por ID, o script atual não suporta múltiplas linhas
-        // sem um ID. Para corrigir provisoriamente: vamos buscar pelo nome + data_inicio (se existir)
-        let filterUrl = `${SUPABASE_URL}/rest/v1/${tableName}?${nameField}=eq.${encodeURIComponent(nomeValue)}`;
-        if (payload.data_inicio) filterUrl += `&data_inicio=eq.${payload.data_inicio}`;
-        else if (payload.mes_ref) filterUrl += `&mes_ref=eq.${encodeURIComponent(payload.mes_ref)}`;
 
-        existingUrl = filterUrl;
+    // Agora que sabemos o ID exato (se tiver), podemos buscar direto
+    if (nameField === "id") {
+        existingUrl = `${SUPABASE_URL}/rest/v1/${tableName}?id=eq.${identificador}`;
         urlWithSelect = `${existingUrl}&select=id`;
     } else {
-        existingUrl = `${SUPABASE_URL}/rest/v1/${tableName}?${nameField}=eq.${encodeURIComponent(nomeValue)}`;
+        existingUrl = `${SUPABASE_URL}/rest/v1/${tableName}?${nameField}=eq.${encodeURIComponent(identificador)}`;
         urlWithSelect = tableName === "epi_funcao" ? existingUrl : `${existingUrl}&select=id`;
     }
 
@@ -156,7 +168,7 @@ function upsertRecord(tableName, nameField, payload) {
       // UPDATE
       let patchUrl = `${SUPABASE_URL}/rest/v1/${tableName}?`;
       if (tableName === "epi_funcao") {
-        patchUrl += `funcao=eq.${encodeURIComponent(nomeValue)}`;
+        patchUrl += `funcao=eq.${encodeURIComponent(identificador)}`;
       } else {
         patchUrl += `id=eq.${records[0].id}`;
       }
@@ -171,7 +183,7 @@ function upsertRecord(tableName, nameField, payload) {
         },
         payload: JSON.stringify(payload),
       });
-      console.log(`Atualizado registro de ${nomeValue} na tabela ${tableName}`);
+      console.log(`Atualizado registro de ${identificador} na tabela ${tableName}`);
     } else {
       // INSERT
       UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
@@ -185,12 +197,12 @@ function upsertRecord(tableName, nameField, payload) {
         payload: JSON.stringify([payload]),
       });
       console.log(
-        `Inserido novo registro de ${nomeValue} na tabela ${tableName}`,
+        `Inserido novo registro de ${identificador} na tabela ${tableName}`,
       );
     }
   } catch (error) {
     console.error(
-      `Erro ao sincronizar ${nomeValue} na tabela ${tableName}: O payload era `,
+      `Erro ao sincronizar ${identificador} na tabela ${tableName}: O payload era `,
       JSON.stringify(payload),
       ` | Erro: `,
       error.message,
@@ -253,6 +265,11 @@ function buildPayload(sheetName, rowData) {
     config.fields.forEach((field, index) => {
       let val = rowData[index];
 
+      if (field === "id" && (!val || val.toString().trim() === "")) {
+          // Ignora ID vazio na hora de montar o payload, pois será um INSERT gerado pelo banco
+          return;
+      }
+
       // Se for o campo mes_ref, forçamos o formato MM/YYYY para respeitar o limite de 7 caracteres
       if (field === "mes_ref") {
         if (val instanceof Date) {
@@ -300,6 +317,20 @@ function buildPayload(sheetName, rowData) {
           }
           if (field === "horas_perdidas" && isNaN(Number(val))) {
             val = null;
+          }
+          if (field === "data_inicio" && val) {
+             // Calcular mes_ref (MM/YYYY) e adicionar ao payload automaticamente
+             let d = null;
+             if (val instanceof Date) { d = val; }
+             else if (typeof val === "string" && /\d{1,2}\/\d{1,2}\/\d{4}/.test(val)) {
+                const parts = val.split("/");
+                d = new Date(parts[2], parts[1] - 1, parts[0]);
+             }
+             if (d && !isNaN(d)) {
+                 const m = (d.getMonth() + 1).toString().padStart(2, "0");
+                 const y = d.getFullYear();
+                 payload["mes_ref"] = `${m}/${y}`;
+             }
           }
         }
         if (
