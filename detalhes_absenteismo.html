@@ -72,7 +72,7 @@
       // Configurações do Supabase
       const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
       const SUPABASE_ANON_KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.i9w1N3R94oQp6uJ0vB5z9Q5E1E9zE4z1O8g_b_L_U_g"; // Replace with real key but keep it as it was in original index
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU"; // Replace with real key but keep it as it was in original index
       const supabase = window.supabase.createClient(
         SUPABASE_URL,
         SUPABASE_ANON_KEY,
@@ -128,7 +128,14 @@
                 if(item.mes_ref) meses.add(item.mes_ref);
             });
             
-            setMesesDisponiveis(Array.from(meses).sort().reverse());
+            const ordenarMesesAno = (a, b) => {
+              const [mesA, anoA] = a.split('/');
+              const [mesB, anoB] = b.split('/');
+              if (anoA !== anoB) return parseInt(anoB) - parseInt(anoA);
+              return parseInt(mesB) - parseInt(mesA);
+            };
+
+            setMesesDisponiveis(Array.from(meses).sort(ordenarMesesAno));
           } catch (error) {
             console.error("Erro ao buscar dados:", error.message);
             alert("Erro ao carregar dados. Tente atualizar a página.");
