@@ -202,7 +202,7 @@
             mesFiltro === "todos" ? "Todos os Períodos" : mesFiltro;
 
           container.innerHTML = `
-            <div id="pdf-inner-content-absenteismo" style="width: 800px; background-color: white; color: black; font-family: sans-serif; padding: 20px;">
+            <div id="pdf-inner-content-absenteismo" style="width: 1080px; background-color: white; color: black; font-family: sans-serif; padding: 20px;">
               <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #002060; padding-bottom: 10px;">
               <h2 style="margin: 0; color: #002060; font-size: 18px;">PRIME RH - Relatório de Absenteísmo</h2>
               <p style="margin: 5px 0 0 0; color: #64748b; font-size: 12px;">Período: ${periodo} | Emitido em: ${dataEmissao}</p>
@@ -235,7 +235,7 @@
             filename: `Relatorio_Absenteismo_${periodo.replace("/", "_")}.pdf`,
             image: { type: "jpeg", quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
             pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
           };
 
