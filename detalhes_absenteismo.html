@@ -172,11 +172,8 @@
           const container = document.createElement("div");
           container.id = "pdf-content-absenteismo";
           container.style.position = "absolute";
-          container.style.left = "0";
-          container.style.opacity = "0";
-          container.style.pointerEvents = "none";
-          container.style.zIndex = "-9999";
-          container.style.top = "0";
+          container.style.left = "-9999px";
+          container.style.top = "-9999px";
           container.style.width = "800px"; /* Fits A4 width */
           container.style.backgroundColor = "white";
           container.style.color = "black";
@@ -244,6 +241,11 @@
           html2pdf()
             .set(opt)
             .from(container)
+            .toPdf()
+            .get("pdf")
+            .then(function (pdf) {
+              window.open(pdf.output("bloburl"), "_blank");
+            })
             .save()
             .then(() => {
               document.body.removeChild(container);
