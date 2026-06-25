@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PRIME RH - Detalhes de Absenteísmo</title>
-    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg">
+    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg" />
+
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- Carregando Tailwind CSS para o Design -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -85,14 +88,14 @@
         const [isLoading, setIsLoading] = useState(true);
         const [mesFiltro, setMesFiltro] = useState("todos");
         const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
-        
+
         // Obter mes da URL, se existir
         useEffect(() => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const mesUrl = urlParams.get('mes');
-            if (mesUrl) {
-                setMesFiltro(mesUrl);
-            }
+          const urlParams = new URLSearchParams(window.location.search);
+          const mesUrl = urlParams.get("mes");
+          if (mesUrl) {
+            setMesFiltro(mesUrl);
+          }
         }, []);
 
         useEffect(() => {
@@ -101,7 +104,9 @@
 
         const checkSession = async () => {
           setIsAuthChecking(true);
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (!session) {
             window.location.href = "login.html";
           } else {
@@ -119,18 +124,18 @@
               .order("data_inicio", { ascending: false });
 
             if (error) throw error;
-            
+
             setAbsenteismo(data || []);
 
             // Extrair meses únicos para o filtro
             const meses = new Set();
-            (data || []).forEach(item => {
-                if(item.mes_ref) meses.add(item.mes_ref);
+            (data || []).forEach((item) => {
+              if (item.mes_ref) meses.add(item.mes_ref);
             });
-            
+
             const ordenarMesesAno = (a, b) => {
-              const [mesA, anoA] = a.split('/');
-              const [mesB, anoB] = b.split('/');
+              const [mesA, anoA] = a.split("/");
+              const [mesB, anoB] = b.split("/");
               if (anoA !== anoB) return parseInt(anoB) - parseInt(anoA);
               return parseInt(mesB) - parseInt(mesA);
             };
@@ -147,26 +152,109 @@
 
         // Formatação de Datas
         const formatarData = (dataStr) => {
-            if (!dataStr) return "-";
-            const partes = dataStr.split('-');
-            if(partes.length === 3) {
-                return `${partes[2]}/${partes[1]}/${partes[0]}`;
-            }
-            return dataStr;
+          if (!dataStr) return "-";
+          const partes = dataStr.split("-");
+          if (partes.length === 3) {
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+          }
+          return dataStr;
         };
 
         // Dados Filtrados
         const dadosFiltrados = useMemo(() => {
-            if (mesFiltro === "todos") return absenteismo;
-            return absenteismo.filter(item => item.mes_ref === mesFiltro);
+          if (mesFiltro === "todos") return absenteismo;
+          return absenteismo.filter((item) => item.mes_ref === mesFiltro);
         }, [absenteismo, mesFiltro]);
 
         // Calcular totais
+        // Função para Gerar PDF
+        const gerarPDF = () => {
+          const container = document.createElement("div");
+          container.id = "pdf-content-absenteismo";
+          container.style.padding = "20px";
+          container.style.position = "absolute";
+          container.style.left = "-9999px";
+          container.style.top = "-9999px";
+          container.style.backgroundColor = "white";
+          container.style.color = "black";
+          container.style.fontFamily = "sans-serif";
+
+          let tableRows = dadosFiltrados
+            .map(
+              (item, index) => `
+            <tr style="border-bottom: 1px solid #e2e8f0; page-break-inside: avoid;">
+              <td style="padding: 12px 16px; font-size: 12px;">${item.funcionario_nome}</td>
+              <td style="padding: 12px 16px; font-size: 12px; text-align: center;">${formatarData(item.data_inicio)}</td>
+              <td style="padding: 12px 16px; font-size: 12px; text-align: center;">${formatarData(item.data_fim)}</td>
+              <td style="padding: 12px 16px; font-size: 12px; text-align: center;">${item.mes_ref || "-"}</td>
+              <td style="padding: 12px 16px; font-size: 12px; text-align: center; color: #ef4444; font-weight: bold;">${item.horas_perdidas ? item.horas_perdidas + "h" : "-"}</td>
+              <td style="padding: 12px 16px; font-size: 12px; color: #475569;">${item.motivo || "Não informado"}</td>
+            </tr>
+          `,
+            )
+            .join("");
+
+          if (dadosFiltrados.length === 0) {
+            tableRows = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Nenhum registro encontrado.</td></tr>`;
+          }
+
+          const dataEmissao = new Date().toLocaleDateString("pt-BR");
+          const periodo =
+            mesFiltro === "todos" ? "Todos os Períodos" : mesFiltro;
+
+          container.innerHTML = `
+            <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #002060; padding-bottom: 10px;">
+              <h2 style="margin: 0; color: #002060; font-size: 24px;">PRIME RH - Relatório de Absenteísmo</h2>
+              <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Período: ${periodo} | Emitido em: ${dataEmissao}</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <p style="font-size: 14px; color: #334155; font-weight: bold;">Total de Horas Perdidas: <span style="color: #ef4444;">${totais.horas_perdidas}h</span></p>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+              <thead style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                <tr>
+                  <th style="padding: 12px 16px; font-size: 12px; color: #475569; text-transform: uppercase;">Funcionário</th>
+                  <th style="padding: 12px 16px; font-size: 12px; color: #475569; text-transform: uppercase; text-align: center;">Data Início</th>
+                  <th style="padding: 12px 16px; font-size: 12px; color: #475569; text-transform: uppercase; text-align: center;">Data Fim</th>
+                  <th style="padding: 12px 16px; font-size: 12px; color: #475569; text-transform: uppercase; text-align: center;">Mês Ref</th>
+                  <th style="padding: 12px 16px; font-size: 12px; color: #475569; text-transform: uppercase; text-align: center;">Horas Perdidas</th>
+                  <th style="padding: 12px 16px; font-size: 12px; color: #475569; text-transform: uppercase;">Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+          `;
+
+          document.body.appendChild(container);
+
+          const opt = {
+            margin: 10,
+            filename: `Relatorio_Absenteismo_${periodo.replace("/", "_")}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+            pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
+          };
+
+          html2pdf()
+            .set(opt)
+            .from(container)
+            .save()
+            .then(() => {
+              document.body.removeChild(container);
+            });
+        };
+
         const totais = useMemo(() => {
-            return dadosFiltrados.reduce((acc, curr) => {
-                acc.horas_perdidas += (Number(curr.horas_perdidas) || 0);
-                return acc;
-            }, { horas_perdidas: 0 });
+          return dadosFiltrados.reduce(
+            (acc, curr) => {
+              acc.horas_perdidas += Number(curr.horas_perdidas) || 0;
+              return acc;
+            },
+            { horas_perdidas: 0 },
+          );
         }, [dadosFiltrados]);
 
         if (isAuthChecking || isLoading) {
@@ -184,19 +272,41 @@
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                   <div className="flex items-center gap-3">
-                    <button 
-                        onClick={() => window.location.href = 'indicadores.html'}
-                        className="p-2 rounded-md hover:bg-white/10 transition-colors mr-2"
-                        title="Voltar"
+                    <button
+                      onClick={() =>
+                        (window.location.href = "indicadores.html")
+                      }
+                      className="p-2 rounded-md hover:bg-white/10 transition-colors mr-2"
+                      title="Voltar"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                        />
+                      </svg>
                     </button>
                     <div className="h-10 w-10 bg-white rounded flex items-center justify-center overflow-hidden">
-                      <img src="LOGO_RH.jpeg" alt="Logo" className="h-full w-full object-cover" />
+                      <img
+                        src="LOGO_RH.jpeg"
+                        alt="Logo"
+                        className="h-full w-full object-cover"
+                      />
                     </div>
-                    <h1 className="text-xl font-bold tracking-tight">PRIME RH <span className="text-blue-300 font-normal">| Detalhes de Absenteísmo</span></h1>
+                    <h1 className="text-xl font-bold tracking-tight">
+                      PRIME RH{" "}
+                      <span className="text-blue-300 font-normal">
+                        | Detalhes de Absenteísmo
+                      </span>
+                    </h1>
                   </div>
                 </div>
               </div>
@@ -204,33 +314,76 @@
 
             {/* Main Content */}
             <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              
               {/* Controles */}
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-slate-800">Registros de Afastamento</h2>
-                        <p className="text-sm text-slate-500">Total de horas perdidas: <span className="font-bold text-red-500">{totais.horas_perdidas}h</span> no período selecionado.</p>
-                    </div>
+                  <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">
+                      Registros de Afastamento
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      Total de horas perdidas:{" "}
+                      <span className="font-bold text-red-500">
+                        {totais.horas_perdidas}h
+                      </span>{" "}
+                      no período selecionado.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <label className="text-sm font-semibold text-slate-600 whitespace-nowrap">Mês Ref:</label>
-                    <select
-                        className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 outline-none transition-colors"
-                        value={mesFiltro}
-                        onChange={(e) => setMesFiltro(e.target.value)}
+                  <button
+                    onClick={gerarPDF}
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
+                    title="Emitir PDF"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                        <option value="todos">Todos os Períodos</option>
-                        {mesesDisponiveis.map((mes, idx) => (
-                            <option key={idx} value={mes}>{mes}</option>
-                        ))}
-                    </select>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    Emitir PDF
+                  </button>
+                  <label className="text-sm font-semibold text-slate-600 whitespace-nowrap">
+                    Mês Ref:
+                  </label>
+                  <select
+                    className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 outline-none transition-colors"
+                    value={mesFiltro}
+                    onChange={(e) => setMesFiltro(e.target.value)}
+                  >
+                    <option value="todos">Todos os Períodos</option>
+                    {mesesDisponiveis.map((mes, idx) => (
+                      <option key={idx} value={mes}>
+                        {mes}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -240,22 +393,40 @@
                   <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                       <tr>
-                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
+                        >
                           Funcionário
                         </th>
-                        <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider"
+                        >
                           Data Início
                         </th>
-                        <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider"
+                        >
                           Data Fim
                         </th>
-                        <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider"
+                        >
                           Mês Ref
                         </th>
-                        <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider"
+                        >
                           Horas Perdidas
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
+                        >
                           Motivo / Observação
                         </th>
                       </tr>
@@ -263,7 +434,10 @@
                     <tbody className="bg-white divide-y divide-slate-200">
                       {dadosFiltrados.length > 0 ? (
                         dadosFiltrados.map((item, index) => (
-                          <tr key={index} className="hover:bg-slate-50 transition-colors">
+                          <tr
+                            key={index}
+                            className="hover:bg-slate-50 transition-colors"
+                          >
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                               {item.funcionario_nome}
                             </td>
@@ -277,7 +451,9 @@
                               {item.mes_ref || "-"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-red-500">
-                              {item.horas_perdidas ? `${item.horas_perdidas}h` : '-'}
+                              {item.horas_perdidas
+                                ? `${item.horas_perdidas}h`
+                                : "-"}
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-600">
                               <span className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
@@ -288,8 +464,12 @@
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="6" className="px-6 py-10 text-center text-sm text-slate-500">
-                            Nenhum registro de absenteísmo encontrado para este período.
+                          <td
+                            colSpan="6"
+                            className="px-6 py-10 text-center text-sm text-slate-500"
+                          >
+                            Nenhum registro de absenteísmo encontrado para este
+                            período.
                           </td>
                         </tr>
                       )}
