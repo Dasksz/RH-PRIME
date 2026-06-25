@@ -700,8 +700,11 @@
           // Create a hidden div for the PDF content
           const container = document.createElement("div");
           container.style.position = "absolute";
-          container.style.left = "-9999px";
-          container.style.top = "-9999px";
+          container.style.left = "0";
+          container.style.opacity = "0";
+          container.style.pointerEvents = "none";
+          container.style.zIndex = "-9999";
+          container.style.top = "0";
 
           
           // Helper to generate table headers
