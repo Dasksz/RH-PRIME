@@ -322,13 +322,13 @@ def iniciar_envio():
 
                 pronome = "A sua" if TIPO_DOCUMENTO == "FOLHA DE PONTO" else "O seu"
 
-                mensagem = (f"Olá, *{nome}*!\n\n"
-                            f"Aqui é do Setor de RH. {pronome} {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\n\n"
-                            f"🔒 *DOCUMENTO PROTEGIDO*\n"
-                            f"Para garantir a sua privacidade (LGPD), o ficheiro possui uma senha.\n"
-                            f"👉 A senha são os *5 PRIMEIROS NÚMEROS DO SEU CPF* (Apenas os números).\n\n"
-                            f"📄 *Acesse o seu documento aqui:*\n{link_pdf}\n\n"
-                            f"⚠️ *MUITO IMPORTANTE:* Por favor, responda a esta mensagem com um *OK* ou *RECEBIDO* para confirmarmos a entrega no nosso sistema.\n\n"
+                mensagem = (f"Olá, *{nome}*!\\n\\n"
+                            f"Aqui é do Setor de RH. {pronome} {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\\n\\n"
+                            f"🔒 *DOCUMENTO PROTEGIDO*\\n"
+                            f"Para garantir a sua privacidade (LGPD), o ficheiro possui uma senha.\\n"
+                            f"👉 A senha são os *5 PRIMEIROS NÚMEROS DO SEU CPF* (Apenas os números).\\n\\n"
+                            f"📄 *Acesse o seu documento aqui:*\\n{link_pdf}\\n\\n"
+                            f"⚠️ *MUITO IMPORTANTE:* Por favor, responda a esta mensagem com um *OK* ou *RECEBIDO* para confirmarmos a entrega no nosso sistema.\\n\\n"
                             f"Um excelente dia!")
 
                 dados = { 'chatId': whatsapp, 'caption': mensagem, 'session': sessao_waha }
