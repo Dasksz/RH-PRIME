@@ -118,7 +118,7 @@ def autenticar_drive():
 def obter_ou_criar_pasta_funcionario(servico, nome_pasta, id_ativos, id_ex):
     nome_escaped = nome_pasta.replace("'", "\'")
     nome_sem_acento = remover_acentos(nome_pasta).replace("'", "\'")
-    
+
     # Busca por ex-funcionários
     query_ex = f"(name='{nome_escaped}' or name='{nome_sem_acento}') and '{id_ex}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
     res_ex = servico.files().list(q=query_ex, spaces='drive', fields='files(id, name)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
@@ -268,7 +268,12 @@ def iniciar_envio():
         try:
             # --- 1. NAVEGAR NAS PASTAS DO GOOGLE DRIVE COM INTELIGÊNCIA ---
             id_pasta_funcionario = obter_ou_criar_pasta_funcionario(servico_drive, nome, ID_PASTA_ATIVOS, ID_PASTA_EX_FUNCIONARIOS)
-            id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_funcionario)
+
+            if TIPO_DOCUMENTO == "FOLHA DE PONTO":
+                id_pasta_intermediaria = obter_ou_criar_pasta(servico_drive, "JORNADA E SEGURANÇA", id_pasta_funcionario)
+                id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_intermediaria)
+            else:
+                id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_funcionario)
 
             id_pasta_ano = obter_ou_criar_pasta(servico_drive, "{ano_competencia}", id_pasta_tipo)
             id_pasta_mes = obter_ou_criar_pasta(servico_drive, "{mes_competencia}.{ano_competencia}", id_pasta_ano)
@@ -315,8 +320,10 @@ def iniciar_envio():
                 else:
                     texto_referencia = "referente a {mes_competencia}.{ano_competencia}"
 
+                pronome = "A sua" if TIPO_DOCUMENTO == "FOLHA DE PONTO" else "O seu"
+
                 mensagem = (f"Olá, *{nome}*!\\n\\n"
-                            f"Aqui é do Setor de RH. O seu {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\\n\\n"
+                            f"Aqui é do Setor de RH. {pronome} {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\\n\\n"
                             f"🔒 *DOCUMENTO PROTEGIDO*\\n"
                             f"Para garantir a sua privacidade (LGPD), o ficheiro possui uma senha.\\n"
                             f"👉 A senha são os *5 PRIMEIROS NÚMEROS DO SEU CPF* (Apenas os números).\\n\\n"
@@ -487,8 +494,10 @@ def preparar_lote():
     print("📋 QUAL O TIPO DE DOCUMENTO NESTE LOTE?")
     print("[1] HOLERITE")
     print("[2] INFORME DE RENDIMENTOS")
-    print("[3] OUTRO (ex: AVISO DE FÉRIAS)")
-    opcao_doc = input("👉 Escolha 1, 2 ou 3 (Padrão: 1): ").strip()
+    print("[3] AVISO DE FÉRIAS")
+    print("[4] FOLHA DE PONTO")
+    print("[5] OUTRO")
+    opcao_doc = input("👉 Escolha de 1 a 5 (Padrão: 1): ").strip()
 
     tipo_documento = "HOLERITE"
     paginas_por_funcionario = 1
@@ -497,6 +506,12 @@ def preparar_lote():
         tipo_documento = "INFORME DE RENDIMENTOS"
         paginas_por_funcionario = 2
     elif opcao_doc == '3':
+        tipo_documento = "AVISO DE FÉRIAS"
+        paginas_por_funcionario = 1
+    elif opcao_doc == '4':
+        tipo_documento = "FOLHA DE PONTO"
+        paginas_por_funcionario = 1
+    elif opcao_doc == '5':
         tipo_documento = input("👉 Digite o nome do documento (ex: RECIBO DE FERIAS): ").strip().upper()
 
     print("\n---------------------------------------------------------")
