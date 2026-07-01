@@ -118,7 +118,7 @@ def autenticar_drive():
 def obter_ou_criar_pasta_funcionario(servico, nome_pasta, id_ativos, id_ex):
     nome_escaped = nome_pasta.replace("'", "\'")
     nome_sem_acento = remover_acentos(nome_pasta).replace("'", "\'")
-
+    
     # Busca por ex-funcionários
     query_ex = f"(name='{nome_escaped}' or name='{nome_sem_acento}') and '{id_ex}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
     res_ex = servico.files().list(q=query_ex, spaces='drive', fields='files(id, name)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
@@ -268,7 +268,7 @@ def iniciar_envio():
         try:
             # --- 1. NAVEGAR NAS PASTAS DO GOOGLE DRIVE COM INTELIGÊNCIA ---
             id_pasta_funcionario = obter_ou_criar_pasta_funcionario(servico_drive, nome, ID_PASTA_ATIVOS, ID_PASTA_EX_FUNCIONARIOS)
-
+            
             if TIPO_DOCUMENTO == "FOLHA DE PONTO":
                 id_pasta_intermediaria = obter_ou_criar_pasta(servico_drive, "JORNADA E SEGURANÇA", id_pasta_funcionario)
                 id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_intermediaria)
@@ -744,7 +744,16 @@ def preparar_lote():
             except:
                 print("❌ Erro de formato. O arquivo ficará sem data no nome.")
 
-    prefixo_pasta = "Lote_Envio_" if tipo_documento == "HOLERITE" else "Lote_Informes_"
+    if tipo_documento == "HOLERITE":
+        prefixo_pasta = "Lote_Envio_"
+    elif tipo_documento == "INFORME DE RENDIMENTOS":
+        prefixo_pasta = "Lote_Informes_"
+    elif tipo_documento == "FOLHA DE PONTO":
+        prefixo_pasta = "Lote_Pontos_"
+    elif tipo_documento == "AVISO DE FÉRIAS":
+        prefixo_pasta = "Lote_Ferias_"
+    else:
+        prefixo_pasta = "Lote_Documentos_"
     nome_pasta_lote = datetime.now().strftime(f"{prefixo_pasta}%d-%m-%Y_%Hh%M")
 
     pasta_pdfs_separados = os.path.join(nome_pasta_lote, "PDFs_Separados")
