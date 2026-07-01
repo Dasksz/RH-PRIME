@@ -1,0 +1,351 @@
+{
+  "name": "RH PRIME",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "a0cc965f-b7e3-410c-89fa-ac527d012e10",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -4256,
+        800
+      ],
+      "id": "e99e0b24-31be-43d0-88b6-0f840851c899",
+      "name": "Webhook",
+      "webhookId": "a0cc965f-b7e3-410c-89fa-ac527d012e10"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f7013d17-e595-4bce-9c6e-e819168e8ed5",
+              "name": "session",
+              "value": "={{ $json.body.session }}",
+              "type": "string"
+            },
+            {
+              "id": "15288603-6faf-4049-a37f-c427b29ae1f2",
+              "name": "chatid",
+              "value": "={{ String($json.body.payload.fromMe ? ($json.body.payload.to || $json.body.payload.from) : $json.body.payload.from) }}",
+              "type": "string"
+            },
+            {
+              "id": "43e55c64-a3df-413c-bd16-f6c610793b0e",
+              "name": "pushname",
+              "value": "={{ $json.body.payload._data.Info.PushName }}",
+              "type": "string"
+            },
+            {
+              "id": "2fb0f29b-1828-4e9a-9b45-3375f579c4ab",
+              "name": "payload_id",
+              "value": "={{ $json.body.payload.id }}",
+              "type": "string"
+            },
+            {
+              "id": "a2295d3d-87a7-48ca-b995-d27c3466c958",
+              "name": "event",
+              "value": "={{ $json.body.event }}",
+              "type": "string"
+            },
+            {
+              "id": "b8fd89d3-9639-41b0-be0d-1a9c1d185b24",
+              "name": "message",
+              "value": "={{ $json.body.payload.body }}",
+              "type": "string"
+            },
+            {
+              "id": "0896a014-f39e-4adb-b6a7-9420d029d5b6",
+              "name": "fromme",
+              "value": "={{ $json.body.payload.fromMe }}",
+              "type": "boolean"
+            },
+            {
+              "id": "f7f46cb7-d5f3-436d-87f0-843d09017fc5",
+              "name": "phone_number",
+              "value": "={{ '+' + $json.body.payload._data.Info.SenderAlt.split(/[:@]/)[0] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4032,
+        800
+      ],
+      "id": "5c7d82d4-a146-40fd-902c-aed7e968a651",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4a1a40a9-b494-433b-bb87-3ad2838adc5a",
+              "leftValue": "={{ $json.fromme }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "54f1dbbd-8929-4775-990b-5aeccef1abdf",
+              "leftValue": "={{ $json.message.toLowerCase() }}",
+              "rightValue": "atendimento finalizado",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3808,
+        800
+      ],
+      "id": "3bbdc60a-f400-413b-bf8c-e4f0e07b3aa3",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Seen",
+        "session": "={{ $('Edit Fields').item.json.session }}",
+        "chatId": "={{ $('Edit Fields').item.json.chatid }}",
+        "messageId": "={{ $('Edit Fields').item.json.payload_id }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -3424,
+        784
+      ],
+      "id": "60f886d1-f664-4260-849c-b065b8897344",
+      "name": "Send Seen1",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $('Edit Fields').item.json.session }}",
+        "chatId": "={{ $('Edit Fields').item.json.chatid }}",
+        "text": "={{ $('Limpar Mensagem IA1 Ajustado1').item.json.output_limpo }}",
+        "linkPreview": "",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -3184,
+        784
+      ],
+      "id": "4498446e-7dde-433f-bf91-36d9ef90d649",
+      "name": "Send a text message",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "holerites",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "d3a1e9bc-6b9c-4b1d-ad2c-e38fada9277b",
+      "name": "Receber do Python",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -4256,
+        1152
+      ],
+      "webhookId": "36081825-c41e-4a82-87da-3b7f7f5b0288"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "default",
+        "chatId": "={{ $('Receber do Python').item.json.body.chatId }}",
+        "text": "={{ $json.body.caption }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -4000,
+        1152
+      ],
+      "id": "aaa2cf5c-e148-4b5a-bec0-9e24b84e63c3",
+      "name": "Enviar Link Holerite WAHA",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=chat_V83_{{ $('Edit Fields').item.json.chatid }}",
+        "sessionTTL": 1800,
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        -4240,
+        992
+      ],
+      "id": "b39bcca7-28c3-4765-a6c3-57ce74462f83",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "redis": {
+          "id": "n9ZbwQC0bFIzr41K",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "default",
+        "chatId": "={{ $('Receber do Python').item.json.body.chatId.replace(/^(\\d{2})(\\d{8})@c\\.us$/, '$19$2@c.us') }}",
+        "text": "={{ $('Receber do Python').item.json.body.caption }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        -3760,
+        1168
+      ],
+      "id": "828e7c8f-67a0-436d-a4f8-7645394e4a3f",
+      "name": "Fallback Link Holerite WAHA",
+      "credentials": {
+        "wahaApi": {
+          "id": "4fYhjZ68W0BhN58H",
+          "name": "WAHA account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send Seen1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Seen1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receber do Python": {
+      "main": [
+        [
+          {
+            "node": "Enviar Link Holerite WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Link Holerite WAHA": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fallback Link Holerite WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c8549fb4-aede-480f-9170-baf21f390878",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "30ebc79fa17c8c247630f2c60a2ce65275ba18ea39202d11baafdeec3fac67f8"
+  },
+  "id": "w1XyKBuyrjpGS6Y9",
+  "tags": []
+}
