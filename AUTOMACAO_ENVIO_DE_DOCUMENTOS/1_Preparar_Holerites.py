@@ -744,7 +744,16 @@ def preparar_lote():
             except:
                 print("❌ Erro de formato. O arquivo ficará sem data no nome.")
 
-    prefixo_pasta = "Lote_Envio_" if tipo_documento == "HOLERITE" else "Lote_Informes_"
+    if tipo_documento == "HOLERITE":
+        prefixo_pasta = "Lote_Envio_"
+    elif tipo_documento == "INFORME DE RENDIMENTOS":
+        prefixo_pasta = "Lote_Informes_"
+    elif tipo_documento == "FOLHA DE PONTO":
+        prefixo_pasta = "Lote_Pontos_"
+    elif tipo_documento == "AVISO DE FÉRIAS":
+        prefixo_pasta = "Lote_Ferias_"
+    else:
+        prefixo_pasta = "Lote_Documentos_"
     nome_pasta_lote = datetime.now().strftime(f"{prefixo_pasta}%d-%m-%Y_%Hh%M")
 
     pasta_pdfs_separados = os.path.join(nome_pasta_lote, "PDFs_Separados")
