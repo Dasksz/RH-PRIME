@@ -59,9 +59,7 @@ const SHEET_CONFIG = {
       "funcionario_nome",
       "data_admissao",
       "data_desligamento",
-      "tipo_movimentacao",
       "motivo_saida",
-      "mes_ref",
     ],
   },
   absenteismo: {
@@ -289,10 +287,7 @@ function buildPayload(sheetName, rowData) {
       }
 
       if (field === "mes_ref") {
-        if (config.tableName === "rh_movimentacoes") {
-          // Ignorar o mes_ref em rh_movimentacoes, pois será calculado dinamicamente
-          return;
-        }
+
         if (val instanceof Date) {
             const m = (val.getMonth() + 1).toString().padStart(2, "0");
             const y = val.getFullYear();
@@ -327,10 +322,6 @@ function buildPayload(sheetName, rowData) {
         // Vazio: ignora
       } else {
         if (config.tableName === "rh_movimentacoes") {
-          if (field === "tipo_movimentacao") {
-            // Ignorar o tipo_movimentacao, pois será calculado dinamicamente pelas datas
-            return;
-          }
           if (field === "motivo_saida" && val)
             val = String(val).toLowerCase().trim();
         }
@@ -476,9 +467,13 @@ function syncAllToSupabase() {
     }
   });
 
-  SpreadsheetApp.getUi().alert(
-    "Sincronização completa de todas as abas finalizada com sucesso!",
-  );
+  try {
+    SpreadsheetApp.getUi().alert(
+      "Sincronização completa de todas as abas finalizada com sucesso!"
+    );
+  } catch (e) {
+    console.log("Sincronização completa de todas as abas finalizada com sucesso! (UI não disponível)");
+  }
 }
 
 // ==========================================

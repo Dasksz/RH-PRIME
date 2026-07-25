@@ -74,9 +74,7 @@ const SHEET_CONFIG = {
       "funcionario_nome",
       "data_admissao",
       "data_desligamento",
-      "tipo_movimentacao",
       "motivo_saida",
-      "mes_ref",
     ],
   },
   absenteismo: {
@@ -150,7 +148,7 @@ function formatarData(valor) {
 // Atualiza ou Insere um registro no Supabase
 function upsertRecord(tableName, nameField, payload) {
   const identificador = payload[nameField];
-    
+
   // Se a tabela usar "id" como chave e ele estiver ausente no payload (linha nova na planilha), é um INSERT direto
   if (nameField === "id" && (!identificador || identificador === "")) {
       try {
@@ -304,10 +302,7 @@ function buildPayload(sheetName, rowData) {
       }
 
       if (field === "mes_ref") {
-        if (config.tableName === "rh_movimentacoes") {
-          // Ignorar o mes_ref em rh_movimentacoes, pois será calculado dinamicamente
-          return;
-        }
+
         if (val instanceof Date) {
             const m = (val.getMonth() + 1).toString().padStart(2, "0");
             const y = val.getFullYear();
@@ -342,10 +337,6 @@ function buildPayload(sheetName, rowData) {
         // Vazio: ignora
       } else {
         if (config.tableName === "rh_movimentacoes") {
-          if (field === "tipo_movimentacao") {
-            // Ignorar o tipo_movimentacao, pois será calculado dinamicamente pelas datas
-            return;
-          }
           if (field === "motivo_saida" && val)
             val = String(val).toLowerCase().trim();
         }
@@ -472,7 +463,7 @@ function syncAllToSupabase() {
     const config = SHEET_CONFIG[sheetName];
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return; // Só tem cabeçalho
-    
+
     const columnsToFetch =
       sheetName === "Controle EPI e Fardamento" ? 13 : config.fields.length;
 
@@ -491,9 +482,13 @@ function syncAllToSupabase() {
     }
   });
 
-  SpreadsheetApp.getUi().alert(
-    "Sincronização completa de todas as abas finalizada com sucesso!",
-  );
+  try {
+    SpreadsheetApp.getUi().alert(
+      "Sincronização completa de todas as abas finalizada com sucesso!"
+    );
+  } catch (e) {
+    console.log("Sincronização completa de todas as abas finalizada com sucesso! (UI não disponível)");
+  }
 }
 
 // ==========================================
@@ -719,7 +714,7 @@ Agora as 4 abas estão 100% integradas e sincronizadas para enviar e receber inf
 
 ## 📝 Guia de Preenchimento das Planilhas
 
-Para que o Front-End (Painel de Indicadores) funcione corretamente, os dados devem ser preenchidos exatamente nos padrões abaixo. Atenção especial para os campos `tipo_movimentacao` e `motivo_saida`, que **devem** seguir as palavras-chave exatas.
+Para que o Front-End (Painel de Indicadores) funcione corretamente, os dados devem ser preenchidos exatamente nos padrões abaixo. Atenção especial para o campo `motivo_saida`, que **deve** seguir as palavras-chave exatas.
 
 ### Aba: `movimentacoes`
 
