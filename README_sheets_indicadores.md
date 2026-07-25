@@ -13,6 +13,33 @@ Certifique-se de que sua planilha tenha as seguintes abas com os nomes EXATOS:
 Substitua TODO o conteúdo do seu arquivo atual no Apps Script por este código abaixo. Ele unifica a lógica do EPI com a lógica dos Indicadores, para que um único Webhook funcione para tudo.
 
 ```javascript
+// Função para calcular horas úteis entre duas datas
+function calcularHorasUteis(dataInicio, dataFim) {
+  if (!dataInicio || !dataFim) return 0;
+
+  let dInicio = dataInicio instanceof Date ? new Date(dataInicio) : new Date(dataInicio + "T00:00:00");
+  let dFim = dataFim instanceof Date ? new Date(dataFim) : new Date(dataFim + "T00:00:00");
+
+  if (isNaN(dInicio.getTime()) || isNaN(dFim.getTime()) || dInicio > dFim) {
+    return 0;
+  }
+
+  let totalHoras = 0;
+  let current = new Date(dInicio);
+
+  while (current <= dFim) {
+    const diaSemana = current.getDay();
+    if (diaSemana >= 1 && diaSemana <= 5) {
+      totalHoras += 8;
+    } else if (diaSemana === 6) {
+      totalHoras += 4;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return totalHoras;
+}
+
 // ==========================================
 // CONFIGURAÇÕES DO SUPABASE E PLANILHA
 // ==========================================
@@ -54,14 +81,15 @@ const SHEET_CONFIG = {
   },
   absenteismo: {
     tableName: "rh_absenteismo",
-    nameField: "funcionario_nome",
+    nameField: "id", // Use ID to identify rows uniquely for updates
     fields: [
-      "funcionario_nome",
-      "data_inicio",
-      "data_fim",
-      "horas_previstas",
-      "horas_perdidas",
-      "motivo",
+      "id", // Coluna A
+      "funcionario_nome", // Coluna B
+      "data_inicio", // Coluna C
+      "data_fim", // Coluna D
+      "horas_previstas", // Coluna E
+      "horas_perdidas", // Coluna F
+      "motivo", // Coluna G
     ],
   },
   ferias: {
@@ -115,59 +143,49 @@ function formatarData(valor) {
   return valor ? valor.toString() : null;
 }
 
-// Função para extrair mês/ano
-function getMesRefFromDate(dateStr) {
-  if (!dateStr) return null;
-  const parts = dateStr.split("-"); // YYYY-MM-DD
-  if (parts.length === 3) {
-    return `${parts[1]}/${parts[0]}`; // MM/YYYY
-  }
-  return null;
-}
-
-// Função para calcular horas perdidas
-function calcularHorasPerdidas(inicioStr, fimStr) {
-  if (!inicioStr || !fimStr) return 0;
-  
-  // Assumes YYYY-MM-DD format
-  const inicio = new Date(inicioStr + "T00:00:00");
-  const fim = new Date(fimStr + "T00:00:00");
-  
-  if (inicio > fim) return 0;
-  
-  let horas = 0;
-  let atual = new Date(inicio);
-  
-  while (atual <= fim) {
-    const diaSemana = atual.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-    if (diaSemana >= 1 && diaSemana <= 5) { // Segunda a Sexta
-      horas += 8;
-    } else if (diaSemana === 6) { // Sábado
-      horas += 4;
-    }
-    // Domingo (0) não soma horas
-    
-    atual.setDate(atual.getDate() + 1);
-  }
-  
-  return horas;
-}
-
 // ==========================================
 // FUNÇÕES DE SINCRONIZAÇÃO LINEAR
 // ==========================================
 
 // Atualiza ou Insere um registro no Supabase
 function upsertRecord(tableName, nameField, payload) {
-  const nomeValue = payload[nameField];
-  if (!nomeValue) return;
+  const identificador = payload[nameField];
+    
+  // Se a tabela usar "id" como chave e ele estiver ausente no payload (linha nova na planilha), é um INSERT direto
+  if (nameField === "id" && (!identificador || identificador === "")) {
+      try {
+          UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
+            method: "post",
+            headers: {
+              apikey: SUPABASE_KEY,
+              Authorization: `Bearer ${SUPABASE_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "return=minimal",
+            },
+            payload: JSON.stringify([payload]),
+          });
+          console.log(`Inserido novo registro na tabela ${tableName} (sem ID definido)`);
+      } catch (error) {
+          console.error(`Erro ao inserir na tabela ${tableName}: `, error.message);
+      }
+      return;
+  }
+
+  if (!identificador && nameField !== "id") return; // Para tabelas normais onde nome é obrigatório
 
   try {
-    const existingUrl = `${SUPABASE_URL}/rest/v1/${tableName}?${nameField}=eq.${encodeURIComponent(nomeValue)}`;
-    // Only select the id if it's not epi_funcao (which uses funcao as PK and doesn't have an id)
-    const urlWithSelect =
-      tableName === "epi_funcao" ? existingUrl : `${existingUrl}&select=id`;
+    let existingUrl;
+    let urlWithSelect;
 
+    // Agora que sabemos o ID exato (se tiver), podemos buscar direto
+    if (nameField === "id") {
+        existingUrl = `${SUPABASE_URL}/rest/v1/${tableName}?id=eq.${identificador}`;
+        urlWithSelect = `${existingUrl}&select=id`;
+    } else {
+        existingUrl = `${SUPABASE_URL}/rest/v1/${tableName}?${nameField}=eq.${encodeURIComponent(identificador)}`;
+        urlWithSelect = tableName === "epi_funcao" ? existingUrl : `${existingUrl}&select=id`;
+    }
+  
     const response = UrlFetchApp.fetch(urlWithSelect, {
       method: "get",
       headers: {
@@ -183,7 +201,7 @@ function upsertRecord(tableName, nameField, payload) {
       // UPDATE
       let patchUrl = `${SUPABASE_URL}/rest/v1/${tableName}?`;
       if (tableName === "epi_funcao") {
-        patchUrl += `funcao=eq.${encodeURIComponent(nomeValue)}`;
+        patchUrl += `funcao=eq.${encodeURIComponent(identificador)}`;
       } else {
         patchUrl += `id=eq.${records[0].id}`;
       }
@@ -198,7 +216,7 @@ function upsertRecord(tableName, nameField, payload) {
         },
         payload: JSON.stringify(payload),
       });
-      console.log(`Atualizado registro de ${nomeValue} na tabela ${tableName}`);
+      console.log(`Atualizado registro de ${identificador} na tabela ${tableName}`);
     } else {
       // INSERT
       UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
@@ -212,12 +230,12 @@ function upsertRecord(tableName, nameField, payload) {
         payload: JSON.stringify([payload]),
       });
       console.log(
-        `Inserido novo registro de ${nomeValue} na tabela ${tableName}`,
+        `Inserido novo registro de ${identificador} na tabela ${tableName}`,
       );
     }
   } catch (error) {
     console.error(
-      `Erro ao sincronizar ${nomeValue} na tabela ${tableName}: O payload era `,
+      `Erro ao sincronizar ${identificador} na tabela ${tableName}: O payload era `,
       JSON.stringify(payload),
       ` | Erro: `,
       error.message,
@@ -280,32 +298,60 @@ function buildPayload(sheetName, rowData) {
     config.fields.forEach((field, index) => {
       let val = rowData[index];
 
-      // Se for data ou uma string que se parece com data DD/MM/YYYY, formatamos com formatarData (que retorna YYYY-MM-DD)
-      if (
+      if (field === "id" && (!val || val.toString().trim() === "")) {
+          // Ignora ID vazio
+          return;
+      }
+
+      if (field === "mes_ref") {
+        if (config.tableName === "rh_movimentacoes") {
+          // Ignorar o mes_ref em rh_movimentacoes, pois será calculado dinamicamente
+          return;
+        }
+        if (val instanceof Date) {
+            const m = (val.getMonth() + 1).toString().padStart(2, "0");
+            const y = val.getFullYear();
+            payload[field] = `${m}/${y}`;
+        } else if (typeof val === "string") {
+            const valClean = val.trim();
+            if (valClean.match(/^\d{4}-\d{2}-\d{2}/)) {
+                const parts = valClean.split("T")[0].split("-");
+                payload[field] = `${parts[1]}/${parts[0]}`;
+            } else if (valClean.match(/^\d{2}\/\d{4}$/)) {
+                payload[field] = valClean;
+            } else if (valClean.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
+                const parts = valClean.split(" ")[0].split("/");
+                payload[field] = `${parts[1].padStart(2, '0')}/${parts[2]}`;
+            } else if (valClean) {
+                payload[field] = valClean.substring(0, 7);
+            }
+        }
+      }
+      else if (
         val instanceof Date ||
         (typeof val === "string" && /\d{1,2}\/\d{1,2}\/\d{4}/.test(val))
       ) {
-        payload[field] = formatarData(val);
+        const formated = formatarData(val);
+        if (formated) payload[field] = formated;
       } else if (
         val === "" ||
         val === null ||
         val === undefined ||
         (typeof val === "string" && val.trim() === "")
       ) {
-        // Não enviamos a chave se o valor for nulo/vazio para evitar erros de not-null no Supabase
-        // payload[field] = null;
+        // Vazio: ignora
       } else {
         if (config.tableName === "rh_movimentacoes") {
-          if (field === "tipo_movimentacao" && val)
-            val = String(val).toLowerCase().trim();
+          if (field === "tipo_movimentacao") {
+            // Ignorar o tipo_movimentacao, pois será calculado dinamicamente pelas datas
+            return;
+          }
           if (field === "motivo_saida" && val)
             val = String(val).toLowerCase().trim();
         }
         if (config.tableName === "rh_absenteismo") {
-          if (field === "horas_previstas") {
-             if (val === "" || val === null || val === undefined || isNaN(Number(val))) {
-                val = 220; // Default inteligente
-             }
+          if (field === "horas_previstas" && isNaN(Number(val))) {
+            val = null;
           }
           if (field === "horas_perdidas" && isNaN(Number(val))) {
             val = null;
@@ -313,30 +359,33 @@ function buildPayload(sheetName, rowData) {
         }
         if (
           typeof val === "number" &&
-          (field === "mes_ref" ||
-            field === "funcionario_nome" ||
-            field === "motivo")
+          (field === "funcionario_nome" || field === "motivo")
         ) {
           val = String(val);
         }
 
-        // Só adiciona ao payload se não foi convertido para nulo pelas regras acima
-        if (val !== null) {
+        if (val !== null && payload[field] === undefined) {
           payload[field] = val;
         }
       }
     });
-    
-    // Lógica Específica para Absenteísmo: calcular horas perdidas e mes_ref
-    if (sheetName === "absenteismo") {
-        if (payload.data_inicio) {
-            // Extrai mes_ref da data inicio
-            payload.mes_ref = getMesRefFromDate(payload.data_inicio);
-            
-            if (payload.data_fim) {
-                // Se o usuário já tiver preenchido manualmente horas perdidas na planilha, 
-                // decidimos sobrescrever caso haja data_fim ou manter o da planilha se não houver
-                payload.horas_perdidas = calcularHorasPerdidas(payload.data_inicio, payload.data_fim);
+
+    // POS-PROCESSAMENTO para ABSENTEISMO
+    if (config.tableName === "rh_absenteismo") {
+        // 1. Gerar mes_ref baseado na data_inicio
+        if (payload["data_inicio"]) {
+            const val = payload["data_inicio"]; // YYYY-MM-DD
+            if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+                const parts = val.split("-");
+                payload["mes_ref"] = `${parts[1]}/${parts[0]}`;
+            }
+        }
+
+        // 2. Calcular horas_perdidas automaticamente usando a função global (Seg-Sex = 8h, Sab = 4h)
+        // Isso serve como fallback caso o gatilho onEdit não tenha rodado (ex: sync em massa)
+        if (payload["data_inicio"] && payload["data_fim"]) {
+            if (payload["horas_perdidas"] === undefined || payload["horas_perdidas"] === null || payload["horas_perdidas"] === "") {
+                payload["horas_perdidas"] = calcularHorasUteis(payload["data_inicio"], payload["data_fim"]);
             }
         }
     }
@@ -360,25 +409,52 @@ function syncToSupabaseOnEdit(e) {
   const config = SHEET_CONFIG[sheetName];
   if (!config) return; // Se a aba não estiver configurada, não faz nada
 
+  // ==========================================
+  // LÓGICA DE AUTO-PREENCHIMENTO PARA ABSENTEISMO
+  // ==========================================
+  if (sheetName === "absenteismo") {
+    // Colunas na planilha:
+    // C (3) = data_inicio
+    // D (4) = data_fim
+    // F (6) = horas_perdidas
+
+    // Obtemos apenas as células de interesse da linha atual
+    const dataInicioCell = sheet.getRange(row, 3);
+    const dataFimCell = sheet.getRange(row, 4);
+    const horasPerdidasCell = sheet.getRange(row, 6);
+
+    const vDataInicio = dataInicioCell.getValue();
+    const vDataFim = dataFimCell.getValue();
+    const vHorasPerdidas = horasPerdidasCell.getValue();
+
+    // Só calcula e preenche a célula SE:
+    // 1. As duas datas estiverem preenchidas
+    // 2. A célula de horas perdidas estiver TOTALMENTE vazia
+    if (vDataInicio && vDataFim && (vHorasPerdidas === "" || vHorasPerdidas === null)) {
+
+      // Formata as datas para passar para a função (evitando problemas com Date objects do Sheets)
+      let dtIniStr = formatarData(vDataInicio);
+      let dtFimStr = formatarData(vDataFim);
+
+      if (dtIniStr && dtFimStr) {
+        const horasCalculadas = calcularHorasUteis(dtIniStr, dtFimStr);
+        // Escreve o resultado de volta na planilha!
+        horasPerdidasCell.setValue(horasCalculadas);
+      }
+    }
+  }
+
   const numColumns = config.fields.length;
   // A aba EPI tem 13 colunas, as demais dependem da configuração
   const columnsToFetch =
     sheetName === "Controle EPI e Fardamento" ? 13 : numColumns;
 
+  // Lemos a linha inteira (agora já vai incluir as horas recém-calculadas, se foi o caso)
   const rowData = sheet.getRange(row, 1, 1, columnsToFetch).getValues()[0];
   const payload = buildPayload(sheetName, rowData);
 
   if (payload) {
     upsertRecord(config.tableName, config.nameField, payload);
-    
-    // Se for absenteismo, escreve de volta as horas perdidas calculadas na planilha (opcional)
-    if (sheetName === "absenteismo" && payload.horas_perdidas !== undefined) {
-        // A coluna de horas_perdidas é a 5 (índice 4 no array fields)
-        const horasPerdidasCol = config.fields.indexOf("horas_perdidas") + 1;
-        if (horasPerdidasCol > 0) {
-            sheet.getRange(row, horasPerdidasCol).setValue(payload.horas_perdidas);
-        }
-    }
   }
 }
 
@@ -396,7 +472,7 @@ function syncAllToSupabase() {
     const config = SHEET_CONFIG[sheetName];
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return; // Só tem cabeçalho
-
+    
     const columnsToFetch =
       sheetName === "Controle EPI e Fardamento" ? 13 : config.fields.length;
 
@@ -516,14 +592,50 @@ function doPost(e) {
     // A coluna de busca
     let colNameIndex = 0;
     if (table === "funcionarios_epi") colNameIndex = 1;
+    if (table === "rh_absenteismo") colNameIndex = 1; // nome está na coluna B (index 1) na nova config de absenteismo
 
     for (let i = 1; i < allData.length; i++) {
-      if (allData[i][colNameIndex] === nomeBusca) {
-        rowToUpdate = i + 1;
-        break;
+      if (targetSheetName === "absenteismo") {
+          // Na aba de absenteismo, o ideal é achar pelo ID se tiver, senão Nome + Data_Inicio
+          let idPlanilha = allData[i][0]; // Coluna A (index 0)
+          let nomePlanilha = allData[i][1]; // Coluna B (index 1)
+          let dataInicioPlanilha = allData[i][2]; // Coluna C (index 2)
+            
+          if (record.id && idPlanilha == record.id) {
+              rowToUpdate = i + 1;
+              break;
+          }
+
+          // Se não encontrou por ID, mas o nome e a data_inicio batem (para poder preencher o ID gerado)
+          if (nomePlanilha === nomeBusca && record.data_inicio) {
+              // Comparar a data_inicio
+              let dataPlanilhaFormatada = "";
+              if (dataInicioPlanilha instanceof Date) {
+                  dataPlanilhaFormatada = dataInicioPlanilha.toISOString().split("T")[0];
+              } else if (typeof dataInicioPlanilha === "string") {
+                  // converter dd/mm/yyyy pra yyyy-mm-dd
+                  if (dataInicioPlanilha.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
+                      let p = dataInicioPlanilha.split(" ")[0].split("/");
+                      dataPlanilhaFormatada = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+                  } else {
+                      dataPlanilhaFormatada = dataInicioPlanilha.split("T")[0];
+                  }
+              }
+
+              if (dataPlanilhaFormatada === record.data_inicio) {
+                  rowToUpdate = i + 1;
+                  break;
+              }
+          }
+      } else {
+          // Lógica original para as outras abas
+          if (allData[i][colNameIndex] === nomeBusca) {
+              rowToUpdate = i + 1;
+              break;
+          }
       }
     }
-
+    
     if (type === "DELETE") {
       if (rowToUpdate !== -1) {
         sheet.deleteRow(rowToUpdate);
@@ -614,16 +726,16 @@ Para que o Front-End (Painel de Indicadores) funcione corretamente, os dados dev
 Colunas esperadas na linha 1: `funcionario_nome`, `data_admissao`, `data_desligamento`, `tipo_movimentacao`, `motivo_saida`, `mes_ref`
 
 **Regras:**
-* `tipo_movimentacao`: Preencher **apenas** com a palavra `entrada` ou `saida`
+* O sistema agora calcula tudo de forma automática baseada nas datas, as colunas `tipo_movimentacao` e `mes_ref` não precisam mais ser preenchidas e serão ignoradas pelo sistema.
 * `motivo_saida` (Se for saída): Preencher **apenas** com a palavra `voluntario` (ex: pediu demissão) ou `involuntario` (ex: empresa demitiu)
-* `data_desligamento` e `motivo_saida`: Deixar **em branco** no caso de `entrada` (Admissão)
+* `data_desligamento` e `motivo_saida`: Deixar **em branco** caso o colaborador ainda esteja ativo.
 * As datas podem ser preenchidas no formato **DD/MM/YYYY** (O sistema converterá automaticamente para o formato que o banco de dados aceita).
 
 | funcionario_nome | data_admissao | data_desligamento | tipo_movimentacao | motivo_saida | mes_ref |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| João da Silva | 15/01/2021 | 20/10/2023 | saida | voluntario | 10/2023 |
-| Maria Oliveira | 05/11/2023 | | entrada | | 11/2023 |
-| Carlos Souza | 10/05/2020 | 25/10/2023 | saida | involuntario | 10/2023 |
+| João da Silva | 15/01/2021 | 20/10/2023 | | voluntario | |
+| Maria Oliveira | 05/11/2023 | | | | |
+| Carlos Souza | 10/05/2020 | 25/10/2023 | | involuntario | |
 
 ---
 

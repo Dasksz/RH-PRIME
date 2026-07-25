@@ -259,11 +259,25 @@
             setMovimentacoes(movData || []);
             setAbsenteismo(absData || []);
 
-            // Obter todos os meses únicos (agora APENAS da tabela de absenteísmo, conforme solicitado)
+            // Obter todos os meses únicos (agora da tabela de absenteísmo e das datas de admissão e demissão)
             const meses = new Set();
             (absData || []).forEach(a => {
                 if (a.mes_ref && typeof a.mes_ref === 'string' && a.mes_ref.trim() !== '') {
                     meses.add(a.mes_ref);
+                }
+            });
+            (movData || []).forEach(m => {
+                if (m.data_admissao) {
+                    const d = new Date(m.data_admissao + "T00:00:00");
+                    if (!isNaN(d.getTime())) {
+                        meses.add(`${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`);
+                    }
+                }
+                if (m.data_desligamento) {
+                    const d = new Date(m.data_desligamento + "T00:00:00");
+                    if (!isNaN(d.getTime())) {
+                        meses.add(`${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`);
+                    }
                 }
             });
             
@@ -309,14 +323,51 @@
         };
 
         const kpis = useMemo(() => {
-          const movMes = mesFiltro === "todos" ? movimentacoes : movimentacoes.filter(m => m.mes_ref === mesFiltro);
           const absMes = mesFiltro === "todos" ? absenteismo : absenteismo.filter(a => a.mes_ref === mesFiltro);
 
-          // Entradas e Saídas
-          const entradas = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'entrada').length;
-          const saidasTotal = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida').length;
-          const saidasVol = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida' && m.motivo_saida?.trim().toLowerCase() === 'voluntario').length;
-          const saidasInvol = movMes.filter(m => m.tipo_movimentacao?.trim().toLowerCase() === 'saida' && m.motivo_saida?.trim().toLowerCase() === 'involuntario').length;
+          // Entradas e Saídas (agora baseadas nas datas)
+          let entradas = 0;
+          let saidasTotal = 0;
+          let saidasVol = 0;
+          let saidasInvol = 0;
+
+          if (mesFiltro === "todos") {
+              // Quando é "todos", soma todas as entradas (que tem admissao) e todas as saídas (que tem demissão) de todos os tempos
+              movimentacoes.forEach(m => {
+                  if (m.data_admissao) entradas++;
+                  if (m.data_desligamento) {
+                      saidasTotal++;
+                      const motivo = m.motivo_saida?.trim().toLowerCase();
+                      if (motivo === 'voluntario') saidasVol++;
+                      else if (motivo === 'involuntario') saidasInvol++;
+                  }
+              });
+          } else {
+              // Para mês específico
+              const [mesStr, anoStr] = mesFiltro.split("/");
+              const mesFiltroNum = parseInt(mesStr, 10);
+              const anoFiltroNum = parseInt(anoStr, 10);
+
+              movimentacoes.forEach(m => {
+                  // Checar Entrada
+                  if (m.data_admissao) {
+                      const adm = new Date(m.data_admissao + "T00:00:00");
+                      if (!isNaN(adm.getTime()) && (adm.getMonth() + 1) === mesFiltroNum && adm.getFullYear() === anoFiltroNum) {
+                          entradas++;
+                      }
+                  }
+                  // Checar Saída
+                  if (m.data_desligamento) {
+                      const des = new Date(m.data_desligamento + "T00:00:00");
+                      if (!isNaN(des.getTime()) && (des.getMonth() + 1) === mesFiltroNum && des.getFullYear() === anoFiltroNum) {
+                          saidasTotal++;
+                          const motivo = m.motivo_saida?.trim().toLowerCase();
+                          if (motivo === 'voluntario') saidasVol++;
+                          else if (motivo === 'involuntario') saidasInvol++;
+                      }
+                  }
+              });
+          }
 
           let taxaAbsenteismo = 0;
           let totalHorasPrevistasGlobais = 0;
@@ -609,14 +660,18 @@
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-3 gap-4 mb-6">
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p className="text-[11px] font-bold text-slate-500 uppercase">Saídas Totais</p>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase">Saídas</p>
                         <p className="text-2xl font-black text-[#002060]">{kpis.saidasTotal}</p>
                       </div>
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p className="text-[11px] font-bold text-slate-500 uppercase">Ativos</p>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase">Entradas</p>
                         <p className="text-2xl font-black text-green-600">{kpis.entradas}</p>
+                      </div>
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase">Ativos</p>
+                        <p className="text-2xl font-black text-blue-600">{kpis.totalAtivos}</p>
                       </div>
                     </div>
 
