@@ -253,7 +253,7 @@
         const loadData = async () => {
           setIsLoading(true);
           try {
-            const { data: movData } = await supabase.from("rh_movimentacoes").select("*").order("mes_ref", { ascending: false });
+            const { data: movData } = await supabase.from("rh_movimentacoes").select("*").order("data_admissao", { ascending: false });
             const { data: absData } = await supabase.from("rh_absenteismo").select("*").order("mes_ref", { ascending: false });
             
             setMovimentacoes(movData || []);
