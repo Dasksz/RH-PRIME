@@ -268,13 +268,15 @@
             });
             (movData || []).forEach(m => {
                 if (m.data_admissao) {
-                    const d = new Date(m.data_admissao + "T00:00:00");
+                    const cleanDate = m.data_admissao.split("T")[0];
+                    const d = new Date(cleanDate + "T00:00:00");
                     if (!isNaN(d.getTime())) {
                         meses.add(`${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`);
                     }
                 }
                 if (m.data_desligamento) {
-                    const d = new Date(m.data_desligamento + "T00:00:00");
+                    const cleanDate = m.data_desligamento.split("T")[0];
+                    const d = new Date(cleanDate + "T00:00:00");
                     if (!isNaN(d.getTime())) {
                         meses.add(`${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`);
                     }
@@ -330,7 +332,7 @@
           let saidasTotal = 0;
           let saidasVol = 0;
           let saidasInvol = 0;
-
+          
           if (mesFiltro === "todos") {
               // Quando é "todos", soma todas as entradas (que tem admissao) e todas as saídas (que tem demissão) de todos os tempos
               movimentacoes.forEach(m => {
@@ -347,18 +349,20 @@
               const [mesStr, anoStr] = mesFiltro.split("/");
               const mesFiltroNum = parseInt(mesStr, 10);
               const anoFiltroNum = parseInt(anoStr, 10);
-
+              
               movimentacoes.forEach(m => {
                   // Checar Entrada
                   if (m.data_admissao) {
-                      const adm = new Date(m.data_admissao + "T00:00:00");
+                      const cleanAdm = m.data_admissao.split("T")[0];
+                      const adm = new Date(cleanAdm + "T00:00:00");
                       if (!isNaN(adm.getTime()) && (adm.getMonth() + 1) === mesFiltroNum && adm.getFullYear() === anoFiltroNum) {
                           entradas++;
                       }
                   }
                   // Checar Saída
                   if (m.data_desligamento) {
-                      const des = new Date(m.data_desligamento + "T00:00:00");
+                      const cleanDes = m.data_desligamento.split("T")[0];
+                      const des = new Date(cleanDes + "T00:00:00");
                       if (!isNaN(des.getTime()) && (des.getMonth() + 1) === mesFiltroNum && des.getFullYear() === anoFiltroNum) {
                           saidasTotal++;
                           const motivo = m.motivo_saida?.trim().toLowerCase();
@@ -436,7 +440,7 @@
               let ativosHoje = 0;
               movimentacoes.forEach(m => {
                   if (m.data_admissao) {
-                      const adm = new Date(m.data_admissao + "T00:00:00");
+                      const adm = new Date(m.data_admissao.split("T")[0] + "T00:00:00");
                       if (adm <= hoje) {
                           if (!m.data_desligamento) {
                               ativosHoje++;
@@ -464,9 +468,9 @@
                   let prevMes = 0;
                   movimentacoes.forEach(m => {
                       if (m.data_admissao) {
-                          const adm = new Date(m.data_admissao + "T00:00:00");
+                          const adm = new Date(m.data_admissao.split("T")[0] + "T00:00:00");
                           if (adm <= dtFim) {
-                              let des = m.data_desligamento ? new Date(m.data_desligamento + "T00:00:00") : null;
+                              let des = m.data_desligamento ? new Date(m.data_desligamento.split("T")[0] + "T00:00:00") : null;
                               if (!des || des >= dtIni) {
                                   const cIni = adm > dtIni ? adm : dtIni;
                                   const cFim = (des && des < dtFim) ? des : dtFim;
