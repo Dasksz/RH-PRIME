@@ -450,8 +450,34 @@ pause
 def normalizar_texto(texto):
     if not texto: return ""
     texto = str(texto).lower().strip()
+
+    # Substituições explícitas para garantir que acentos e cedilhas não se percam
+    mapa_acentos = {
+        'ç': 'c', 'ñ': 'n',
+        'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
+        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+        'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+        'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
+        'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u'
+    }
+    for orig, dest in mapa_acentos.items():
+        texto = texto.replace(orig, dest)
+
     texto = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return " ".join(texto.split())
+
+def comparar_nomes_flexivel(nome_busca, texto_alvo):
+    if not nome_busca or not texto_alvo: return False
+    # Normaliza primeiro para converter os acentos e 'ç'
+    n_busca = normalizar_texto(nome_busca)
+    n_alvo = normalizar_texto(texto_alvo)
+
+    # Remove TUDO que não for letra ou número (remove espaços, pontos, hífens)
+    n_busca = re.sub(r'[^a-z0-9]', '', n_busca)
+    n_alvo = re.sub(r'[^a-z0-9]', '', n_alvo)
+
+    # Verifica se a busca (agora só letras/números colados) está dentro do alvo
+    return n_busca in n_alvo
 
 def extrair_cpf_do_texto(texto):
     if not texto: return None
@@ -815,7 +841,7 @@ def preparar_lote():
                     nome_planilha = str(linha['Nome Completo do Funcionário'])
                     if nome_planilha != 'nan' and nome_planilha.strip() != '':
                         nome_norm = normalizar_texto(nome_planilha)
-                        if nome_norm and len(nome_norm) > 5 and nome_norm in texto_norm:
+                        if nome_norm and len(nome_norm) > 5 and comparar_nomes_flexivel(nome_planilha, texto_pagina):
                             funcionario = df.iloc[[index]]
                             cpf_encontrado = str(linha['CPF_LIMPO'])
                             break
@@ -823,7 +849,7 @@ def preparar_lote():
             # SE NÃO ACHOU NOS ATIVOS, PROCURA NOS EX-FUNCIONARIOS DO DRIVE
             if funcionario.empty:
                 for nome_ex in pastas_ex_funcionarios:
-                    if normalizar_texto(nome_ex) in texto_norm and len(nome_ex) > 5:
+                    if len(nome_ex) > 5 and comparar_nomes_flexivel(nome_ex, texto_pagina):
                         nome_ex_encontrado = nome_ex
                         is_ex = True
                         break
