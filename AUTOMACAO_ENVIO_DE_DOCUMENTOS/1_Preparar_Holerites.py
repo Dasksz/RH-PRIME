@@ -70,6 +70,7 @@ import requests
 import hashlib
 import random
 import unicodedata
+import urllib.parse
 from datetime import datetime
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -116,8 +117,8 @@ def autenticar_drive():
         return None
 
 def obter_ou_criar_pasta_funcionario(servico, nome_pasta, id_ativos, id_ex):
-    nome_escaped = nome_pasta.replace("'", "\'")
-    nome_sem_acento = remover_acentos(nome_pasta).replace("'", "\'")
+    nome_escaped = nome_pasta.replace("'", "\\'")
+    nome_sem_acento = remover_acentos(nome_pasta).replace("'", "\\'")
     
     # Busca por ex-funcionários
     query_ex = f"(name='{nome_escaped}' or name='{nome_sem_acento}') and '{id_ex}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
@@ -219,7 +220,6 @@ def iniciar_envio():
     erros = 0
     removidos = 0
 
-    # Contador para a pausa longa
     mensagens_enviadas_sessao = 0
 
     print("🚀 A iniciar processo de Upload e Disparos...\\n")
@@ -256,7 +256,6 @@ def iniciar_envio():
             sucessos += 1
             continue
 
-        # Bloqueio Apenas para Ativos sem WhatsApp
         if tipo_func == 'Ativo' and (whatsapp == 'nan' or whatsapp == 'None' or not whatsapp):
             print(f"❌ ERRO: {nome} (Ativo) está sem número de WhatsApp válido.")
             erros += 1
@@ -286,7 +285,6 @@ def iniciar_envio():
             id_ficheiro = None
             link_pdf = None
 
-            # Procura exatamente o nosso arquivo na lista daquela pasta
             for arq in arquivos_na_pasta:
                 if arq.get('name') == nome_arquivo:
                     id_ficheiro = arq.get('id')
@@ -313,22 +311,45 @@ def iniciar_envio():
                 supportsAllDrives=True
             ).execute()
 
+            # --- CALCULAR HASH AQUI PARA USAR NO FORMS E NO LOG ---
+            hash_pdf = hashlib.sha256()
+            with open(caminho_pdf, "rb") as f_pdf:
+                for byte_block in iter(lambda: f_pdf.read(4096), b""): hash_pdf.update(byte_block)
+            assinatura_digital = hash_pdf.hexdigest()
+
             # --- 4. ENVIO DE WHATSAPP (Apenas se tiver número e for Ativo) ---
             if tipo_func == 'Ativo' and whatsapp and whatsapp != 'nan' and whatsapp != 'None':
                 if "{mes_competencia}" == "ANUAL":
                     texto_referencia = "referente a {ano_competencia}"
+                    texto_referencia_curto = "{ano_competencia}"
                 else:
                     texto_referencia = "referente a {mes_competencia}.{ano_competencia}"
+                    texto_referencia_curto = "{mes_competencia}.{ano_competencia}"
 
                 pronome = "A sua" if TIPO_DOCUMENTO == "FOLHA DE PONTO" else "O seu"
 
+                # GERAR O LINK PRÉ-PREENCHIDO DO GOOGLE FORMS COM O SEU LINK
+                url_forms_base = "https://docs.google.com/forms/d/e/1FAIpQLSfNq-fH5LQUOMBvtggMdQPV12MqM-A0Pxg7eHQbLEoYGzpSkw/viewform?usp=pp_url"
+                
+                # Prepara os textos para a URL (substitui espaços por %20, etc)
+                nome_url = urllib.parse.quote(nome)
+                mes_url = urllib.parse.quote(texto_referencia_curto)
+                link_doc_url = urllib.parse.quote(link_pdf)
+                hash_url = urllib.parse.quote(assinatura_digital)
+                
+                # Monta a URL final injetando os dados reais do funcionário
+                link_formulario = f"{url_forms_base}&entry.873081400={nome_url}&entry.867856571={mes_url}&entry.170117556={link_doc_url}&entry.1202953137={hash_url}"
+
+                # MENSAGEM OFICIAL ENVIADA AO N8N (Atualizada com orientações para assinar)
                 mensagem = (f"Olá, *{nome}*!\\n\\n"
                             f"Aqui é do Setor de RH. {pronome} {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\\n\\n"
                             f"🔒 *DOCUMENTO PROTEGIDO*\\n"
-                            f"Para garantir a sua privacidade (LGPD), o ficheiro possui uma senha.\\n"
+                            f"Para garantir a sua privacidade (LGPD), o documento possui uma senha.\\n"
                             f"👉 A senha são os *5 PRIMEIROS NÚMEROS DO SEU CPF* (Apenas os números).\\n\\n"
-                            f"📄 *Acesse o seu documento aqui:*\\n{link_pdf}\\n\\n"
-                            f"⚠️ *MUITO IMPORTANTE:* Por favor, responda a esta mensagem com um *OK* ou *RECEBIDO* para confirmarmos a entrega no nosso sistema.\\n\\n"
+                            f"📝 *VALIDAÇÃO E ASSINATURA ELETRÔNICA:*\\n"
+                            f"Acesse o link abaixo para visualizar e assinar o documento de forma segura:\\n"
+                            f"{link_formulario}\\n\\n"
+                            f"⚠️ *ATENÇÃO:* O preenchimento deste formulário oficial é obrigatório para confirmar o recebimento e os horários. Se houver qualquer divergência, aponte diretamente no formulário.\\n\\n"
                             f"Um excelente dia!")
 
                 dados = { 'chatId': whatsapp, 'caption': mensagem, 'session': sessao_waha }
@@ -346,13 +367,8 @@ def iniciar_envio():
                         elif isinstance(dados_resposta, dict): id_msg_whatsapp = dados_resposta.get("id", "N/A")
                     except: pass
 
-                    # LOG COMPLETO DE WHATSAPP
+                    # LOG COMPLETO DE WHATSAPP NO DRIVE (Mantido idêntico)
                     try:
-                        hash_pdf = hashlib.sha256()
-                        with open(caminho_pdf, "rb") as f_pdf:
-                            for byte_block in iter(lambda: f_pdf.read(4096), b""): hash_pdf.update(byte_block)
-                        assinatura_digital = hash_pdf.hexdigest()
-
                         data_hora_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                         conteudo_log = (f"=========================================\\n"
                                         f"COMPROVANTE DE ENVIO DE DOCUMENTO (RH PRIME)\\n"
@@ -399,7 +415,6 @@ def iniciar_envio():
                     with open("falhas_envio.txt", "a", encoding="utf-8") as f_falha: f_falha.write(nome_arquivo + "\\n")
 
             else:
-                # É EX-FUNCIONARIO (Upload Silencioso)
                 sucessos += 1
                 print("  ✅ Sucesso! Ficheiro organizado no Drive da empresa (Sem disparo de WhatsApp).")
                 with open(caminho_sucessos_ex, "a", encoding="utf-8") as f_suc: f_suc.write(nome_arquivo + "\\n")
@@ -409,14 +424,12 @@ def iniciar_envio():
             erros += 1
             with open("falhas_envio.txt", "a", encoding="utf-8") as f_falha: f_falha.write(nome_arquivo + "\\n")
 
-        # --- SISTEMA ANTI-BLOQUEIO DO WHATSAPP (APENAS PARA ATIVOS E PROGRESSIVO) ---
+        # --- SISTEMA ANTI-BLOQUEIO DO WHATSAPP ---
         if tipo_func == 'Ativo':
             if mensagens_enviadas_sessao > 0 and mensagens_enviadas_sessao % 5 == 0:
-                # Pausa longa a cada 5 mensagens
                 tempo_espera = random.randint(45, 90)
                 print(f"   ⏳ Pausa longa anti-bloqueio: aguardando {tempo_espera} segundos após 5 envios...")
             else:
-                # Pausa base maior
                 tempo_espera = random.randint(15, 25)
                 print(f"   ⏳ Pausa anti-bloqueio: aguardando {tempo_espera} segundos antes do próximo...")
 
@@ -450,8 +463,7 @@ pause
 def normalizar_texto(texto):
     if not texto: return ""
     texto = str(texto).lower().strip()
-
-    # Substituições explícitas para garantir que acentos e cedilhas não se percam
+    
     mapa_acentos = {
         'ç': 'c', 'ñ': 'n',
         'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
@@ -462,21 +474,16 @@ def normalizar_texto(texto):
     }
     for orig, dest in mapa_acentos.items():
         texto = texto.replace(orig, dest)
-
+        
     texto = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return " ".join(texto.split())
 
 def comparar_nomes_flexivel(nome_busca, texto_alvo):
     if not nome_busca or not texto_alvo: return False
-    # Normaliza primeiro para converter os acentos e 'ç'
     n_busca = normalizar_texto(nome_busca)
     n_alvo = normalizar_texto(texto_alvo)
-
-    # Remove TUDO que não for letra ou número (remove espaços, pontos, hífens)
     n_busca = re.sub(r'[^a-z0-9]', '', n_busca)
     n_alvo = re.sub(r'[^a-z0-9]', '', n_alvo)
-
-    # Verifica se a busca (agora só letras/números colados) está dentro do alvo
     return n_busca in n_alvo
 
 def extrair_cpf_do_texto(texto):
@@ -488,11 +495,8 @@ def extrair_cpf_do_texto(texto):
 def formatar_numero_whatsapp(numero_bruto):
     numero_limpo = re.sub(r'\D', '', str(numero_bruto))
     if not numero_limpo or numero_limpo == 'nan': return None
-
-    # Remove o 55 temporariamente caso já venha na string para padronizar a contagem
     if numero_limpo.startswith('55') and len(numero_limpo) >= 12:
         numero_limpo = numero_limpo[2:]
-
     if not numero_limpo.startswith('55'): numero_limpo = '55' + numero_limpo
     return f"{numero_limpo}@c.us"
 
@@ -501,9 +505,6 @@ def preparar_lote():
     print("  FASE 1: PREPARADOR DE DOCUMENTOS E MAPEAMENTO DE DADOS ")
     print("=========================================================\n")
 
-    # ==========================================================
-    # MENU DE GESTÃO DE LOTES
-    # ==========================================================
     chaves_pendentes = None
     print("🛠️  O QUE VOCÊ DESEJA FAZER AGORA?")
     print("[1] LOTE NOVO: Fatiar todos os PDFs e criar nova pasta de envios.")
@@ -653,13 +654,9 @@ def preparar_lote():
                     cpf_limpo = re.sub(r'\D', '', str(linha.get('CPF Completo', ''))).zfill(11)
                     chave = cpf_limpo if tipo == 'Ativo' else str(linha.get('Nome', ''))
 
-                    # 1. Ativos sem WhatsApp na planilha original
                     falta_numero = (tipo == 'Ativo' and wpp in ['nan', 'none', '', 'null', '<na>'])
-
-                    # 2. Arquivo listado explicitamente no falhas_envio.txt
                     falhou_registro = arq_gerado in arquivos_com_falha
 
-                    # 3. Falta do arquivo físico de comprovante na pasta antiga (Local)
                     faltou_comprovante_local = False
                     if tipo == 'Ativo':
                         nome_log = f"COMPROVANTE - {arq_gerado.replace('.pdf', '.txt')}"
@@ -678,7 +675,6 @@ def preparar_lote():
                         if not achou_ex:
                             faltou_comprovante_local = True
 
-                    # Se localmente parece que falhou, tira a "Prova Real" no Drive
                     if falta_numero or falhou_registro or faltou_comprovante_local:
                         ja_esta_no_drive = False
 
@@ -770,16 +766,12 @@ def preparar_lote():
             except:
                 print("❌ Erro de formato. O arquivo ficará sem data no nome.")
 
-    if tipo_documento == "HOLERITE":
-        prefixo_pasta = "Lote_Envio_"
-    elif tipo_documento == "INFORME DE RENDIMENTOS":
-        prefixo_pasta = "Lote_Informes_"
-    elif tipo_documento == "FOLHA DE PONTO":
-        prefixo_pasta = "Lote_Pontos_"
-    elif tipo_documento == "AVISO DE FÉRIAS":
-        prefixo_pasta = "Lote_Ferias_"
-    else:
-        prefixo_pasta = "Lote_Documentos_"
+    if tipo_documento == "HOLERITE": prefixo_pasta = "Lote_Envio_"
+    elif tipo_documento == "INFORME DE RENDIMENTOS": prefixo_pasta = "Lote_Informes_"
+    elif tipo_documento == "FOLHA DE PONTO": prefixo_pasta = "Lote_Pontos_"
+    elif tipo_documento == "AVISO DE FÉRIAS": prefixo_pasta = "Lote_Ferias_"
+    else: prefixo_pasta = "Lote_Documentos_"
+    
     nome_pasta_lote = datetime.now().strftime(f"{prefixo_pasta}%d-%m-%Y_%Hh%M")
 
     pasta_pdfs_separados = os.path.join(nome_pasta_lote, "PDFs_Separados")
@@ -787,13 +779,8 @@ def preparar_lote():
     pasta_sem_dono = os.path.join(nome_pasta_lote, "PDFs_Sem_Dono")
 
     os.makedirs(pasta_pdfs_separados, exist_ok=True)
-    # AS PASTAS ABAIXO SÓ SERÃO CRIADAS SE FOREM NECESSÁRIAS DURANTE O LOOP!
-    # os.makedirs(pasta_pdfs_ex, exist_ok=True)
-    # os.makedirs(pasta_sem_dono, exist_ok=True)
     print(f"📁 Pasta de Lote criada: {nome_pasta_lote}\n")
 
-    # Mapear Ex-Funcionários do Drive ANTES de fatiar o PDF
-    # Se o serviço já foi iniciado na Prova Real, não precisa autenticar de novo
     if 'servico_fase1' not in locals() or not servico_fase1:
         servico_fase1 = autenticar_drive_fase1()
 
@@ -846,7 +833,6 @@ def preparar_lote():
                             cpf_encontrado = str(linha['CPF_LIMPO'])
                             break
 
-            # SE NÃO ACHOU NOS ATIVOS, PROCURA NOS EX-FUNCIONARIOS DO DRIVE
             if funcionario.empty:
                 for nome_ex in pastas_ex_funcionarios:
                     if len(nome_ex) > 5 and comparar_nomes_flexivel(nome_ex, texto_pagina):
@@ -854,10 +840,9 @@ def preparar_lote():
                         is_ex = True
                         break
 
-            # SE REALMENTE NÃO ACHOU EM LUGAR NENHUM (SEM DONO)
             if funcionario.empty and not is_ex:
                 print(f"⚠️ Pág {i + 1}: Sem correspondência na Planilha ou no Drive. A mover para 'PDFs_Sem_Dono'.")
-                os.makedirs(pasta_sem_dono, exist_ok=True) # Cria só se precisar!
+                os.makedirs(pasta_sem_dono, exist_ok=True)
                 nome_arquivo_sem_dono = f"{tipo_documento}_Pagina_{i + 1}_SemDono.pdf"
                 caminho_salvar_sem_dono = os.path.join(pasta_sem_dono, nome_arquivo_sem_dono)
 
@@ -868,21 +853,17 @@ def preparar_lote():
                     escritor_pdf_sd.write(arquivo_saida_sd)
                 continue
 
-            # --- CHEGANDO AQUI, ACHOU UM FUNCIONÁRIO (ATIVO OU EX) ---
-
             chave_rastreio = cpf_encontrado if not is_ex else nome_ex_encontrado
 
-            # --- FILTRO DO MODO RECUPERAÇÃO ---
             if chaves_pendentes is not None:
                 if chave_rastreio not in chaves_pendentes:
                     continue
-            # ----------------------------------
 
             if is_ex:
                 nome = nome_ex_encontrado
                 whatsapp = ""
                 pasta_alvo = pasta_pdfs_ex
-                os.makedirs(pasta_alvo, exist_ok=True) # Cria só se precisar!
+                os.makedirs(pasta_alvo, exist_ok=True)
                 pasta_local_relatorio = "PDFs_Ex_Funcionarios"
                 tipo_func = "Ex-Funcionario"
                 cpf_formatado = f"{cpf_encontrado[:3]}.{cpf_encontrado[3:6]}.{cpf_encontrado[6:9]}-{cpf_encontrado[9:]}" if cpf_encontrado else "N/A"
@@ -901,7 +882,6 @@ def preparar_lote():
             else:
                 nome_arquivo_pdf = f"{tipo_documento} - {nome}.pdf"
 
-            # --- NOVA INTELIGÊNCIA: VERIFICAÇÃO DIRETA NO DRIVE (LOTE NOVO) ---
             ja_esta_no_drive = False
             if opcao_modo == '1' and servico_fase1:
                 nome_busca = f"COMPROVANTE - {nome_arquivo_pdf.replace('.pdf', '.txt')}" if tipo_func == 'Ativo' else nome_arquivo_pdf
@@ -920,7 +900,6 @@ def preparar_lote():
                 if chave_rastreio not in cpfs_achados_no_pdf:
                     cpfs_achados_no_pdf.append(chave_rastreio)
                 continue
-            # ------------------------------------------------------------------
 
             caminho_salvar = os.path.join(pasta_alvo, nome_arquivo_pdf)
 
@@ -928,7 +907,6 @@ def preparar_lote():
             for j in range(i, min(i + paginas_por_funcionario, total_paginas)):
                 escritor_pdf.add_page(pdf_fatiador.pages[j])
 
-            # APLICAR SENHA AO PDF (Os 5 primeiros números do CPF)
             if cpf_encontrado and len(cpf_encontrado) >= 5:
                 senha_pdf = cpf_encontrado[:5]
                 escritor_pdf.encrypt(senha_pdf)
@@ -936,7 +914,6 @@ def preparar_lote():
             with open(caminho_salvar, "wb") as arquivo_saida:
                 escritor_pdf.write(arquivo_saida)
 
-            # NOVA MENSAGEM COM O STATUS VISUAL DO WHATSAPP!
             if is_ex:
                 wpp_status = "Ex-Funcionário"
             else:
@@ -955,7 +932,6 @@ def preparar_lote():
                 })
                 cpfs_achados_no_pdf.append(chave_rastreio)
 
-    # Identificação dos que faltaram (Apenas para Ativos)
     if chaves_pendentes is None:
         for index, linha in df.iterrows():
             cpf_planilha = str(linha['CPF_LIMPO'])
