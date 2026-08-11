@@ -268,6 +268,17 @@ def iniciar_envio():
             # --- 1. NAVEGAR NAS PASTAS DO GOOGLE DRIVE COM INTELIGÊNCIA ---
             id_pasta_funcionario = obter_ou_criar_pasta_funcionario(servico_drive, nome, ID_PASTA_ATIVOS, ID_PASTA_EX_FUNCIONARIOS)
             
+            # Garante que o Web App tenha permissão desde a raiz do funcionário
+            try:
+                servico_drive.permissions().create(
+                    fileId=id_pasta_funcionario,
+                    body={'type': 'user', 'role': 'writer', 'emailAddress': 'rhprimedistribuicao@gmail.com'},
+                    sendNotificationEmail=False,
+                    supportsAllDrives=True
+                ).execute()
+            except: pass
+
+            
             if TIPO_DOCUMENTO == "FOLHA DE PONTO":
                 id_pasta_intermediaria = obter_ou_criar_pasta(servico_drive, "JORNADA E SEGURANÇA", id_pasta_funcionario)
                 id_pasta_tipo = obter_ou_criar_pasta(servico_drive, TIPO_DOCUMENTO, id_pasta_intermediaria)
@@ -276,6 +287,18 @@ def iniciar_envio():
 
             id_pasta_ano = obter_ou_criar_pasta(servico_drive, "{ano_competencia}", id_pasta_tipo)
             id_pasta_mes = obter_ou_criar_pasta(servico_drive, "{mes_competencia}.{ano_competencia}", id_pasta_ano)
+
+            # --- PERMISSÃO PARA O APP SCRIPT (PORTAL DE ASSINATURA) ---
+            try:
+                servico_drive.permissions().create(
+                    fileId=id_pasta_mes,
+                    body={'type': 'user', 'role': 'writer', 'emailAddress': 'rhprimedistribuicao@gmail.com'},
+                    sendNotificationEmail=False,
+                    supportsAllDrives=True
+                ).execute()
+            except Exception as perm_err:
+                print(f"   ⚠️ Não foi possível dar permissão à pasta para o App Script: {perm_err}")
+
 
             # --- 2. BUSCA ROBUSTA NA PASTA (EVITA DUPLICADOS) ---
             query_pasta = f"'{id_pasta_mes}' in parents and trashed=false"
@@ -304,12 +327,23 @@ def iniciar_envio():
                 id_ficheiro = ficheiro.get('id')
                 link_pdf = ficheiro.get('webViewLink')
 
-            # --- 3. DAR PERMISSÃO DE LEITURA AO LINK ---
+            # --- 3. DAR PERMISSÃO DE LEITURA AO LINK (PDF E PASTA DO APP SCRIPT) ---
             servico_drive.permissions().create(
                 fileId=id_ficheiro,
                 body={'type': 'anyone', 'role': 'reader'},
                 supportsAllDrives=True
             ).execute()
+            
+            # Garantir permissão de leitura para a conta do Web App no PDF, 
+            # não custa nada para evitar erros de renderização/acesso
+            try:
+                servico_drive.permissions().create(
+                    fileId=id_ficheiro,
+                    body={'type': 'user', 'role': 'reader', 'emailAddress': 'rhprimedistribuicao@gmail.com'},
+                    sendNotificationEmail=False,
+                    supportsAllDrives=True
+                ).execute()
+            except: pass
 
             # --- CALCULAR HASH AQUI PARA USAR NO FORMS E NO LOG ---
             hash_pdf = hashlib.sha256()
@@ -328,28 +362,40 @@ def iniciar_envio():
 
                 pronome = "A sua" if TIPO_DOCUMENTO == "FOLHA DE PONTO" else "O seu"
 
-                # GERAR O LINK PRÉ-PREENCHIDO DO GOOGLE FORMS COM O SEU LINK
-                url_forms_base = "https://docs.google.com/forms/d/e/1FAIpQLSfNq-fH5LQUOMBvtggMdQPV12MqM-A0Pxg7eHQbLEoYGzpSkw/viewform?usp=pp_url"
+                # 🌐 NOVA URL BASE DO PORTAL DE ASSINATURA (HOSPEDADO NO GOOGLE)
+                url_portal_base = "https://script.google.com/macros/s/AKfycbxV_cV9UzAFnRZflJLNzD52bgUQmdu3dXRqS0FuM1we5NhQxZs1IRXlyz2YyegWHzlFeA/exec"
                 
-                # Prepara os textos para a URL (substitui espaços por %20, etc)
-                nome_url = urllib.parse.quote(nome)
-                mes_url = urllib.parse.quote(texto_referencia_curto)
-                link_doc_url = urllib.parse.quote(link_pdf)
-                hash_url = urllib.parse.quote(assinatura_digital)
+                # Prepara os parâmetros via Query String
+                param_nome = urllib.parse.quote(nome)
+                param_mes = urllib.parse.quote(texto_referencia_curto)
+                param_doc = urllib.parse.quote(link_pdf)
+                param_hash = urllib.parse.quote(assinatura_digital)
+                param_pasta = urllib.parse.quote(id_pasta_mes)
+                param_tipo = urllib.parse.quote(TIPO_DOCUMENTO)
                 
-                # Monta a URL final injetando os dados reais do funcionário
-                link_formulario = f"{url_forms_base}&entry.873081400={nome_url}&entry.867856571={mes_url}&entry.170117556={link_doc_url}&entry.1202953137={hash_url}"
+                # Monta a URL final injetando os dados do funcionário
+                link_portal = f"{url_portal_base}?nome={param_nome}&mes={param_mes}&doc={param_doc}&hash={param_hash}&pasta={param_pasta}&tipo={param_tipo}"
 
-                # MENSAGEM OFICIAL ENVIADA AO N8N (Atualizada com orientações para assinar)
+                # Encurtar o link longo do portal usando API is.gd
+                try:
+                    isgd_res = requests.get(f"https://is.gd/create.php?format=simple&url={urllib.parse.quote(link_portal)}", timeout=5)
+                    if isgd_res.status_code == 200 and "is.gd" in isgd_res.text:
+                        link_portal_curto = isgd_res.text.strip()
+                    else:
+                        link_portal_curto = link_portal
+                except:
+                    link_portal_curto = link_portal
+
+                # MENSAGEM OFICIAL ENVIADA AO N8N (Atualizada para usar apenas o Portal de Assinatura)
                 mensagem = (f"Olá, *{nome}*!\\n\\n"
-                            f"Aqui é do Setor de RH. {pronome} {TIPO_DOCUMENTO} {texto_referencia} já está disponível.\\n\\n"
+                            f"Aqui é do Setor de RH. {pronome} *{TIPO_DOCUMENTO}* {texto_referencia} já está disponível no Portal.\\n\\n"
                             f"🔒 *DOCUMENTO PROTEGIDO*\\n"
                             f"Para garantir a sua privacidade (LGPD), o documento possui uma senha.\\n"
                             f"👉 A senha são os *5 PRIMEIROS NÚMEROS DO SEU CPF* (Apenas os números).\\n\\n"
-                            f"📝 *VALIDAÇÃO E ASSINATURA ELETRÔNICA:*\\n"
-                            f"Acesse o link abaixo para visualizar e assinar o documento de forma segura:\\n"
-                            f"{link_formulario}\\n\\n"
-                            f"⚠️ *ATENÇÃO:* O preenchimento deste formulário oficial é obrigatório para confirmar o recebimento e os horários. Se houver qualquer divergência, aponte diretamente no formulário.\\n\\n"
+                            f"📝 *ACESSO E ASSINATURA ELETRÔNICA:*\\n"
+                            f"Clique no link seguro abaixo para acessar o Portal de Assinatura, visualizar seu documento e confirmá-lo juridicamente:\\n"
+                            f"{link_portal_curto}\\n\\n"
+                            f"⚠️ *ATENÇÃO:* O acesso e validação são obrigatórios. O documento só poderá ser visualizado através do portal acima.\\n\\n"
                             f"Um excelente dia!")
 
                 dados = { 'chatId': whatsapp, 'caption': mensagem, 'session': sessao_waha }
