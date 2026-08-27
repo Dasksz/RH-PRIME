@@ -9,6 +9,13 @@ try:
     import pdfplumber
     import pytesseract
     from PyPDF2 import PdfWriter, PdfReader
+
+    # Auto-configuração do Tesseract no Windows caso não esteja no PATH
+    if os.name == 'nt':
+        tesseract_padrao = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        if os.path.exists(tesseract_padrao):
+            pytesseract.pytesseract.tesseract_cmd = tesseract_padrao
+
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
