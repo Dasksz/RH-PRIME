@@ -7,6 +7,7 @@ from datetime import datetime
 
 try:
     import pdfplumber
+    import pytesseract
     from PyPDF2 import PdfWriter, PdfReader
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
@@ -14,7 +15,8 @@ try:
     from googleapiclient.discovery import build
 except ImportError:
     print("❌ Erro: Bibliotecas ausentes. Abra o CMD e digite:")
-    print("pip install pdfplumber PyPDF2 pandas requests openpyxl")
+    print("pip install pdfplumber PyPDF2 pandas requests openpyxl pytesseract")
+    print("⚠️ ATENÇÃO: Para leitura de PDFs como imagem (OCR), você também precisa instalar o Tesseract-OCR no Windows.")
     print("pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib")
     os.system("pause")
     exit()
@@ -861,6 +863,27 @@ def preparar_lote():
 
             cpf_encontrado = extrair_cpf_do_texto(texto_pagina)
             texto_norm = normalizar_texto(texto_pagina)
+
+            # --- FALLBACK OCR ---
+            usou_ocr = False
+            # Se não encontrou o CPF e o texto parece estar vazio ou não tem sentido
+            if not cpf_encontrado and len(texto_norm) < 30:
+                print(f"   [Pág {i+1}] Texto não encontrado ou muito curto. Tentando ler via OCR...")
+                try:
+                    # Gera uma imagem em memória (requer ImageMagick/Ghostscript nativo do pdfplumber/wand)
+                    imagem = pagina_principal.to_image(resolution=200).original
+                    # config customizada: '--psm 6' assume um bloco unico de texto (bom para holerites)
+                    # porem 'por' pode não estar instalado, entao removemos lang ou testamos
+                    texto_ocr = pytesseract.image_to_string(imagem, lang='por+eng') # Remova o lang= se der erro de idioma não encontrado
+                    texto_pagina = texto_ocr
+                    texto_norm = normalizar_texto(texto_pagina)
+                    cpf_encontrado = extrair_cpf_do_texto(texto_pagina)
+                    usou_ocr = True
+                except pytesseract.pytesseract.TesseractNotFoundError:
+                    print(f"   ❌ ERRO OCR: Tesseract não está instalado ou configurado no PATH do Windows.")
+                    print(f"   Faça o download do Tesseract e adicione às Variáveis de Ambiente.")
+                except Exception as e_ocr:
+                    print(f"   ❌ ERRO OCR ao processar pág {i+1}: {e_ocr}")
 
             funcionario = pd.DataFrame()
             is_ex = False
