@@ -2,9 +2,9 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PRIME RH - Gestão de Segurança</title>
-    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg">
+    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg" />
 
     <!-- Carregando Tailwind CSS para o Design -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -501,9 +501,11 @@
             if (roleRule.protetor_auricular) allowed.push("PROTETOR AURICULAR");
             if (roleRule.colete_refletivo) allowed.push("COLETE REFLETIVO");
             if (roleRule.protetor_dorsal) allowed.push("PROTETOR DORSAL");
-            if (roleRule.calca_faixa_refletiva) allowed.push("CALÇA C/ FAIXA REFLETIVA");
+            if (roleRule.calca_faixa_refletiva)
+              allowed.push("CALÇA C/ FAIXA REFLETIVA");
             if (roleRule.bota_marluvas) allowed.push("BOTA MARLUVAS");
-            if (roleRule.oculos_policarbonato) allowed.push("OCULOS DE POLICARBONATO");
+            if (roleRule.oculos_policarbonato)
+              allowed.push("OCULOS DE POLICARBONATO");
           } else if (tab === "fardamento") {
             if (roleRule.camisa_elma) allowed.push("CAMISA ELMA");
             if (roleRule.regata_elma) allowed.push("REGATA ELMA");
@@ -531,7 +533,11 @@
                 ca: (match[2] || "").trim(),
                 qtd: match[3].trim(),
                 dataEntrega:
-                  (match[4] ? (match[4].includes('/') ? match[4].split('/').reverse().join('-') : match[4]) : defaultDate) || new Date().toISOString().split("T")[0],
+                  (match[4]
+                    ? match[4].includes("/")
+                      ? match[4].split("/").reverse().join("-")
+                      : match[4]
+                    : defaultDate) || new Date().toISOString().split("T")[0],
                 linkComprovante: defaultLink || "",
               };
             } else {
@@ -588,7 +594,48 @@
         }, [selectedEmpId]);
 
         useEffect(() => {
+          if (selectedEmpId !== null && empresas.length > 0) {
+            const emp = employees.find((e) => e.id === selectedEmpId);
+            let foundId = null;
+
+            if (emp && emp.local_registro) {
+              const regUpper = emp.local_registro.toUpperCase();
+              if (regUpper.includes("JEQUIÉ")) {
+                const eq = empresas.find(
+                  (e) =>
+                    e.endereco.toUpperCase().includes("JEQUIÉ") ||
+                    e.cnpj.includes("0002-82"),
+                );
+                if (eq) foundId = eq.id;
+              } else if (regUpper.includes("ILHÉUS")) {
+                const eq = empresas.find(
+                  (e) =>
+                    e.endereco.toUpperCase().includes("ILHÉUS") ||
+                    e.cnpj.includes("0001-00"),
+                );
+                if (eq) foundId = eq.id;
+              } else if (regUpper.includes("NUNES")) {
+                const eq = empresas.find((e) =>
+                  e.nome.toUpperCase().includes("NUNES"),
+                );
+                if (eq) foundId = eq.id;
+              }
+            }
+
+            if (foundId) {
+              setSelectedEmpresaId(foundId);
+            } else {
+              // Fallback default
+              const defaultEmp =
+                empresas.find((e) => e.nome.includes("NUNES")) || empresas[0];
+              if (defaultEmp) setSelectedEmpresaId(defaultEmp.id);
+            }
+          }
+        }, [selectedEmpId, empresas, employees]);
+
+        useEffect(() => {
           setStagedItems([]);
+
           setNewItemName("");
           setNewDeliveryDate("");
           setNewLink("");
@@ -630,7 +677,6 @@
           return employees.find((emp) => emp.id === selectedEmpId);
         }, [employees, selectedEmpId]);
 
-        
         const kpis = useMemo(() => {
           let emDia = 0,
             vencidos = 0,
@@ -703,7 +749,6 @@
           container.style.left = "-9999px";
           container.style.top = "-9999px";
 
-          
           // Helper to generate table headers
           const generateTableHeaders = () => `
             <table style="width: 100%; border-collapse: collapse; text-align: center;">
@@ -736,17 +781,21 @@
           // Pagination logic: first page max 5 items, subsequent pages max 15 items.
           const firstPageLimit = 5;
           const subsequentPageLimit = 15;
-          
-          let pagesHtml = '';
+
+          let pagesHtml = "";
           let currentItemIndex = 0;
           let pageNum = 1;
-          
+
           while (currentItemIndex < items.length || currentItemIndex === 0) {
-             const isFirstPage = pageNum === 1;
-             const limit = isFirstPage ? firstPageLimit : subsequentPageLimit;
-             const chunk = items.slice(currentItemIndex, currentItemIndex + limit);
-             
-             let pageContent = isFirstPage ? `
+            const isFirstPage = pageNum === 1;
+            const limit = isFirstPage ? firstPageLimit : subsequentPageLimit;
+            const chunk = items.slice(
+              currentItemIndex,
+              currentItemIndex + limit,
+            );
+
+            let pageContent = isFirstPage
+              ? `
                         <!-- Header -->
                         <div style="border: 1px solid black; display: flex; text-align: center; font-weight: bold; margin-bottom: 5px;">
                             <div style="flex: 1; padding: 10px; border-right: 1px solid black; display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -756,8 +805,17 @@
                             </div>
                             <div style="flex: 1; padding: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px;">
                                 FICHA INDIVIDUAL DE FARDAMENTO E EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL – E.P.I.
-                            </div>
+
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Local de Registro
+                            </span>
+                            <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.local_registro || "-"}
+                            </span>
+                          </div>
                         </div>
+
 
                         <!-- Employee Info -->
                         <div style="border: 1px solid black; margin-bottom: 5px;">
@@ -805,14 +863,19 @@
                                 Declaro, também, que estou ciente das disposições do Art. 462 e § 1º da CLT, e autorizo o desconto salarial proporcional ao custo de reparação do dano por mim causado aos EPIs.
                             </span>
                         </div>
-             ` : '';
-             
-             // Build table
-             let tableContent = `
+             `
+              : "";
+
+            // Build table
+            let tableContent = `
                 ${generateTableHeaders()}
-                ${chunk.map((item) => {
+                ${chunk
+                  .map((item) => {
                     const dParts = item.dataEntrega.split("-");
-                    const dStr = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : item.dataEntrega;
+                    const dStr =
+                      dParts.length === 3
+                        ? `${dParts[2]}/${dParts[1]}/${dParts[0]}`
+                        : item.dataEntrega;
                     return `
                         <tr style="page-break-inside: avoid;">
                             <td style="border: 1px solid black; padding: 8px 3px;">${dStr}</td>
@@ -825,32 +888,33 @@
                             <td style="border: 1px solid black; padding: 8px 3px;"></td>
                         </tr>
                     `;
-                }).join("")}
+                  })
+                  .join("")}
                 </tbody>
             </table>
              `;
-             
-             pagesHtml += `
-                <div style="${!isFirstPage ? 'page-break-before: always; margin-top: 20px;' : ''}">
+
+            pagesHtml += `
+                <div style="${!isFirstPage ? "page-break-before: always; margin-top: 20px;" : ""}">
                     ${pageContent}
                     ${tableContent}
                 </div>
              `;
-             
-             currentItemIndex += limit;
-             pageNum++;
-             
-             // break if array is empty and we rendered the first empty page
-             if (items.length === 0) break;
+
+            currentItemIndex += limit;
+            pageNum++;
+
+            // break if array is empty and we rendered the first empty page
+            if (items.length === 0) break;
           }
-          
+
           container.innerHTML = `
             <div id="pdf-content" style="width: 1080px; background: white; font-family: Arial, Helvetica, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px; letter-spacing: 0.2px; word-spacing: 1px; text-rendering: optimizeLegibility;">
                 ${pagesHtml}
             </div>
           `;
-          
-document.body.appendChild(container);
+
+          document.body.appendChild(container);
 
           const element = document.getElementById("pdf-content");
           const safeName = (emp.nome || "Funcionario").replace(
@@ -907,7 +971,10 @@ document.body.appendChild(container);
             if (!confirmed) return;
 
             // Update all items to the latest date
-            finalItemsForSupabase = finalItemsForSupabase.map((item) => ({ ...item, dataEntrega: finalDateToUse }));
+            finalItemsForSupabase = finalItemsForSupabase.map((item) => ({
+              ...item,
+              dataEntrega: finalDateToUse,
+            }));
             pdfItems = [...finalItemsForSupabase];
             setStagedItems(finalItemsForSupabase);
           } else if (!isNewVerification) {
@@ -942,12 +1009,14 @@ document.body.appendChild(container);
               .join("; ");
 
             if (!isNewVerification) {
-              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
+              const currentHistory =
+                activeTab === "epi"
+                  ? empToUpdate.epi.itens
+                  : empToUpdate.fardamento.itens;
               if (currentHistory && currentHistory.trim() !== "") {
                 itemsJoined = itemsJoined + "; " + currentHistory;
               }
             }
-
 
             const updatePayload = {};
             if (activeTab === "epi") {
@@ -969,11 +1038,17 @@ document.body.appendChild(container);
 
             // Ensure all items passed to PDF generation have the final normalized date (if unifying)
             let finalItemsForPDF = isNewVerification
-              ? pdfItems.map((item) => ({ ...item, dataEntrega: finalDateToUse }))
+              ? pdfItems.map((item) => ({
+                  ...item,
+                  dataEntrega: finalDateToUse,
+                }))
               : pdfItems;
 
             if (!isNewVerification) {
-              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
+              const currentHistory =
+                activeTab === "epi"
+                  ? empToUpdate.epi.itens
+                  : empToUpdate.fardamento.itens;
               if (currentHistory && currentHistory.trim() !== "") {
                 const historyItems = parseItemString(currentHistory);
                 finalItemsForPDF = [...finalItemsForPDF, ...historyItems];
@@ -1144,7 +1219,14 @@ document.body.appendChild(container);
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
-                  <div onClick={() => { setStatusFilter("em_dia"); setViewMode("controle"); window.scrollTo({top: 0, behavior: "smooth"}); }} className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-green-500 p-4 md:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div
+                    onClick={() => {
+                      setStatusFilter("em_dia");
+                      setViewMode("controle");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-green-500 p-4 md:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                  >
                     <div className="flex items-center gap-3 md:gap-5">
                       <div className="p-2 md:p-3 bg-green-50 rounded-full text-green-500 shrink-0">
                         <CheckCircle2 size={24} className="md:w-7 md:h-7" />
@@ -1167,7 +1249,14 @@ document.body.appendChild(container);
                       </p>
                     </div>
                   </div>
-                  <div onClick={() => { setStatusFilter("vencido"); setViewMode("controle"); window.scrollTo({top: 0, behavior: "smooth"}); }} className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-red-500 p-4 md:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div
+                    onClick={() => {
+                      setStatusFilter("vencido");
+                      setViewMode("controle");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-red-500 p-4 md:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                  >
                     <div className="flex items-center gap-3 md:gap-5">
                       <div className="p-2 md:p-3 bg-red-50 rounded-full text-red-500 shrink-0">
                         <AlertCircle size={24} className="md:w-7 md:h-7" />
@@ -1190,7 +1279,14 @@ document.body.appendChild(container);
                       </p>
                     </div>
                   </div>
-                  <div onClick={() => { setStatusFilter("sem_entrega"); setViewMode("controle"); window.scrollTo({top: 0, behavior: "smooth"}); }} className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-slate-400 p-4 md:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div
+                    onClick={() => {
+                      setStatusFilter("sem_entrega");
+                      setViewMode("controle");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="bg-white rounded-2xl shadow-sm border border-slate-100 border-l-[4px] md:border-l-[6px] border-l-slate-400 p-4 md:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                  >
                     <div className="flex items-center gap-3 md:gap-5">
                       <div className="p-2 md:p-3 bg-slate-100 rounded-full text-slate-500 shrink-0">
                         <XCircle size={24} className="md:w-7 md:h-7" />
@@ -1428,7 +1524,7 @@ document.body.appendChild(container);
                           <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>{" "}
                           CPF: {selectedEmployee.cpf}
                         </p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mt-4 w-full">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mt-4 w-full">
                           <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
                             <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
                               Função
@@ -1704,32 +1800,46 @@ document.body.appendChild(container);
 
                             const groupedItems = (() => {
                               if (!item.itens) return {};
-                              const parsed = parseItemString(item.itens, item.ultimaEntrega, item.link);
+                              const parsed = parseItemString(
+                                item.itens,
+                                item.ultimaEntrega,
+                                item.link,
+                              );
                               const groups = {};
-                              parsed.forEach(p => {
-                                const dt = (p.dataEntrega && p.dataEntrega.trim() !== "") ? p.dataEntrega : item.ultimaEntrega;
+                              parsed.forEach((p) => {
+                                const dt =
+                                  p.dataEntrega && p.dataEntrega.trim() !== ""
+                                    ? p.dataEntrega
+                                    : item.ultimaEntrega;
                                 if (!groups[dt]) groups[dt] = [];
                                 groups[dt].push(p);
                               });
                               return groups;
                             })();
-                            
-                            const sortedDates = Object.keys(groupedItems).sort((a, b) => new Date(b) - new Date(a));
+
+                            const sortedDates = Object.keys(groupedItems).sort(
+                              (a, b) => new Date(b) - new Date(a),
+                            );
 
                             return (
                               <div className="flex flex-col gap-4">
                                 {sortedDates.length === 0 && (
                                   <div className="bg-white p-4 rounded-2xl border border-gray-100">
-                                    <p className="text-sm text-gray-500 text-center">Nenhum item salvo no histórico.</p>
+                                    <p className="text-sm text-gray-500 text-center">
+                                      Nenhum item salvo no histórico.
+                                    </p>
                                   </div>
                                 )}
                                 {sortedDates.map((date, index) => {
                                   const isLatest = index === 0;
                                   const itemsForDate = groupedItems[date];
                                   const isVencido = isLatest && vencido;
-                                  
-                                  const linkForDate = itemsForDate.find(i => i.linkComprovante)?.linkComprovante || (isLatest ? item.link : null);
-                                  
+
+                                  const linkForDate =
+                                    itemsForDate.find((i) => i.linkComprovante)
+                                      ?.linkComprovante ||
+                                    (isLatest ? item.link : null);
+
                                   let formattedDate = date;
                                   if (date.includes("-")) {
                                     const parts = date.split("-");
@@ -1755,10 +1865,13 @@ document.body.appendChild(container);
                                         </div>
                                         <div>
                                           <h4 className="text-sm font-bold text-gray-800">
-                                            {isLatest ? "Última Entrega" : "Entrega Anterior"}
+                                            {isLatest
+                                              ? "Última Entrega"
+                                              : "Entrega Anterior"}
                                           </h4>
                                           <p className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 font-medium">
-                                            <Calendar size={12} /> {formattedDate}
+                                            <Calendar size={12} />{" "}
+                                            {formattedDate}
                                           </p>
                                           {isVencido && (
                                             <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide">
@@ -1768,11 +1881,15 @@ document.body.appendChild(container);
                                         </div>
                                       </div>
                                       <div className="mt-2 text-sm text-gray-700">
-                                        <span className="font-bold mb-1 block">Itens: </span>
+                                        <span className="font-bold mb-1 block">
+                                          Itens:{" "}
+                                        </span>
                                         <ul className="list-disc pl-5 mt-1 space-y-1">
                                           {itemsForDate.map((i, idx) => (
                                             <li key={idx} className="text-xs">
-                                              {i.nomeItem} {i.ca ? `(CA: ${i.ca})` : ""} - Qtd: {i.qtd}
+                                              {i.nomeItem}{" "}
+                                              {i.ca ? `(CA: ${i.ca})` : ""} -
+                                              Qtd: {i.qtd}
                                             </li>
                                           ))}
                                         </ul>
