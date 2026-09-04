@@ -911,9 +911,11 @@ document.body.appendChild(container);
             pdfItems = [...finalItemsForSupabase];
             setStagedItems(finalItemsForSupabase);
           } else if (!isNewVerification) {
-            // Se for inclusão individual, apenas itens NOVOS (com a data mais recente) devem ir pro PDF
-            // A nova data é a do item que está sendo incluído
-            pdfItems = finalItemsForSupabase.filter(i => i.dataEntrega === finalDateToUse);
+            // O usuário solicitou que, ao gerar o PDF, TODO o histórico (antigo + novo) apareça na ficha.
+            // Para isso, os itens novos já estão todos em finalItemsForSupabase.
+            // Não vamos mais filtrar os itens para conter apenas os novos da mesma data, vamos colocar todos
+            // E lá embaixo, adicionaremos o histórico prévio.
+            pdfItems = [...finalItemsForSupabase];
           }
 
           try {
@@ -966,9 +968,17 @@ document.body.appendChild(container);
             if (error) throw error;
 
             // Ensure all items passed to PDF generation have the final normalized date (if unifying)
-            const finalItemsForPDF = isNewVerification 
+            let finalItemsForPDF = isNewVerification
               ? pdfItems.map((item) => ({ ...item, dataEntrega: finalDateToUse }))
               : pdfItems;
+
+            if (!isNewVerification) {
+              const currentHistory = activeTab === "epi" ? empToUpdate.epi.itens : empToUpdate.fardamento.itens;
+              if (currentHistory && currentHistory.trim() !== "") {
+                const historyItems = parseItemString(currentHistory);
+                finalItemsForPDF = [...finalItemsForPDF, ...historyItems];
+              }
+            }
 
             // Call PDF Generation before clearing items
             const empresaSelecionada = empresas.find(
