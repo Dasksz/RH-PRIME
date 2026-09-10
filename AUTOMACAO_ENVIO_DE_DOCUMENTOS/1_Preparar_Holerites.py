@@ -2,8 +2,6 @@ import os
 import re
 import time
 import pandas as pd
-import base64
-import requests
 import unicodedata
 from datetime import datetime
 
@@ -29,47 +27,6 @@ except ImportError:
     print("pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib")
     os.system("pause")
     exit()
-
-
-# =======================================================================
-# CONFIGURAÇÕES DA ZAPSIGN
-# =======================================================================
-ZAP_API_TOKEN = "106edcc3-1a22-4a00-ba53-64bfec863584"
-
-def create_zapsign_document(pdf_path, signer_name, signer_phone):
-    url = f"https://api.zapsign.com.br/api/v1/docs/?api_token={ZAP_API_TOKEN}"
-
-    try:
-        with open(pdf_path, "rb") as f:
-            pdf_base64 = base64.b64encode(f.read()).decode('utf-8')
-
-        payload = {
-            "name": f"Documento - {signer_name}",
-            "base64_pdf": f"data:application/pdf;base64,{pdf_base64}",
-            "disable_signer_emails": True,
-            "lang": "pt-br",
-            "signers": [
-                {
-                    "name": signer_name,
-                    "phone_country": "55",
-                    "phone_number": signer_phone.replace("+55", "").replace("@c.us", "").strip(),
-                    "auth_mode": "assinaturaTela"
-                }
-            ]
-        }
-
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        data = response.json()
-
-        return {
-            "sign_url": data.get("signers", [{}])[0].get("sign_url"),
-            "document_id": data.get("token") # Ou data.get("open_id")
-        }
-    except Exception as e:
-        print(f"❌ Erro ao criar documento na ZapSign: {e}")
-        return None
-
 
 # =======================================================================
 # AUTENTICAÇÃO DO DRIVE PARA A FASE 1 (Ler nomes de Ex-Funcionários)
@@ -277,13 +234,12 @@ def iniciar_envio():
     print("🚀 A iniciar processo de Upload e Disparos...\\n")
 
     for index, linha in df.iterrows():
-        nome = str(linha['Nome'])
+        nome = str(linha.get('Nome'))
         whatsapp = str(linha.get('WhatsApp', ''))
-        nome_arquivo = str(linha['Arquivo Gerado'])
+        nome_arquivo = str(linha.get('Arquivo Gerado'))
         pasta_local = str(linha.get('Pasta Local', 'PDFs_Separados'))
         tipo_func = str(linha.get('Tipo', 'Ativo'))
         link_assinatura = str(linha.get('Link Assinatura', ''))
-        document_id = str(linha.get('Document ID', ''))
 
         caminho_pdf = os.path.join(pasta_local, nome_arquivo)
         nome_arquivo_log = f"COMPROVANTE - {nome_arquivo.replace('.pdf', '.txt')}"
@@ -440,42 +396,20 @@ def iniciar_envio():
                 except:
                     link_portal_curto = link_portal
 
-                # MENSAGEM OFICIAL ENVIADA AO N8N (Atualizada para usar apenas o Portal de Assinatura)
+                # MENSAGEM OFICIAL ENVIADA AO N8N (Atualizada para usar a plataforma ZapSign)
                 mensagem = (f"Olá, *{nome}*!\\n\\n"
-                            f"Aqui é do Setor de RH. {pronome} *{TIPO_DOCUMENTO}* {texto_referencia} já está disponível no Portal.\\n\\n"
-                            f"🔒 *DOCUMENTO PROTEGIDO*\\n"
-                            f"Para garantir a sua privacidade (LGPD), o documento possui uma senha.\\n"
-                            f"👉 A senha são os *5 PRIMEIROS NÚMEROS DO SEU CPF* (Apenas os números).\\n\\n"
+                            f"Aqui é do Setor de RH. {pronome} *{TIPO_DOCUMENTO}* {texto_referencia} já está disponível para assinatura.\\n\\n"
                             f"📝 *ACESSO E ASSINATURA ELETRÔNICA:*\\n"
-                            f"Clique no link seguro abaixo para acessar o Portal de Assinatura, visualizar seu documento e confirmá-lo juridicamente:\\n"
-                            f"{link_portal_curto}\\n\\n"
-                            f"⚠️ *ATENÇÃO:* O acesso e validação são obrigatórios. O documento só poderá ser visualizado através do portal acima.\\n\\n"
+                            f"Clique no link seguro abaixo para acessar a plataforma, visualizar seu documento e confirmá-lo juridicamente:\\n"
+                            f"{link_assinatura}\\n\\n"
+                            f"⚠️ *ATENÇÃO:* O acesso e validação são obrigatórios.\\n\\n"
                             f"Um excelente dia!")
 
                 dados = { 'chatId': whatsapp, 'caption': mensagem, 'session': sessao_waha }
                 resposta = requests.post(url_webhook_n8n, json=dados)
 
                 if resposta.status_code in [200, 201]:
-                    print("  ✅ Sucesso! Mensagem enviada para o n8n.")
-
-                    # Registrar no Apps Script (Planilha)
-                    url_apps_script = "COLOQUE_AQUI_A_URL_DO_WEBHOOK_DO_APPS_SCRIPT"
-                    payload_planilha = {
-                        "action": "register",
-                        "nome": nome,
-                        "telefone": whatsapp,
-                        "document_id": document_id,
-                        "link_assinatura": link_assinatura,
-                        "mes_ref": f"{mes_atual}/{ano_atual}",
-                        "tipo_documento": TIPO_DOCUMENTO
-                    }
-                    try:
-                        req_apps = requests.post(url_apps_script, json=payload_planilha)
-                        if req_apps.status_code == 200:
-                            print("  📝 Registrado na Planilha de Assinaturas como Pendente.")
-                    except:
-                        pass
-
+                    print("  ✅ Sucesso! Ficheiro guardado e Mensagem enviada para o n8n.")
                     sucessos += 1
                     mensagens_enviadas_sessao += 1
 
@@ -1047,21 +981,12 @@ def preparar_lote():
             for j in range(i, min(i + paginas_por_funcionario, total_paginas)):
                 escritor_pdf.add_page(pdf_fatiador.pages[j])
 
-            # Salva o PDF provisório não criptografado para mandar pra ZapSign
+            if cpf_encontrado and len(cpf_encontrado) >= 5:
+                senha_pdf = cpf_encontrado[:5]
+                escritor_pdf.encrypt(senha_pdf)
+
             with open(caminho_salvar, "wb") as arquivo_saida:
                 escritor_pdf.write(arquivo_saida)
-
-            link_assinatura = ""
-            document_id = ""
-
-            # Chama a API da ZapSign se for funcionário ativo
-            if not is_ex:
-                print(f"   ✍️ A enviar para ZapSign...")
-                zap_result = create_zapsign_document(caminho_salvar, nome, whatsapp)
-                if zap_result:
-                    link_assinatura = zap_result["sign_url"]
-                    document_id = zap_result["document_id"]
-                    print(f"   ✅ Documento ZapSign criado: {link_assinatura}")
 
             if is_ex:
                 wpp_status = "Ex-Funcionário"
@@ -1069,6 +994,14 @@ def preparar_lote():
                 wpp_status = "✅ Com WhatsApp" if whatsapp else "⚠️ SEM WHATSAPP NA PLANILHA"
 
             print(f"✂️ Extraído e Protegido ({tipo_func}): {nome_arquivo_pdf} -> [{wpp_status}]")
+
+            link_assinatura = ""
+
+            if not is_ex:
+                print("   Enviando para ZapSign...")
+                zap_result = create_zapsign_document(caminho_salvar, nome, whatsapp)
+                if zap_result:
+                    link_assinatura = zap_result.get("sign_url")
 
             if chave_rastreio not in cpfs_achados_no_pdf:
                 encontrados.append({
@@ -1078,8 +1011,7 @@ def preparar_lote():
                     'Pasta Local': pasta_local_relatorio,
                     'Tipo': tipo_func,
                     'Arquivo Gerado': nome_arquivo_pdf,
-                    'Link Assinatura': link_assinatura if 'link_assinatura' in locals() else "",
-                    'Document ID': document_id if 'document_id' in locals() else ""
+                    'Link Assinatura': link_assinatura
                 })
                 cpfs_achados_no_pdf.append(chave_rastreio)
 
@@ -1111,11 +1043,11 @@ def preparar_lote():
             df_ex = df_todos_encontrados[df_todos_encontrados['Tipo'] == 'Ex-Funcionario']
 
             if not df_ativos.empty: df_ativos.to_excel(writer, sheet_name='Prontos para Envio', index=False)
-            else: pd.DataFrame(columns=['Nome', 'CPF Completo', 'WhatsApp', 'Pasta Local', 'Tipo', 'Arquivo Gerado', 'Link Assinatura', 'Document ID']).to_excel(writer, sheet_name='Prontos para Envio', index=False)
+            else: pd.DataFrame(columns=['Nome', 'CPF Completo', 'WhatsApp', 'Pasta Local', 'Tipo', 'Arquivo Gerado', 'Link Assinatura']).to_excel(writer, sheet_name='Prontos para Envio', index=False)
 
             if not df_ex.empty: df_ex.to_excel(writer, sheet_name='Ex-Funcionarios', index=False)
         else:
-            pd.DataFrame(columns=['Nome', 'CPF Completo', 'WhatsApp', 'Pasta Local', 'Tipo', 'Arquivo Gerado', 'Link Assinatura', 'Document ID']).to_excel(writer, sheet_name='Prontos para Envio', index=False)
+            pd.DataFrame(columns=['Nome', 'CPF Completo', 'WhatsApp', 'Pasta Local', 'Tipo', 'Arquivo Gerado', 'Link Assinatura']).to_excel(writer, sheet_name='Prontos para Envio', index=False)
 
         if nao_encontrados_pdf:
             pd.DataFrame(nao_encontrados_pdf).to_excel(writer, sheet_name='Nao Encontrados', index=False)
