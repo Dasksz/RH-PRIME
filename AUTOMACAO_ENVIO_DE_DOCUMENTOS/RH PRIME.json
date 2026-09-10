@@ -13,7 +13,7 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -784,
+        -850,
         160
       ],
       "webhookId": "36081825-c41e-4a82-87da-3b7f7f5b0288"
@@ -23,14 +23,14 @@
         "resource": "Chatting",
         "operation": "Send Text",
         "session": "default",
-        "chatId": "={{ $('Receber do Python').item.json.body.chatId }}",
+        "chatId": "={{ $('IF Caption Not Empty').item.json.body.chatId || $('Receber do Python').item.json.body.chatId }}",
         "text": "={{ $json.body.caption }}",
         "requestOptions": {}
       },
       "type": "n8n-nodes-waha.WAHA",
       "typeVersion": 202411,
       "position": [
-        -528,
+        -400,
         160
       ],
       "id": "4e42ca50-f2f4-4709-b1e1-e669ff69bb89",
@@ -48,14 +48,14 @@
         "resource": "Chatting",
         "operation": "Send Text",
         "session": "default",
-        "chatId": "={{ $('Receber do Python').item.json.body.chatId.replace(/^(\\d{2})(\\d{8})@c\\.us$/, '$19$2@c.us') }}",
+        "chatId": "={{ ($('IF Caption Not Empty').item.json.body.chatId || $('Receber do Python').item.json.body.chatId).replace(/^(\\d{2})(\\d{8})@c\\.us$/, '$19$2@c.us') }}",
         "text": "={{ $('Receber do Python').item.json.body.caption }}",
         "requestOptions": {}
       },
       "type": "n8n-nodes-waha.WAHA",
       "typeVersion": 202411,
       "position": [
-        -288,
+        -150,
         160
       ],
       "id": "3465f16b-0171-447a-be05-b89e05d843d1",
@@ -66,6 +66,39 @@
           "name": "WAHA account"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1ab2c3d4-5e6f-7g8h-9i0j",
+              "leftValue": "={{ $json.body.caption }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e4f32c96-0e1b-4f4d-b8d4-f86a65507d8a",
+      "name": "IF Caption Not Empty",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 3,
+      "position": [
+        -650,
+        160
+      ]
     }
   ],
   "pinData": {},
@@ -74,7 +107,7 @@
       "main": [
         [
           {
-            "node": "Enviar Link Holerite WAHA",
+            "node": "IF Caption Not Empty",
             "type": "main",
             "index": 0
           }
@@ -91,6 +124,18 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "IF Caption Not Empty": {
+      "main": [
+        [
+          {
+            "node": "Enviar Link Holerite WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },
