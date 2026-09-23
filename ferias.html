@@ -221,6 +221,7 @@
         const [diasProg, setDiasProg] = useState("");
         const [dataFimProg, setDataFimProg] = useState("");
         const [dataRetornoCalc, setDataRetornoCalc] = useState("");
+        const [diasAbonados, setDiasAbonados] = useState("");
         const [erroProg, setErroProg] = useState("");
         const [isSaving, setIsSaving] = useState(false);
 
@@ -327,32 +328,44 @@
         };
 
         useEffect(() => {
-          if (dataInicioProg && diasProg) {
-            // Validaçoes
+          const gozo = parseInt(diasProg) || 0;
+          const abono = parseInt(diasAbonados) || 0;
+          const totalConsumido = gozo + abono;
+          const saldoDisponivel = feriasSelecionada?.dias_saldo || 0;
+
+          if (abono > 10) {
+            setErroProg("O limite máximo para venda (abono) é de 10 dias.");
+            setDataFimProg("");
+            setDataRetornoCalc("");
+            return;
+          }
+          if (abono < 0 || gozo < 0) {
+            setErroProg("A quantidade de dias não pode ser negativa.");
+            setDataFimProg("");
+            setDataRetornoCalc("");
+            return;
+          }
+          if (totalConsumido > saldoDisponivel) {
+            setErroProg(
+              `A soma dos dias (${totalConsumido} dias) não pode ser maior que o saldo disponível (${saldoDisponivel} dias).`,
+            );
+            setDataFimProg("");
+            setDataRetornoCalc("");
+            return;
+          }
+
+          if (gozo > 0) {
+            if (!dataInicioProg) {
+              setErroProg("");
+              setDataFimProg("");
+              setDataRetornoCalc("");
+              return;
+            }
             const dateObj = new Date(dataInicioProg + "T00:00:00");
             const dayOfWeek = dateObj.getDay();
 
-            // Sexta(5), Sabado(6), Domingo(0) não pode iniciar
-            if (
-              dayOfWeek === 5 ||
-              dayOfWeek === 6 ||
-              dayOfWeek === 0
-            ) {
-              setErroProg(
-                "As férias não podem iniciar na sexta, sábado ou domingo.",
-              );
-              setDataFimProg("");
-              setDataRetornoCalc("");
-            } else if (
-              parseInt(diasProg) > (feriasSelecionada?.dias_saldo || 0)
-            ) {
-              setErroProg(
-                `A quantidade de dias não pode ser maior que o saldo (${feriasSelecionada?.dias_saldo} dias).`,
-              );
-              setDataFimProg("");
-              setDataRetornoCalc("");
-            } else if (parseInt(diasProg) <= 0) {
-              setErroProg("A quantidade de dias deve ser maior que zero.");
+            if (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0) {
+              setErroProg("As férias não podem iniciar na sexta, sábado ou domingo.");
               setDataFimProg("");
               setDataRetornoCalc("");
             } else {
@@ -363,12 +376,17 @@
                 setDataRetornoCalc(result.retorno);
               }
             }
-          } else {
+          } else if (abono > 0) {
+            // Apenas venda de férias sem dias de gozo
+            setErroProg("");
             setDataFimProg("");
             setDataRetornoCalc("");
+          } else {
             setErroProg("");
+            setDataFimProg("");
+            setDataRetornoCalc("");
           }
-        }, [dataInicioProg, diasProg]);
+        }, [dataInicioProg, diasProg, diasAbonados, feriasSelecionada]);
 
         const handleCancelarProgramacao = async (feriasObj) => {
           if (
@@ -400,26 +418,37 @@
         };
 
         const handleSalvarProgramacao = async () => {
-          if (erroProg || !dataInicioProg || !diasProg || !dataRetornoCalc) {
+          const gozoNum = parseInt(diasProg) || 0;
+          const abonoNum = parseInt(diasAbonados) || 0;
+
+          if (erroProg || (gozoNum === 0 && abonoNum === 0)) {
             alert("Corrija os erros antes de salvar.");
             return;
           }
+          if (gozoNum > 0 && (!dataInicioProg || !dataRetornoCalc)) {
+            alert("Informe a data de início para os dias de férias.");
+            return;
+          }
+
           setIsSaving(true);
           try {
             const hojeStr = new Date().toISOString().split("T")[0];
-            const isRetroativa = dataFimProg < hojeStr;
+            // Se for apenas abono/venda isolada ou se a data de término das férias for anterior a hoje
+            const isRetroativa = gozoNum > 0 ? (dataFimProg < hojeStr) : true;
 
             const payload = {
-              data_inicio_programada: dataInicioProg,
-              dias_programados: parseInt(diasProg),
-              data_fim_programada: dataFimProg,
-              data_retorno: dataRetornoCalc,
+              dias_programados: gozoNum,
+              dias_abonados: abonoNum,
             };
 
-            if (isRetroativa) {
-              const qtdDias = parseInt(diasProg);
-              const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + qtdDias;
+            if (gozoNum > 0) {
+              payload.data_inicio_programada = dataInicioProg;
+              payload.data_fim_programada = dataFimProg;
+              payload.data_retorno = dataRetornoCalc;
+            }
 
+            if (isRetroativa) {
+              const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + gozoNum + abonoNum;
               payload.status = "concluidas";
               payload.dias_gozados = novosDiasGozados;
             } else {
@@ -437,6 +466,7 @@
             setFeriasSelecionada(null);
             setDataInicioProg("");
             setDiasProg("");
+            setDiasAbonados("");
             loadData();
           } catch (err) {
             console.error("Erro ao salvar:", err);
@@ -781,6 +811,7 @@
                                             setFeriasSelecionada(f);
                                             setDataInicioProg("");
                                             setDiasProg("");
+                                            setDiasAbonados("");
                                             setModalOpen(true);
                                           }}
                                           className="inline-flex items-center gap-1 bg-[#002060] text-white px-2 py-1.5 rounded text-xs font-medium hover:bg-blue-800 transition-colors"
@@ -1068,7 +1099,7 @@
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-700 uppercase">
                           Data Início
@@ -1082,15 +1113,30 @@
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-700 uppercase">
-                          Qtd. Dias
+                          Dias Gozo
                         </label>
                         <input
                           type="number"
                           className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="0"
                           value={diasProg}
                           onChange={(e) => setDiasProg(e.target.value)}
-                          min="1"
+                          min="0"
                           max={feriasSelecionada.dias_saldo}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          Venda (Abono)
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="Máx 10"
+                          value={diasAbonados}
+                          onChange={(e) => setDiasAbonados(e.target.value)}
+                          min="0"
+                          max="10"
                         />
                       </div>
                     </div>
@@ -1102,21 +1148,32 @@
                       </div>
                     )}
 
-                    {dataRetornoCalc && !erroProg && (
+                    {!erroProg && (dataRetornoCalc || parseInt(diasAbonados) > 0) && (
                       <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 space-y-1">
-                        <p className="text-xs text-slate-600">
-                          Período: <strong>{formatData(dataInicioProg)}</strong>{" "}
-                          a <strong>{formatData(dataFimProg)}</strong>
-                        </p>
-                        <p className="text-sm text-blue-800">
-                          Retorno ao trabalho:{" "}
-                          <strong>{formatData(dataRetornoCalc)}</strong>
-                        </p>
-                        {dataFimProg && dataFimProg < new Date().toISOString().split("T")[0] && (
+                        {dataRetornoCalc && (
+                          <>
+                            <p className="text-xs text-slate-600">
+                              Período: <strong>{formatData(dataInicioProg)}</strong>{" "}
+                              a <strong>{formatData(dataFimProg)}</strong>
+                            </p>
+                            <p className="text-sm text-blue-800">
+                              Retorno ao trabalho:{" "}
+                              <strong>{formatData(dataRetornoCalc)}</strong>
+                            </p>
+                          </>
+                        )}
+                        {parseInt(diasAbonados) > 0 && (
+                          <p className="text-xs text-blue-900 font-semibold">
+                            Venda de Férias (Abono): <strong>{diasAbonados} dias</strong>
+                          </p>
+                        )}
+                        {((dataFimProg && dataFimProg < new Date().toISOString().split("T")[0]) || (!diasProg && parseInt(diasAbonados) > 0)) && (
                           <div className="mt-2 pt-2 border-t border-blue-200 text-xs text-amber-800 bg-amber-50/80 p-2 rounded-lg flex items-start gap-2 font-medium">
                             <CheckCheck size={16} className="text-amber-600 shrink-0 mt-0.5" />
                             <span>
-                              Este período é retroativo (fim menor que a data de hoje). Ao salvar, as férias serão registradas diretamente como <strong>Concluídas</strong> e o saldo do colaborador será atualizado.
+                              {parseInt(diasAbonados) > 0 && !diasProg
+                                ? "Lançamento de venda de férias. Ao salvar, o saldo do colaborador será atualizado e marcado como Concluído."
+                                : "Este período é retroativo (fim menor que a data de hoje). Ao salvar, as férias serão registradas diretamente como Concluídas e o saldo do colaborador será atualizado."}
                             </span>
                           </div>
                         )}
