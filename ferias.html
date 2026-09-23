@@ -332,15 +332,14 @@
             const dateObj = new Date(dataInicioProg + "T00:00:00");
             const dayOfWeek = dateObj.getDay();
 
-            // Quinta(4), Sexta(5), Sabado(6), Domingo(0) não pode iniciar
+            // Sexta(5), Sabado(6), Domingo(0) não pode iniciar
             if (
-              dayOfWeek === 4 ||
               dayOfWeek === 5 ||
               dayOfWeek === 6 ||
               dayOfWeek === 0
             ) {
               setErroProg(
-                "As férias não podem iniciar na quinta, sexta, sábado ou domingo.",
+                "As férias não podem iniciar na sexta, sábado ou domingo.",
               );
               setDataFimProg("");
               setDataRetornoCalc("");
