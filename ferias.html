@@ -406,15 +406,31 @@
           }
           setIsSaving(true);
           try {
+            const hojeStr = new Date().toISOString().split("T")[0];
+            const isRetroativa = dataFimProg < hojeStr;
+
+            const payload = {
+              data_inicio_programada: dataInicioProg,
+              dias_programados: parseInt(diasProg),
+              data_fim_programada: dataFimProg,
+              data_retorno: dataRetornoCalc,
+            };
+
+            if (isRetroativa) {
+              const qtdDias = parseInt(diasProg);
+              const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + qtdDias;
+              const novosDiasSaldo = Math.max(0, (feriasSelecionada.dias_saldo || 0) - qtdDias);
+
+              payload.status = "concluidas";
+              payload.dias_gozados = novosDiasGozados;
+              payload.dias_saldo = novosDiasSaldo;
+            } else {
+              payload.status = "programadas";
+            }
+
             const { error } = await supabase
               .from("rh_ferias")
-              .update({
-                status: "programadas",
-                data_inicio_programada: dataInicioProg,
-                dias_programados: parseInt(diasProg),
-                data_fim_programada: dataFimProg,
-                data_retorno: dataRetornoCalc,
-              })
+              .update(payload)
               .eq("id", feriasSelecionada.id);
 
             if (error) throw error;
@@ -1098,6 +1114,14 @@
                           Retorno ao trabalho:{" "}
                           <strong>{formatData(dataRetornoCalc)}</strong>
                         </p>
+                        {dataFimProg && dataFimProg < new Date().toISOString().split("T")[0] && (
+                          <div className="mt-2 pt-2 border-t border-blue-200 text-xs text-amber-800 bg-amber-50/80 p-2 rounded-lg flex items-start gap-2 font-medium">
+                            <CheckCheck size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                            <span>
+                              Este período é retroativo (fim menor que a data de hoje). Ao salvar, as férias serão registradas diretamente como <strong>Concluídas</strong> e o saldo do colaborador será atualizado.
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
 
