@@ -419,11 +419,9 @@
             if (isRetroativa) {
               const qtdDias = parseInt(diasProg);
               const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + qtdDias;
-              const novosDiasSaldo = Math.max(0, (feriasSelecionada.dias_saldo || 0) - qtdDias);
 
               payload.status = "concluidas";
               payload.dias_gozados = novosDiasGozados;
-              payload.dias_saldo = novosDiasSaldo;
             } else {
               payload.status = "programadas";
             }
