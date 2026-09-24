@@ -1390,10 +1390,10 @@
           return (
             <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
               <header className="bg-[#002060] text-white px-5 py-4 flex items-center justify-between shadow-md sticky top-0 z-50">
-                <div className="flex items-center gap-3">
-                  <Shield size={28} className="text-[#E30613] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Área Restrita do Administrador" />
+                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Clique para abrir Área Restrita do Administrador">
+                  <Shield size={28} className="text-[#E30613] group-hover:scale-110 transition-transform" />
                   <div>
-                    <h1 className="text-xl font-extrabold tracking-tight leading-none">
+                    <h1 className="text-xl font-extrabold tracking-tight leading-none group-hover:text-red-200 transition-colors">
                       PRIME RH
                     </h1>
                     <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">
@@ -1661,9 +1661,9 @@
               className={`w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen ${(selectedEmpId !== null || (statusFilter === "devolucoes" && selectedDevolucaoId !== null)) ? "hidden md:flex" : "flex"}`}
             >
               <div className="p-5 bg-[#002060] text-white flex justify-between items-center sticky top-0 z-30">
-                <div className="flex items-center gap-2">
-                  <Shield size={24} className="text-[#E30613] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Área Restrita do Administrador" />
-                  <h2 className="text-lg font-bold tracking-wide">
+                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Clique para abrir Área Restrita do Administrador">
+                  <Shield size={24} className="text-[#E30613] group-hover:scale-110 transition-transform" />
+                  <h2 className="text-lg font-bold tracking-wide group-hover:text-red-200 transition-colors">
                     Controle de Entregas
                   </h2>
                 </div>
