@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PRIME RH - Painel do Administrador & Logs</title>
+    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg" />
+
+    <!-- React & Babel UMD -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-800 antialiased font-sans min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect, useRef } = React;
+
+      // Supabase Initialization
+      const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxOTU1MjcsImV4cCI6MjA2MTc3MTUyN30.2A3LwGmtI233WchC_zGmtNfPByMTh09tqU_R6o9K9k4";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // Icon Components (SVG Helper)
+      const Icon = ({ children, size = 20, className = "" }) => (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={className}
+        >
+          {children}
+        </svg>
+      );
+
+      const Shield = (p) => (
+        <Icon {...p}>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </Icon>
+      );
+      const Key = (p) => (
+        <Icon {...p}>
+          <path d="m21 2-2 2m-1-1 2 2m-3 3 2 2m-3-3 2 2M3 13.5V19a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-1a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2H9.5a2.5 2.5 0 0 1-2.5-2.5V8.5a2.5 2.5 0 0 0-2.5-2.5H3" />
+          <circle cx="7.5" cy="7.5" r=".5" />
+        </Icon>
+      );
+      const Database = (p) => (
+        <Icon {...p}>
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+        </Icon>
+      );
+      const History = (p) => (
+        <Icon {...p}>
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M12 7v5l4 2" />
+        </Icon>
+      );
+      const RotateCcw = (p) => (
+        <Icon {...p}>
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </Icon>
+      );
+      const CheckCircle2 = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="m9 12 2 2 4-4" />
+        </Icon>
+      );
+      const AlertCircle = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </Icon>
+      );
+      const Search = (p) => (
+        <Icon {...p}>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </Icon>
+      );
+      const Eye = (p) => (
+        <Icon {...p}>
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </Icon>
+      );
+      const EyeOff = (p) => (
+        <Icon {...p}>
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+          <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+          <line x1="2" y1="2" x2="22" y2="22" />
+        </Icon>
+      );
+      const Edit = (p) => (
+        <Icon {...p}>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </Icon>
+      );
+      const Trash2 = (p) => (
+        <Icon {...p}>
+          <path d="M3 6h18" />
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        </Icon>
+      );
+      const Plus = (p) => (
+        <Icon {...p}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </Icon>
+      );
+      const X = (p) => (
+        <Icon {...p}>
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </Icon>
+      );
+      const Lock = (p) => (
+        <Icon {...p}>
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </Icon>
+      );
+
+      function AdminApp() {
+        const [activeSection, setActiveSection] = useState("logs"); // "logs", "tables", "password"
+        const [logs, setLogs] = useState([]);
+        const [selectedLogIds, setSelectedLogIds] = useState([]);
+        const [logsLoading, setLogsLoading] = useState(true);
+        const [logFilter, setLogFilter] = useState("all");
+        const [logSearch, setLogSearch] = useState("");
+
+        // Password State
+        const [currentPassword, setCurrentPassword] = useState("");
+        const [showPassword, setShowPassword] = useState(false);
+        const [newPassword, setNewPassword] = useState("");
+        const [confirmNewPassword, setConfirmNewPassword] = useState("");
+        const [passwordMsg, setPasswordMsg] = useState({ type: "", text: "" });
+
+        # Table Viewer State
+        const [availableTables] = useState([
+          { name: "devolucoes_pendentes", label: "Devoluções Pendentes" },
+          { name: "funcionarios_epi", label: "Funcionários & EPIs" },
+          { name: "empresas", label: "Empresas Cadastradas" },
+          { name: "rh_ferias", label: "Férias" },
+          { name: "rh_absenteismo", label: "Absenteísmo" },
+          { name: "epi_funcao", label: "Regras por Função" },
+        ]);
+        const [selectedTableName, setSelectedTableName] = useState("devolucoes_pendentes");
+        const [tableData, setTableData] = useState([]);
+        const [tableColumns, setTableColumns] = useState([]);
+        const [tableLoading, setTableLoading] = useState(false);
+        const [editingRow, setEditingRow] = useState(null);
+        const [editFormData, setEditFormData] = useState({});
+
+        useEffect(() => {
+          fetchAdminPassword();
+          fetchLogs();
+        }, []);
+
+        useEffect(() => {
+          if (activeSection === "tables") {
+            fetchTableData(selectedTableName);
+          }
+        }, [activeSection, selectedTableName]);
+
+        async function fetchAdminPassword() {
+          try {
+            const { data, error } = await supabase
+              .from("configuracoes_admin")
+              .select("valor")
+              .eq("chave", "admin_password")
+              .single();
+            if (data) setCurrentPassword(data.valor);
+          } catch (e) {
+            console.error("Erro ao buscar senha:", e);
+          }
+        }
+
+        async function fetchLogs() {
+          setLogsLoading(true);
+          try {
+            const { data, error } = await supabase
+              .from("sistema_logs")
+              .select("*")
+              .order("created_at", { ascending: false });
+            if (error) throw error;
+            setLogs(data || []);
+          } catch (e) {
+            console.error("Erro ao buscar logs:", e);
+          } finally {
+            setLogsLoading(false);
+          }
+        }
+
+        async function fetchTableData(tableName) {
+          setTableLoading(true);
+          try {
+            const { data, error } = await supabase
+              .from(tableName)
+              .select("*")
+              .order("id", { ascending: false, nullsFirst: false });
+            
+            if (error) throw error;
+            const rows = data || [];
+            setTableData(rows);
+            if (rows.length > 0) {
+              setTableColumns(Object.keys(rows[0]));
+            } else {
+              setTableColumns([]);
+            }
+          } catch (e) {
+            console.error("Erro ao carregar tabela:", e);
+            setTableData([]);
+          } finally {
+            setTableLoading(false);
+          }
+        }
+
+        // Change Admin Password
+        const handleUpdatePassword = async (e) => {
+          e.preventDefault();
+          setPasswordMsg({ type: "", text: "" });
+
+          if (!newPassword || newPassword.length < 4) {
+            setPasswordMsg({ type: "error", text: "A nova senha deve ter pelo menos 4 caracteres." });
+            return;
+          }
+
+          if (newPassword !== confirmNewPassword) {
+            setPasswordMsg({ type: "error", text: "As senhas não coincidem." });
+            return;
+          }
+
+          try {
+            const { error } = await supabase
+              .from("configuracoes_admin")
+              .upsert({ chave: "admin_password", valor: newPassword, updated_at: new Date() }, { onConflict: "chave" });
+
+            if (error) throw error;
+
+            setCurrentPassword(newPassword);
+            setNewPassword("");
+            setConfirmNewPassword("");
+            setPasswordMsg({ type: "success", text: "Senha alterada com sucesso!" });
+          } catch (err) {
+            console.error("Erro ao atualizar senha:", err);
+            setPasswordMsg({ type: "error", text: "Erro ao salvar nova senha no banco de dados." });
+          }
+        };
+
+        // Revert Selected Logs
+        const handleRevertSelectedLogs = async () => {
+          if (selectedLogIds.length === 0) return;
+          if (!window.confirm(`Deseja realmente reverter as ${selectedLogIds.length} alterações selecionadas?`)) return;
+
+          let revertedCount = 0;
+          for (const logId of selectedLogIds) {
+            const targetLog = logs.find((l) => l.id === logId);
+            if (!targetLog) continue;
+
+            try {
+              const { tabela_afetada, tipo_operacao, dados_anteriores, dados_novos } = targetLog;
+
+              if (tipo_operacao === "DELETE" && dados_anteriores) {
+                // Re-insert record
+                await supabase.from(tabela_afetada).insert([dados_anteriores]);
+                revertedCount++;
+              } else if (tipo_operacao === "UPDATE" && dados_anteriores && targetLog.dados_anteriores.id) {
+                // Restore previous row state
+                await supabase.from(tabela_afetada).update(dados_anteriores).eq("id", dados_anteriores.id);
+                revertedCount++;
+              } else if (tipo_operacao === "INSERT" && dados_novos && dados_novos.id) {
+                // Delete inserted row
+                await supabase.from(tabela_afetada).delete().eq("id", dados_novos.id);
+                revertedCount++;
+              }
+
+              // Log the reversion itself
+              await supabase.from("sistema_logs").insert([
+                {
+                  tabela_afetada,
+                  tipo_operacao: "REVERT",
+                  descricao: `Reversão efetuada para a alteração ID #${logId}: ${targetLog.descricao}`,
+                  dados_anteriores: dados_novos,
+                  dados_novos: dados_anteriores,
+                },
+              ]);
+            } catch (err) {
+              console.error(`Erro ao reverter log #${logId}:`, err);
+            }
+          }
+
+          alert(`${revertedCount} alteração(ões) revertida(s) com sucesso!`);
+          setSelectedLogIds([]);
+          fetchLogs();
+          if (activeSection === "tables") fetchTableData(selectedTableName);
+        };
+
+        // Edit Table Row Handler
+        const handleSaveRow = async () => {
+          if (!editingRow) return;
+          try {
+            const { id } = editingRow;
+            const { error } = await supabase.from(selectedTableName).update(editFormData).eq("id", id);
+            if (error) throw error;
+
+            await supabase.from("sistema_logs").insert([
+              {
+                tabela_afetada: selectedTableName,
+                tipo_operacao: "UPDATE",
+                descricao: `Edição manual no registro #${id} da tabela ${selectedTableName}`,
+                dados_anteriores: editingRow,
+                dados_novos: editFormData,
+              },
+            ]);
+
+            alert("Registro atualizado com sucesso!");
+            setEditingRow(null);
+            fetchTableData(selectedTableName);
+            fetchLogs();
+          } catch (err) {
+            console.error("Erro ao salvar linha:", err);
+            alert("Erro ao salvar alterações na tabela.");
+          }
+        };
+
+        // Filtered logs
+        const filteredLogs = logs.filter((log) => {
+          if (logFilter !== "all" && log.tabela_afetada !== logFilter) return false;
+          if (logSearch) {
+            const searchLower = logSearch.toLowerCase();
+            return (
+              log.descricao?.toLowerCase().includes(searchLower) ||
+              log.tabela_afetada?.toLowerCase().includes(searchLower) ||
+              log.tipo_operacao?.toLowerCase().includes(searchLower)
+            );
+          }
+          return true;
+        });
+
+        const toggleSelectLog = (id) => {
+          setSelectedLogIds((prev) =>
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+          );
+        };
+
+        const toggleSelectAllLogs = () => {
+          if (selectedLogIds.length === filteredLogs.length) {
+            setSelectedLogIds([]);
+          } else {
+            setSelectedLogIds(filteredLogs.map((l) => l.id));
+          }
+        };
+
+        return (
+          <div className="flex flex-col min-h-screen bg-slate-900 text-slate-100">
+            {/* Header / Navigation Bar */}
+            <header className="bg-slate-800 border-b border-slate-700/80 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 shadow-sm">
+                  <Shield size={24} />
+                </div>
+                <div>
+                  <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+                    PRIME RH <span className="text-xs px-2 py-0.5 rounded-md bg-red-600/30 text-red-300 font-mono font-bold uppercase border border-red-500/30">Portal Admin</span>
+                  </h1>
+                  <p className="text-slate-400 text-xs font-medium">Gestão Restrita, Auditoria de Logs e Reversão de Dados</p>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <nav className="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-700/60">
+                <button
+                  onClick={() => setActiveSection("logs")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    activeSection === "logs"
+                      ? "bg-red-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <History size={16} />
+                  <span>Logs de Alterações</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSection("tables")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    activeSection === "tables"
+                      ? "bg-red-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <Database size={16} />
+                  <span>Gerenciador de Tabelas</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSection("password")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    activeSection === "password"
+                      ? "bg-red-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <Key size={16} />
+                  <span>Senha do Sistema</span>
+                </button>
+              </nav>
+            </header>
+
+            {/* Main Content Area */}
+            <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+              {/* SECTION 1: LOGS AUDIT & REVERSION */}
+              {activeSection === "logs" && (
+                <div className="space-y-6 animate-fadeIn">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700/80 shadow-sm flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Total de Logs</span>
+                        <span className="text-3xl font-black text-white mt-1 block">{logs.length}</span>
+                        <span className="text-[10px] text-slate-400 mt-1 block">Retenção de 30 dias no banco</span>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
+                        <History size={24} />
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700/80 shadow-sm flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Devoluções Processadas</span>
+                        <span className="text-3xl font-black text-emerald-400 mt-1 block">
+                          {logs.filter((l) => l.tabela_afetada === "devolucoes_pendentes").length}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1 block">Registros na tabela devolucoes</span>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <CheckCircle2 size={24} />
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700/80 shadow-sm flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Logs Selecionados</span>
+                        <span className="text-3xl font-black text-amber-400 mt-1 block">{selectedLogIds.length}</span>
+                        <span className="text-[10px] text-slate-400 mt-1 block">Prontos para reversão em massa</span>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                        <RotateCcw size={24} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions & Filters Bar */}
+                  <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                      {/* Search */}
+                      <div className="relative w-full sm:w-64">
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={logSearch}
+                          onChange={(e) => setLogSearch(e.target.value)}
+                          placeholder="Buscar no histórico..."
+                          className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        />
+                      </div>
+
+                      {/* Filter Table */}
+                      <select
+                        value={logFilter}
+                        onChange={(e) => setLogFilter(e.target.value)}
+                        className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+                      >
+                        <option value="all">Todas as Tabelas</option>
+                        <option value="devolucoes_pendentes">Devoluções Pendentes</option>
+                        <option value="funcionarios_epi">Funcionários & EPIs</option>
+                        <option value="empresas">Empresas</option>
+                        <option value="rh_ferias">Férias</option>
+                      </select>
+                    </div>
+
+                    {/* Revert Action Button */}
+                    <button
+                      onClick={handleRevertSelectedLogs}
+                      disabled={selectedLogIds.length === 0}
+                      className={`w-full md:w-auto px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md ${
+                        selectedLogIds.length > 0
+                          ? "bg-amber-600 hover:bg-amber-500 text-white cursor-pointer"
+                          : "bg-slate-700 text-slate-500 cursor-not-allowed"
+                      }`}
+                    >
+                      <RotateCcw size={16} />
+                      Reverter Selecionados ({selectedLogIds.length})
+                    </button>
+                  </div>
+
+                  {/* Logs Table */}
+                  <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 shadow-md overflow-hidden">
+                    {logsLoading ? (
+                      <div className="p-12 text-center text-slate-400 text-sm font-medium">Carregando histórico de logs...</div>
+                    ) : filteredLogs.length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 text-sm">Nenhum registro de log encontrado.</div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs text-slate-300">
+                          <thead className="bg-slate-900/80 text-slate-400 uppercase tracking-wider font-bold border-b border-slate-700">
+                            <tr>
+                              <th className="p-4 w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedLogIds.length > 0 && selectedLogIds.length === filteredLogs.length}
+                                  onChange={toggleSelectAllLogs}
+                                  className="rounded bg-slate-900 border-slate-700 text-red-600 focus:ring-red-500 cursor-pointer"
+                                />
+                              </th>
+                              <th className="p-4">Data & Hora</th>
+                              <th className="p-4">Tabela</th>
+                              <th className="p-4">Operação</th>
+                              <th className="p-4">Descrição da Modificação</th>
+                              <th className="p-4 text-center">Ação</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-700/60">
+                            {filteredLogs.map((log) => {
+                              const isSelected = selectedLogIds.includes(log.id);
+                              return (
+                                <tr
+                                  key={log.id}
+                                  className={`hover:bg-slate-700/40 transition-colors ${
+                                    isSelected ? "bg-amber-500/10" : ""
+                                  }`}
+                                >
+                                  <td className="p-4 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => toggleSelectLog(log.id)}
+                                      className="rounded bg-slate-900 border-slate-700 text-red-600 focus:ring-red-500 cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="p-4 font-mono text-slate-400 shrink-0">
+                                    {new Date(log.created_at).toLocaleString("pt-BR")}
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="font-semibold text-slate-200 bg-slate-900/80 px-2.5 py-1 rounded-md border border-slate-700">
+                                      {log.tabela_afetada}
+                                    </span>
+                                  </td>
+                                  <td className="p-4">
+                                    <span
+                                      className={`px-2.5 py-1 rounded-md font-extrabold uppercase text-[10px] tracking-wider border ${
+                                        log.tipo_operacao === "DELETE"
+                                          ? "bg-red-500/20 text-red-300 border-red-500/30"
+                                          : log.tipo_operacao === "UPDATE"
+                                          ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                          : log.tipo_operacao === "REVERT"
+                                          ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                          : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                      }`}
+                                    >
+                                      {log.tipo_operacao}
+                                    </span>
+                                  </td>
+                                  <td className="p-4 font-medium text-slate-200">{log.descricao}</td>
+                                  <td className="p-4 text-center">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedLogIds([log.id]);
+                                        handleRevertSelectedLogs();
+                                      }}
+                                      className="px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all flex items-center justify-center gap-1 mx-auto"
+                                    >
+                                      <RotateCcw size={12} /> Reverter
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 2: GERENCIADOR DE TABELAS */}
+              {activeSection === "tables" && (
+                <div className="space-y-6 animate-fadeIn">
+                  {/* Table selector tabs */}
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-800/80 p-2 rounded-2xl border border-slate-700">
+                    {availableTables.map((t) => (
+                      <button
+                        key={t.name}
+                        onClick={() => setSelectedTableName(t.name)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          selectedTableName === t.name
+                            ? "bg-red-600 text-white shadow-md"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Table Viewer */}
+                  <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 shadow-md overflow-hidden">
+                    <div className="p-4 bg-slate-900/60 border-b border-slate-700 flex items-center justify-between">
+                      <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Database size={18} className="text-red-500" />
+                        Tabela: <span className="font-mono text-red-400">{selectedTableName}</span>
+                      </h2>
+                      <span className="text-xs text-slate-400">{tableData.length} registro(s)</span>
+                    </div>
+
+                    {tableLoading ? (
+                      <div className="p-12 text-center text-slate-400 text-sm">Carregando dados da tabela...</div>
+                    ) : tableData.length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 text-sm">Tabela vazia ou sem registros.</div>
+                    ) : (
+                      <div className="overflow-x-auto max-h-[600px]">
+                        <table className="w-full text-left text-xs text-slate-300">
+                          <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-bold sticky top-0 border-b border-slate-700 z-10">
+                            <tr>
+                              <th className="p-3 text-center w-16">Ações</th>
+                              {tableColumns.map((col) => (
+                                <th key={col} className="p-3">
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-700/60 font-mono">
+                            {tableData.map((row, idx) => (
+                              <tr key={row.id || idx} className="hover:bg-slate-700/30 transition-colors">
+                                <td className="p-3 text-center">
+                                  <button
+                                    onClick={() => {
+                                      setEditingRow(row);
+                                      setEditFormData(row);
+                                    }}
+                                    className="p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 transition-all inline-flex items-center justify-center"
+                                    title="Editar Linha"
+                                  >
+                                    <Edit size={14} />
+                                  </button>
+                                </td>
+                                {tableColumns.map((col) => {
+                                  const val = row[col];
+                                  const valStr = typeof val === "object" ? JSON.stringify(val) : String(val ?? "");
+                                  return (
+                                    <td key={col} className="p-3 max-w-xs truncate" title={valStr}>
+                                      {valStr}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 3: GERENCIAR SENHA DE ADMIN */}
+              {activeSection === "password" && (
+                <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
+                  <div className="bg-slate-800/80 p-6 md:p-8 rounded-3xl border border-slate-700/80 shadow-xl space-y-6">
+                    <div className="flex items-center gap-3 border-b border-slate-700/80 pb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500">
+                        <Key size={26} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-white">Segurança do Administrador</h2>
+                        <p className="text-slate-400 text-xs">Visualize e altere a senha de acesso à área restrita</p>
+                      </div>
+                    </div>
+
+                    {/* Current password preview card */}
+                    <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Senha Atual Registrada</span>
+                        <span className="text-lg font-mono font-bold text-slate-100 mt-1 block">
+                          {showPassword ? currentPassword : "•".repeat(currentPassword.length || 8)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="p-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors flex items-center gap-1.5 text-xs font-bold"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        {showPassword ? "Ocultar" : "Visualizar"}
+                      </button>
+                    </div>
+
+                    {/* Change password form */}
+                    <form onSubmit={handleUpdatePassword} className="space-y-4 pt-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Alterar Senha</h3>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Nova Senha</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Digite a nova senha..."
+                          className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Confirmar Nova Senha</label>
+                        <input
+                          type="password"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          placeholder="Repita a nova senha..."
+                          className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+                        />
+                      </div>
+
+                      {passwordMsg.text && (
+                        <div
+                          className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                            passwordMsg.type === "success"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              : "bg-red-500/20 text-red-300 border border-red-500/30"
+                          }`}
+                        >
+                          <AlertCircle size={16} /> {passwordMsg.text}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2"
+                      >
+                        <Lock size={18} />
+                        Salvar Nova Senha
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </main>
+
+            {/* Modal for editing table row */}
+            {editingRow && (
+              <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+                <div className="bg-slate-900 rounded-3xl p-6 md:p-8 max-w-xl w-full shadow-2xl border border-slate-700 space-y-5 max-h-[90vh] flex flex-col">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <h3 className="font-extrabold text-white text-lg flex items-center gap-2">
+                      <Edit size={20} className="text-red-500" /> Editar Registro #{editingRow.id}
+                    </h3>
+                    <button
+                      onClick={() => setEditingRow(null)}
+                      className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="overflow-y-auto space-y-4 flex-1 pr-1">
+                    {tableColumns.map((col) => {
+                      if (col === "id" || col === "created_at") return null;
+                      const val = editFormData[col];
+                      const isJson = typeof val === "object" && val !== null;
+                      return (
+                        <div key={col}>
+                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                            {col}
+                          </label>
+                          <textarea
+                            value={isJson ? JSON.stringify(val, null, 2) : String(val ?? "")}
+                            onChange={(e) => {
+                              let inputVal = e.target.value;
+                              if (isJson) {
+                                try {
+                                  inputVal = JSON.parse(inputVal);
+                                } catch (err) {}
+                              }
+                              setEditFormData((prev) => ({ ...prev, [col]: inputVal }));
+                            }}
+                            rows={isJson ? 3 : 1}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button
+                      onClick={() => setEditingRow(null)}
+                      className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-xs font-bold hover:bg-slate-800 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveRow}
+                      className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 size={16} />
+                      Salvar Alterações
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<AdminApp />);
+    </script>
+  </body>
+</html>
