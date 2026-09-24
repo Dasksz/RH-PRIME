@@ -651,7 +651,7 @@
             if (adminPasswordInput === correctPass) {
               setIsAdminModalOpen(false);
               setAdminPasswordInput("");
-              window.open("admin.html", "_blank");
+              window.location.href = "admin.html";
             } else {
               setAdminPasswordError("Senha incorreta. Tente novamente.");
             }
@@ -660,7 +660,7 @@
             if (adminPasswordInput === "admin123") {
               setIsAdminModalOpen(false);
               setAdminPasswordInput("");
-              window.open("admin.html", "_blank");
+              window.location.href = "admin.html";
             } else {
               setAdminPasswordError("Erro ao verificar senha ou senha incorreta.");
             }
