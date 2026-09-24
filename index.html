@@ -1658,11 +1658,11 @@
         return (
           <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
             <div
-              className={`w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen ${selectedEmpId !== null ? "hidden md:flex" : "flex"}`}
+              className={`w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen ${(selectedEmpId !== null || (statusFilter === "devolucoes" && selectedDevolucaoId !== null)) ? "hidden md:flex" : "flex"}`}
             >
               <div className="p-5 bg-[#002060] text-white flex justify-between items-center sticky top-0 z-30">
                 <div className="flex items-center gap-2">
-                  <Shield size={24} className="text-[#E30613]" />
+                  <Shield size={24} className="text-[#E30613] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Área Restrita do Administrador" />
                   <h2 className="text-lg font-bold tracking-wide">
                     Controle de Entregas
                   </h2>
@@ -1930,7 +1930,14 @@
                   };
 
                   return (
-                    <div className="p-6 md:p-8 space-y-6 w-full max-w-4xl mx-auto">
+                    <div className="p-4 md:p-8 space-y-6 w-full max-w-4xl mx-auto">
+                      {/* Mobile Back Button for Devoluções */}
+                      <button
+                        onClick={() => setSelectedDevolucaoId(null)}
+                        className="md:hidden flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl transition-all mb-2"
+                      >
+                        <ArrowLeft size={16} /> Voltar para Lista
+                      </button>
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <div>
                           <div className="flex items-center gap-3">
