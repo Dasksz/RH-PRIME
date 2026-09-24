@@ -256,13 +256,18 @@
         async function fetchTableData(tableName) {
           setTableLoading(true);
           try {
-            const { data, error } = await supabase
+            let res = await supabase
               .from(tableName)
               .select("*")
               .order("id", { ascending: false, nullsFirst: false });
-            
-            if (error) throw error;
-            const rows = data || [];
+
+            if (res.error && res.error.code === "42703") {
+              // If column "id" does not exist, fallback to select without ordering
+              res = await supabase.from(tableName).select("*");
+            }
+
+            if (res.error) throw res.error;
+            const rows = res.data || [];
             setTableData(rows);
             if (rows.length > 0) {
               setTableColumns(Object.keys(rows[0]));
@@ -361,8 +366,9 @@
         const handleSaveRow = async () => {
           if (!editingRow) return;
           try {
-            const { id } = editingRow;
-            const { error } = await supabase.from(selectedTableName).update(editFormData).eq("id", id);
+            const pkField = editingRow.id !== undefined ? "id" : Object.keys(editingRow)[0];
+            const pkVal = editingRow[pkField];
+            const { error } = await supabase.from(selectedTableName).update(editFormData).eq(pkField, pkVal);
             if (error) throw error;
 
             await supabase.from("sistema_logs").insert([
