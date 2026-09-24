@@ -360,29 +360,6 @@
 
           return { nome: "NUNES & VIEIRA LOGISTICA LTDA", cnpj: "48.986.353/0001-39" };
         };
-          }
-          const regUpper = localRegistro.toString().toUpperCase();
-          if (regUpper.includes("JEQUIÉ") || regUpper.includes("JEQUIE")) {
-            const eq = empresasList.find(
-              (e) => e.endereco.toUpperCase().includes("JEQUIÉ") || e.cnpj.includes("0002-82")
-            );
-            if (eq) return { nome: eq.nome, cnpj: eq.cnpj };
-          }
-          if (regUpper.includes("ILHÉUS") || regUpper.includes("ILHEUS")) {
-            const eq = empresasList.find(
-              (e) => e.endereco.toUpperCase().includes("ILHÉUS") || e.cnpj.includes("0001-00")
-            );
-            if (eq) return { nome: eq.nome, cnpj: eq.cnpj };
-          }
-          if (regUpper.includes("NUNES") || regUpper.includes("ITABUNA")) {
-            const eq = empresasList.find((e) => e.nome.toUpperCase().includes("NUNES"));
-            if (eq) return { nome: eq.nome, cnpj: eq.cnpj };
-          }
-          const matched = empresasList.find((e) => regUpper.includes(e.nome.toUpperCase()) || e.nome.toUpperCase().includes(regUpper));
-          if (matched) return { nome: matched.nome, cnpj: matched.cnpj };
-
-          return { nome: "NUNES & VIEIRA LOGISTICA LTDA", cnpj: "48.986.353/0001-39" };
-        };
 
         const formatarDataBonita = (dateVal) => {
           if (!dateVal) return "-";
