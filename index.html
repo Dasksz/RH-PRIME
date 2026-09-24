@@ -207,6 +207,11 @@
         const [checkedDevolucaoItems, setCheckedDevolucaoItems] = useState({});
         const [epiFuncaoRules, setEpiFuncaoRules] = useState([]);
         const [isLoadingData, setIsLoadingData] = useState(true);
+        const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+        const [adminPasswordInput, setAdminPasswordInput] = useState("");
+        const [adminPasswordError, setAdminPasswordError] = useState("");
+        const [isConfirmDevolucaoModalOpen, setIsConfirmDevolucaoModalOpen] = useState(false);
+        const [itemToDevolver, setItemToDevolver] = useState(null);
 
         const [isAuthChecking, setIsAuthChecking] = useState(true);
 
@@ -344,18 +349,7 @@
                 return (
                   <li
                     key={idx}
-                    onClick={() => {
-                      setCheckedDevolucaoItems((prev) => {
-                        const currentRecord = prev[devolucaoId] || {};
-                        return {
-                          ...prev,
-                          [devolucaoId]: {
-                            ...currentRecord,
-                            [itemKey]: !isChecked,
-                          },
-                        };
-                      });
-                    }}
+                    onClick={() => handleToggleDevolucaoItem(devolucaoId, itemKey)}
                     className={`flex items-center justify-between text-xs px-3 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${
                       isChecked
                         ? "bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs"
@@ -561,21 +555,72 @@
               .select("*")
               .order("created_at", { ascending: false });
             if (error) throw error;
-            setDevolucoes(data || []);
+            const initialDev = data || [];
+            setDevolucoes(initialDev);
+            const initialCheckedMap = {};
+            initialDev.forEach((d) => {
+              if (d.itens_checked && typeof d.itens_checked === "object") {
+                initialCheckedMap[d.id] = d.itens_checked;
+              }
+            });
+            setCheckedDevolucaoItems(initialCheckedMap);
           } catch (err) {
             console.error("Error fetching devolucoes:", err);
           }
         };
 
-        const handleMarcarDevolvido = async (item) => {
-          if (
-            !window.confirm(
-              `Confirmar que os materiais de ${item.funcionario_nome} foram devolvidos?`,
-            )
-          )
-            return;
+        const handleToggleDevolucaoItem = async (devolucaoId, itemKey) => {
+          const currentRecord = checkedDevolucaoItems[devolucaoId] || {};
+          const newValue = !currentRecord[itemKey];
+          const updatedRecord = { ...currentRecord, [itemKey]: newValue };
+
+          setCheckedDevolucaoItems((prev) => ({
+            ...prev,
+            [devolucaoId]: updatedRecord,
+          }));
 
           try {
+            const { error } = await supabase
+              .from("devolucoes_pendentes")
+              .update({ itens_checked: updatedRecord })
+              .eq("id", devolucaoId);
+            if (error) throw error;
+
+            const targetDev = devolucoes.find((d) => d.id === devolucaoId);
+            const itemNome = itemKey.split("_").slice(2).join("_") || itemKey;
+            await supabase.from("sistema_logs").insert([
+              {
+                tabela_afetada: "devolucoes_pendentes",
+                tipo_operacao: "UPDATE",
+                descricao: `Item '${itemNome}' do colaborador ${targetDev ? targetDev.funcionario_nome : devolucaoId} ${newValue ? "marcado como conferido" : "desmarcado"}`,
+                dados_anteriores: { itens_checked: currentRecord },
+                dados_novos: { itens_checked: updatedRecord },
+              },
+            ]);
+          } catch (err) {
+            console.error("Erro ao atualizar item conferido no Supabase:", err);
+          }
+        };
+
+        const triggerMarcarDevolvido = (item) => {
+          setItemToDevolver(item);
+          setIsConfirmDevolucaoModalOpen(true);
+        };
+
+        const handleConfirmMarcarDevolvido = async () => {
+          if (!itemToDevolver) return;
+          const item = itemToDevolver;
+          try {
+            await supabase.from("sistema_logs").insert([
+              {
+                tabela_afetada: "devolucoes_pendentes",
+                tipo_operacao: "DELETE",
+                descricao: `Devolução concluída para ${item.funcionario_nome} (Marcar como Devolvido)`,
+                dados_anteriores: item,
+                dados_novos: null,
+              },
+            ]);
+
             const { error } = await supabase
               .from("devolucoes_pendentes")
               .delete()
@@ -584,10 +629,41 @@
             if (error) throw error;
 
             setDevolucoes((prev) => prev.filter((d) => d.id !== item.id));
-            alert("Registro de pendência removido com sucesso!");
+            setIsConfirmDevolucaoModalOpen(false);
+            setItemToDevolver(null);
+            alert("Registro de devolução finalizado e tirado do sistema!");
           } catch (err) {
             console.error("Erro ao marcar como devolvido:", err);
-            alert("Erro ao remover pendência no Supabase.");
+            alert("Erro ao finalizar pendência no Supabase.");
+          }
+        };
+
+        const handleVerifyAdminPassword = async () => {
+          setAdminPasswordError("");
+          try {
+            const { data, error } = await supabase
+              .from("configuracoes_admin")
+              .select("valor")
+              .eq("chave", "admin_password")
+              .single();
+
+            const correctPass = data ? data.valor : "admin123";
+            if (adminPasswordInput === correctPass) {
+              setIsAdminModalOpen(false);
+              setAdminPasswordInput("");
+              window.open("admin.html", "_blank");
+            } else {
+              setAdminPasswordError("Senha incorreta. Tente novamente.");
+            }
+          } catch (err) {
+            console.error("Erro ao verificar senha de admin:", err);
+            if (adminPasswordInput === "admin123") {
+              setIsAdminModalOpen(false);
+              setAdminPasswordInput("");
+              window.open("admin.html", "_blank");
+            } else {
+              setAdminPasswordError("Erro ao verificar senha ou senha incorreta.");
+            }
           }
         };
 
@@ -1315,7 +1391,7 @@
             <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
               <header className="bg-[#002060] text-white px-5 py-4 flex items-center justify-between shadow-md sticky top-0 z-50">
                 <div className="flex items-center gap-3">
-                  <Shield size={28} className="text-[#E30613]" />
+                  <Shield size={28} className="text-[#E30613] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Área Restrita do Administrador" />
                   <div>
                     <h1 className="text-xl font-extrabold tracking-tight leading-none">
                       PRIME RH
@@ -1821,7 +1897,7 @@
                   const checkedCount = Object.values(recordChecked).filter(Boolean).length;
                   const allChecked = totalItemsCount > 0 && checkedCount >= totalItemsCount;
 
-                  const handleSelectAllItems = () => {
+                  const handleSelectAllItems = async () => {
                     const newRecord = {};
                     epiParsed.forEach((it, idx) => {
                       newRecord[`epi_${idx}_${it.nomeItem}`] = true;
@@ -1833,6 +1909,24 @@
                       ...prev,
                       [item.id]: newRecord,
                     }));
+                    try {
+                      await supabase
+                        .from("devolucoes_pendentes")
+                        .update({ itens_checked: newRecord })
+                        .eq("id", item.id);
+
+                      await supabase.from("sistema_logs").insert([
+                        {
+                          tabela_afetada: "devolucoes_pendentes",
+                          tipo_operacao: "UPDATE",
+                          descricao: `Todos os itens de ${item.funcionario_nome} foram marcados como conferidos`,
+                          dados_anteriores: { itens_checked: recordChecked },
+                          dados_novos: { itens_checked: newRecord },
+                        },
+                      ]);
+                    } catch (err) {
+                      console.error("Erro ao salvar selecao total no Supabase:", err);
+                    }
                   };
 
                   return (
@@ -1853,30 +1947,6 @@
                           <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
                             Conferência: <span className={`font-bold font-mono px-2 py-0.5 rounded-md ${allChecked ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{checkedCount} / {totalItemsCount} conferidos</span>
                           </p>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto shrink-0">
-                          {!allChecked && totalItemsCount > 0 && (
-                            <button
-                              onClick={handleSelectAllItems}
-                              className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-4 py-3 rounded-xl transition-all border border-slate-200 flex items-center justify-center gap-1.5"
-                            >
-                              <CheckCircle2 size={16} className="text-slate-500" />
-                              Marcar Todos
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => handleMarcarDevolvido(item)}
-                            className={`w-full sm:w-auto font-bold text-sm px-5 py-3 rounded-xl shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 ${
-                              allChecked
-                                ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white ring-2 ring-emerald-500 ring-offset-1"
-                                : "bg-emerald-600/80 hover:bg-emerald-700 text-white"
-                            }`}
-                          >
-                            <CheckCircle2 size={18} />
-                            Marcar como Devolvido
-                          </button>
                         </div>
                       </div>
 
@@ -1961,6 +2031,31 @@
                             {renderCheckableItemBadges(item.id, "fardamento", item.fardamento_itens)}
                           </div>
                         )}
+
+                        {/* Botões movidos para a parte de baixo */}
+                        <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-3">
+                          {!allChecked && totalItemsCount > 0 && (
+                            <button
+                              onClick={handleSelectAllItems}
+                              className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-4 py-3 rounded-xl transition-all border border-slate-200 flex items-center justify-center gap-1.5 shadow-xs"
+                            >
+                              <CheckCircle2 size={16} className="text-slate-500" />
+                              Marcar Todos
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => triggerMarcarDevolvido(item)}
+                            className={`w-full sm:w-auto font-bold text-sm px-5 py-3 rounded-xl shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 ${
+                              allChecked
+                                ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white ring-2 ring-emerald-500 ring-offset-1"
+                                : "bg-emerald-600/80 hover:bg-emerald-700 text-white"
+                            }`}
+                          >
+                            <CheckCircle2 size={18} />
+                            Marcar como Devolvido
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
