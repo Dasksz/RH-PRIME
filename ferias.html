@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PRIME RH - Controle de Férias</title>
+    <title>PRIME RH - Controle de Férias e Devoluções</title>
     <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg" />
 
     <!-- Carregando Tailwind CSS para o Design -->
@@ -88,12 +88,6 @@
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </Icon>
       );
-      const Plus = (p) => (
-        <Icon {...p}>
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </Icon>
-      );
       const AlertCircle = (p) => (
         <Icon {...p}>
           <circle cx="12" cy="12" r="10" />
@@ -107,24 +101,12 @@
           <path d="m9 12 2 2 4-4" />
         </Icon>
       );
-      const User = (p) => (
-        <Icon {...p}>
-          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
-        </Icon>
-      );
       const Calendar = (p) => (
         <Icon {...p}>
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
           <line x1="16" y1="2" x2="16" y2="6" />
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
-        </Icon>
-      );
-      const LinkIcon = (p) => (
-        <Icon {...p}>
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </Icon>
       );
       const Trash2 = (p) => (
@@ -135,30 +117,12 @@
           <line x1="14" y1="11" x2="14" y2="17" />
         </Icon>
       );
-      const ListPlus = (p) => (
-        <Icon {...p}>
-          <path d="M11 12H3" />
-          <path d="M16 6H3" />
-          <path d="M16 18H3" />
-          <path d="M18 9v6" />
-          <path d="M21 12h-6" />
-        </Icon>
-      );
       const CheckCheck = (p) => (
         <Icon {...p}>
           <polyline points="18 6 7 17 2 12" />
           <polyline points="22 10 11 21 6 16" />
         </Icon>
       );
-      const Users = (p) => (
-        <Icon {...p}>
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-          <circle cx="9" cy="7" r="4"></circle>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-        </Icon>
-      );
-
       const Activity = (p) => (
         <Icon {...p}>
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
@@ -179,35 +143,34 @@
           <line x1="9" y1="9" x2="15" y2="15" />
         </Icon>
       );
-      const ArrowLeft = (p) => (
-        <Icon {...p}>
-          <line x1="19" y1="12" x2="5" y2="12" />
-          <polyline points="12 19 5 12 12 5" />
-        </Icon>
-      );
-
-      const ChevronDown = (p) => (
-        <Icon {...p}>
-          <path d="m6 9 6 6 6-6" />
-        </Icon>
-      );
-
       const Pencil = (p) => (
         <Icon {...p}>
           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           <path d="m15 5 4 4" />
         </Icon>
       );
+      const UserMinus = (p) => (
+        <Icon {...p}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="8.5" cy="7" r="4" />
+          <line x1="23" y1="11" x2="17" y2="11" />
+        </Icon>
+      );
 
       // ==========================================
-      // 3. APLICATIVO REACT PRINCIPAL
+      // 2. APLICATIVO REACT PRINCIPAL
       // ==========================================
 
       function App() {
         const [session, setSession] = useState(null);
         const [isAuthChecking, setIsAuthChecking] = useState(true);
         const [ferias, setFerias] = useState([]);
+        const [absenteismo, setAbsenteismo] = useState([]);
+        const [devolucoes, setDevolucoes] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
+
+        // Aba Ativa ("ferias" | "devolucoes")
+        const [abaAtiva, setAbaAtiva] = useState("ferias");
 
         // Navegação mobile
         const [menuOpen, setMenuOpen] = useState(false);
@@ -266,13 +229,25 @@
         const loadData = async () => {
           setIsLoading(true);
           try {
-            const { data } = await supabase
+            // Prioridade para abate e agendamento: ordenar por data_inicio_aquisitivo ASC
+            const { data: feriasData } = await supabase
               .from("rh_ferias")
               .select("*")
-              .order("data_vencimento", { ascending: true });
-            setFerias(data || []);
+              .order("data_inicio_aquisitivo", { ascending: true });
+            setFerias(feriasData || []);
+
+            const { data: absData } = await supabase
+              .from("rh_absenteismo")
+              .select("*");
+            setAbsenteismo(absData || []);
+
+            const { data: devData } = await supabase
+              .from("devolucoes_pendentes")
+              .select("*")
+              .order("created_at", { ascending: false });
+            setDevolucoes(devData || []);
           } catch (error) {
-            console.error("Erro ao carregar ferias:", error);
+            console.error("Erro ao carregar dados:", error);
           } finally {
             setIsLoading(false);
           }
@@ -285,19 +260,84 @@
 
         const formatData = (dateStr) => {
           if (!dateStr) return "-";
-          // expects YYYY-MM-DD
           const [ano, mes, dia] = dateStr.split("-");
-          if (!dia) return dateStr; // fallback
+          if (!dia) return dateStr;
           return `${dia}/${mes}/${ano}`;
         };
 
         // Calcula dias para o vencimento
         const calcDiasVencimento = (dataVencimento) => {
           if (!dataVencimento) return 9999;
-          const venc = new Date(dataVencimento);
+          const venc = new Date(dataVencimento + "T00:00:00");
           const hoje = new Date();
           const diffTime = venc - hoje;
           return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        };
+
+        // Função de cálculo de acúmulo proporcional dinâmico considerando absenteísmo (15+ horas de faltas não justificadas)
+        const calcularAcumuloProporcional = (item) => {
+          if (!item || !item.data_inicio_aquisitivo)
+            return { diasAcumulados: 0, mesesTrabalhados: 0 };
+
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+
+          const dtInicio = new Date(item.data_inicio_aquisitivo + "T00:00:00");
+          let dtFim = item.data_fim_aquisitivo
+            ? new Date(item.data_fim_aquisitivo + "T00:00:00")
+            : new Date(dtInicio.getFullYear() + 1, dtInicio.getMonth(), dtInicio.getDate() - 1);
+
+          if (hoje < dtInicio) {
+            return { diasAcumulados: 0, mesesTrabalhados: 0 };
+          }
+
+          const nomeUpper = item.funcionario_nome
+            ? item.funcionario_nome.trim().toUpperCase()
+            : "";
+          const absFunc = absenteismo.filter(
+            (a) =>
+              a.funcionario_nome &&
+              a.funcionario_nome.trim().toUpperCase() === nomeUpper,
+          );
+
+          let mesesContados = 0;
+          let diasAcc = 0;
+
+          let currMonthStart = new Date(dtInicio);
+
+          while (currMonthStart <= dtFim && currMonthStart <= hoje) {
+            let nextMonthStart = new Date(currMonthStart);
+            nextMonthStart.setMonth(nextMonthStart.getMonth() + 1);
+
+            mesesContados++;
+
+            // Verificar se o funcionário acumulou 15+ horas de faltas sem atestado nesse mês
+            let horasFaltasSemAtestado = 0;
+            absFunc.forEach((abs) => {
+              if (!abs.data_inicio) return;
+              const dtAbs = new Date(abs.data_inicio + "T00:00:00");
+              if (dtAbs >= currMonthStart && dtAbs < nextMonthStart) {
+                const motivoClean = abs.motivo ? abs.motivo.toString().toLowerCase() : "";
+                if (!motivoClean.includes("atestado")) {
+                  horasFaltasSemAtestado += Number(abs.horas_perdidas) || 0;
+                }
+              }
+            });
+
+            if (horasFaltasSemAtestado < 15) {
+              diasAcc += 2.5;
+            }
+
+            currMonthStart = nextMonthStart;
+            if (mesesContados >= 12) break;
+          }
+
+          diasAcc = Math.min(30, diasAcc);
+
+          return {
+            diasAcumulados: Math.round(diasAcc * 10) / 10,
+            mesesTrabalhados: Math.min(12, mesesContados),
+          };
         };
 
         const calcularDataRetorno = (dataInicioStr, quantidadeDias) => {
@@ -305,19 +345,16 @@
             return null;
 
           let dias = parseInt(quantidadeDias);
-          let dataAtual = new Date(dataInicioStr + "T00:00:00");
+          let dataInicio = new Date(dataInicioStr + "T00:00:00");
           let dataFim = new Date(dataInicioStr + "T00:00:00");
           dataFim.setDate(dataFim.getDate() + dias - 1);
 
           let dataRetorno = new Date(dataFim);
           dataRetorno.setDate(dataRetorno.getDate() + 1);
 
-          // Se o retorno cair no sabado, passa pra segunda
           if (dataRetorno.getDay() === 6) {
             dataRetorno.setDate(dataRetorno.getDate() + 2);
-          }
-          // Se cair no domingo, passa pra segunda
-          else if (dataRetorno.getDay() === 0) {
+          } else if (dataRetorno.getDay() === 0) {
             dataRetorno.setDate(dataRetorno.getDate() + 1);
           }
 
@@ -328,10 +365,15 @@
         };
 
         useEffect(() => {
+          if (!feriasSelecionada) return;
+
           const gozo = parseInt(diasProg) || 0;
           const abono = parseInt(diasAbonados) || 0;
           const totalConsumido = gozo + abono;
-          const saldoDisponivel = feriasSelecionada?.dias_saldo || 0;
+          const saldoDisponivel =
+            feriasSelecionada.dias_saldo !== undefined && feriasSelecionada.dias_saldo !== null
+              ? feriasSelecionada.dias_saldo
+              : (feriasSelecionada.dias_direito || 30) - (feriasSelecionada.dias_gozados || 0);
 
           if (abono > 10) {
             setErroProg("O limite máximo para venda (abono) é de 10 dias.");
@@ -377,7 +419,6 @@
               }
             }
           } else if (abono > 0) {
-            // Apenas venda de férias sem dias de gozo
             setErroProg("");
             setDataFimProg("");
             setDataRetornoCalc("");
@@ -397,14 +438,16 @@
             return;
 
           try {
+            const saldoCalc = (feriasObj.dias_direito || 30) - (feriasObj.dias_gozados || 0);
             const { error } = await supabase
               .from("rh_ferias")
               .update({
-                status: feriasObj.dias_saldo > 0 ? "pendente" : "concluidas",
+                status: saldoCalc > 0 ? "pendente" : "concluidas",
                 data_inicio_programada: null,
                 dias_programados: null,
                 data_fim_programada: null,
                 data_retorno: null,
+                dias_abonados: 0,
               })
               .eq("id", feriasObj.id);
 
@@ -433,7 +476,6 @@
           setIsSaving(true);
           try {
             const hojeStr = new Date().toISOString().split("T")[0];
-            // Se for apenas abono/venda isolada ou se a data de término das férias for anterior a hoje
             const isRetroativa = gozoNum > 0 ? (dataFimProg < hojeStr) : true;
 
             const payload = {
@@ -454,6 +496,9 @@
             } else {
               payload.status = "programadas";
             }
+
+            // NUNCA enviar dias_saldo no payload pois é coluna gerada no Postgres
+            delete payload.dias_saldo;
 
             const { error } = await supabase
               .from("rh_ferias")
@@ -476,32 +521,79 @@
           }
         };
 
+        const handleMarcarDevolvido = async (item) => {
+          if (
+            !window.confirm(
+              `Confirmar que os materiais de ${item.funcionario_nome} foram devolvidos?`,
+            )
+          )
+            return;
+
+          try {
+            const { error } = await supabase
+              .from("devolucoes_pendentes")
+              .delete()
+              .eq("id", item.id);
+
+            if (error) throw error;
+
+            setDevolucoes((prev) => prev.filter((d) => d.id !== item.id));
+            alert("Registro de pendência removido com sucesso!");
+          } catch (err) {
+            console.error("Erro ao marcar como devolvido:", err);
+            alert("Erro ao remover pendência no Supabase.");
+          }
+        };
+
+        // Filtro de férias
         const feriasFiltradas = ferias.filter((f) => {
           const matchTerm = f.funcionario_nome
             .toLowerCase()
             .includes(searchTerm.toLowerCase());
 
+          const saldo = f.dias_saldo !== undefined && f.dias_saldo !== null
+            ? f.dias_saldo
+            : (f.dias_direito || 30) - (f.dias_gozados || 0);
+
           let matchStatus = false;
           if (filtroStatus === "todos") {
             matchStatus = true;
           } else if (filtroStatus === "pendente") {
-            matchStatus = f.dias_saldo > 0 && f.status !== "programadas";
+            matchStatus = saldo > 0 && f.status !== "programadas";
           } else if (filtroStatus === "programadas") {
             matchStatus = f.status === "programadas";
           } else if (filtroStatus === "concluidas") {
-            matchStatus = f.dias_gozados > 0;
+            matchStatus = f.dias_gozados > 0 || f.status === "concluidas";
           }
 
           return matchTerm && matchStatus;
         });
 
-        // Estatisticas
+        // Filtro de devoluções pendentes
+        const devolucoesFiltradas = devolucoes.filter((d) => {
+          const search = searchTerm.toLowerCase();
+          return (
+            (d.funcionario_nome && d.funcionario_nome.toLowerCase().includes(search)) ||
+            (d.cpf && d.cpf.includes(search)) ||
+            (d.funcao && d.funcao.toLowerCase().includes(search)) ||
+            (d.setor && d.setor.toLowerCase().includes(search)) ||
+            (d.unidade && d.unidade.toLowerCase().includes(search))
+          );
+        });
+
+        // Estatísticas
         const statVencendo = ferias.filter(
-          (f) =>
-            calcDiasVencimento(f.data_vencimento) <= 90 && f.dias_saldo > 0,
+          (f) => {
+            const saldo = f.dias_saldo !== undefined ? f.dias_saldo : (f.dias_direito - f.dias_gozados);
+            return calcDiasVencimento(f.data_vencimento) <= 90 && saldo > 0;
+          }
         ).length;
+
         const statSaldoTotal = ferias.reduce(
-          (acc, curr) => acc + (curr.dias_saldo || 0),
+          (acc, curr) => {
+            const saldo = curr.dias_saldo !== undefined ? curr.dias_saldo : ((curr.dias_direito || 30) - (curr.dias_gozados || 0));
+            return acc + (saldo || 0);
+          },
           0,
         );
 
@@ -524,7 +616,7 @@
                       PRIME RH
                     </h1>
                     <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">
-                      Controle de Férias
+                      Gestão de Férias e Desligamentos
                     </p>
                   </div>
                 </div>
@@ -599,213 +691,224 @@
             </header>
 
             <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Calendário e Saldos
-                  </h2>
-                  <p className="text-slate-500 text-sm">
-                    Acompanhe férias a vencer e saldos de dias pendentes.
-                  </p>
-                </div>
-
-                <div className="flex gap-4 w-full md:w-auto">
-                  <div className="bg-orange-50 border border-orange-200 px-4 py-2 rounded-xl flex items-center gap-3">
-                    <AlertCircle size={20} className="text-orange-500" />
-                    <div>
-                      <p className="text-[10px] font-bold text-orange-600 uppercase">
-                        Vencendo (90 dias)
-                      </p>
-                      <p className="text-lg font-black text-orange-700 leading-none">
-                        {statVencendo}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl flex items-center gap-3">
-                    <Activity size={20} className="text-blue-500" />
-                    <div>
-                      <p className="text-[10px] font-bold text-blue-600 uppercase">
-                        Total Dias (Passivo)
-                      </p>
-                      <p className="text-lg font-black text-blue-700 leading-none">
-                        {statSaldoTotal}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              {/* Seleção de Abas */}
+              <div className="flex border-b border-slate-200 mb-6 bg-white rounded-xl p-1 shadow-sm">
+                <button
+                  onClick={() => setAbaAtiva("ferias")}
+                  className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                    abaAtiva === "ferias"
+                      ? "bg-[#002060] text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <Calendar size={18} />
+                  Controle de Férias
+                </button>
+                <button
+                  onClick={() => setAbaAtiva("devolucoes")}
+                  className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                    abaAtiva === "devolucoes"
+                      ? "bg-[#002060] text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <Shirt size={18} />
+                  Devoluções Pendentes
+                  {devolucoes.length > 0 && (
+                    <span className="bg-[#E30613] text-white text-xs font-black px-2 py-0.5 rounded-full ml-1">
+                      {devolucoes.length}
+                    </span>
+                  )}
+                </button>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:overflow-visible bg-[#F8FAFC] md:bg-white border-transparent md:border-slate-200 shadow-none md:shadow-sm">
-                <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center">
-                  <div className="relative w-full md:w-96">
-                    <Search
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                      size={18}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Buscar colaborador..."
-                      className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex w-full md:w-auto bg-slate-200 p-1 rounded-lg">
-                    {["todos", "pendente", "programadas", "concluidas"].map(
-                      (status) => (
-                        <button
-                          key={status}
-                          onClick={() => setFiltroStatus(status)}
-                          className={`flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-colors ${filtroStatus === status ? "bg-white text-[#002060] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                        >
-                          {status}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto md:overflow-visible">
-                  {isLoading ? (
-                    <div className="flex justify-center py-10">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#002060]"></div>
+              {abaAtiva === "ferias" ? (
+                <>
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-800">
+                        Calendário e Saldos
+                      </h2>
+                      <p className="text-slate-500 text-sm">
+                        Acompanhe férias a vencer, acúmulo proporcional e saldos.
+                      </p>
                     </div>
-                  ) : (
-                    <table className="hidden md:table w-full text-left text-sm text-slate-600 min-w-[800px]">
-                      <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b border-slate-200">
-                        <tr>
-                          <th className="px-4 py-3">Colaborador</th>
-                          <th className="px-4 py-3">Período Aquisitivo</th>
-                          <th className="px-4 py-3">Vencimento</th>
-                          <th className="px-4 py-3 text-center">
-                            Dias Direito
-                          </th>
-                          <th className="px-4 py-3 text-center">Gozados</th>
-                          <th className="px-4 py-3 text-center">Saldo</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3 text-center">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {feriasFiltradas.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan="7"
-                              className="px-4 py-8 text-center text-slate-400"
+
+                    <div className="flex gap-4 w-full md:w-auto">
+                      <div className="bg-orange-50 border border-orange-200 px-4 py-2 rounded-xl flex items-center gap-3">
+                        <AlertCircle size={20} className="text-orange-500" />
+                        <div>
+                          <p className="text-[10px] font-bold text-orange-600 uppercase">
+                            Vencendo (90 dias)
+                          </p>
+                          <p className="text-lg font-black text-orange-700 leading-none">
+                            {statVencendo}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl flex items-center gap-3">
+                        <Activity size={20} className="text-blue-500" />
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-600 uppercase">
+                            Total Dias (Passivo)
+                          </p>
+                          <p className="text-lg font-black text-blue-700 leading-none">
+                            {statSaldoTotal}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:overflow-visible bg-[#F8FAFC] md:bg-white border-transparent md:border-slate-200 shadow-none md:shadow-sm">
+                    <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center">
+                      <div className="relative w-full md:w-96">
+                        <Search
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                          size={18}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Buscar colaborador..."
+                          className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                        {["todos", "pendente", "programadas", "concluidas"].map(
+                          (st) => (
+                            <button
+                              key={st}
+                              onClick={() => setFiltroStatus(st)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors whitespace-nowrap ${
+                                filtroStatus === st
+                                  ? "bg-[#002060] text-white"
+                                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                              }`}
                             >
-                              Nenhum registro encontrado.
-                            </td>
-                          </tr>
-                        ) : (
-                          feriasFiltradas.map((f, i) => {
-                            const diasVenc = calcDiasVencimento(
-                              f.data_vencimento,
-                            );
-                            const isVencendo =
-                              diasVenc <= 90 && f.dias_saldo > 0;
+                              {st === "todos"
+                                ? "Todos"
+                                : st === "pendente"
+                                ? "Com Saldo"
+                                : st}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    </div>
 
-                            // Check if currently on vacation
-                            let isEmFerias = false;
-                            if (
-                              f.status === "programadas" &&
-                              f.data_inicio_programada &&
-                              f.data_fim_programada
-                            ) {
-                              const hoje = new Date();
-                              hoje.setHours(0, 0, 0, 0);
+                    <div className="overflow-x-auto">
+                      {isLoading ? (
+                        <div className="p-8 text-center text-slate-500">
+                          Carregando informações de férias...
+                        </div>
+                      ) : feriasFiltradas.length === 0 ? (
+                        <div className="p-8 text-center text-slate-500">
+                          Nenhum registro encontrado.
+                        </div>
+                      ) : (
+                        <table className="w-full text-left border-collapse hidden md:table text-sm">
+                          <thead>
+                            <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                              <th className="px-4 py-3 font-bold">Colaborador</th>
+                              <th className="px-4 py-3 font-bold">Período Aquisitivo</th>
+                              <th className="px-4 py-3 font-bold">Acúmulo Proporcional</th>
+                              <th className="px-4 py-3 font-bold">Vencimento</th>
+                              <th className="px-4 py-3 font-bold text-center">Direito</th>
+                              <th className="px-4 py-3 font-bold text-center">Gozados</th>
+                              <th className="px-4 py-3 font-bold text-center">Abono</th>
+                              <th className="px-4 py-3 font-bold text-center">Saldo</th>
+                              <th className="px-4 py-3 font-bold">Status</th>
+                              <th className="px-4 py-3 font-bold text-center">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200">
+                            {feriasFiltradas.map((f, i) => {
+                              const diasVenc = calcDiasVencimento(f.data_vencimento);
+                              const saldoCalc = f.dias_saldo !== undefined && f.dias_saldo !== null
+                                ? f.dias_saldo
+                                : (f.dias_direito || 30) - (f.dias_gozados || 0);
 
-                              const dataInicio = new Date(
-                                f.data_inicio_programada + "T00:00:00",
-                              );
-                              const dataFim = new Date(
-                                f.data_fim_programada + "T00:00:00",
-                              );
+                              const isVencendo = diasVenc <= 90 && saldoCalc > 0;
+                              const prop = calcularAcumuloProporcional(f);
 
-                              if (hoje >= dataInicio && hoje <= dataFim) {
-                                isEmFerias = true;
+                              let isEmFerias = false;
+                              if (
+                                f.status === "programadas" &&
+                                f.data_inicio_programada &&
+                                f.data_fim_programada
+                              ) {
+                                const hoje = new Date();
+                                hoje.setHours(0, 0, 0, 0);
+                                const dataInicio = new Date(f.data_inicio_programada + "T00:00:00");
+                                const dataFim = new Date(f.data_fim_programada + "T00:00:00");
+                                isEmFerias = hoje >= dataInicio && hoje <= dataFim;
                               }
-                            }
 
-                            let statusColor = "bg-slate-100 text-slate-600";
-                            if (f.status === "programadas")
-                              statusColor = "bg-blue-100 text-blue-700";
-                            if (f.status === "concluidas")
-                              statusColor = "bg-green-100 text-green-700";
-                            if (f.status === "pendente")
-                              statusColor = "bg-yellow-100 text-yellow-700";
+                              let statusColor = "bg-slate-100 text-slate-700";
+                              if (f.status === "programadas") statusColor = "bg-blue-100 text-blue-700";
+                              if (f.status === "concluidas") statusColor = "bg-green-100 text-green-700";
+                              if (f.status === "pendente") statusColor = "bg-yellow-100 text-yellow-700";
 
-                            return (
-                              <tr
-                                key={f.id || i}
-                                className="hover:bg-slate-50 transition-colors"
-                              >
-                                <td className="px-4 py-3 font-bold text-gray-800">
-                                  <div className="flex items-center gap-2 whitespace-nowrap">
-                                    <span className="truncate max-w-[200px] xl:max-w-xs">
-                                      {f.funcionario_nome}
-                                    </span>
-                                    {isEmFerias && (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-purple-100 text-purple-700 border border-purple-200 shadow-sm shrink-0">
-                                        Em Férias
+                              return (
+                                <tr key={f.id || i} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 font-bold text-gray-800">
+                                    <div className="flex items-center gap-2 whitespace-nowrap">
+                                      <span className="truncate max-w-[200px] xl:max-w-xs">
+                                        {f.funcionario_nome}
                                       </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-xs">
-                                  {formatData(f.data_inicio_aquisitivo)} a{" "}
-                                  {formatData(f.data_fim_aquisitivo)}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`font-semibold ${isVencendo ? "text-red-600" : ""}`}
-                                    >
-                                      {formatData(f.data_vencimento)}
-                                    </span>
-                                    {isVencendo && (
-                                      <span
-                                        className="flex h-2 w-2 rounded-full bg-red-500"
-                                        title="Vence em breve"
-                                      ></span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  {f.dias_direito}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  {f.dias_gozados}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <span
-                                    className={`inline-flex items-center justify-center min-w-[30px] px-2 py-1 rounded font-bold text-xs ${f.dias_saldo > 0 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}
-                                  >
-                                    {f.dias_saldo}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex flex-col items-start gap-1">
-                                    <span
-                                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}
-                                    >
-                                      {f.status}
-                                    </span>
-                                    {f.status === "programadas" &&
-                                      f.data_inicio_programada && (
-                                        <span className="text-[10px] text-slate-500 font-medium">
-                                          {formatData(f.data_inicio_programada)}{" "}
-                                          a {formatData(f.data_fim_programada)}{" "}
-                                          ({f.dias_programados}d)
+                                      {isEmFerias && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-purple-100 text-purple-700 border border-purple-200 shadow-sm shrink-0">
+                                          Em Férias
                                         </span>
                                       )}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    {f.dias_saldo > 0 &&
-                                      f.status !== "programadas" && (
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs whitespace-nowrap">
+                                    {formatData(f.data_inicio_aquisitivo)} a{" "}
+                                    {formatData(f.data_fim_aquisitivo)}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                      {prop.diasAcumulados} dias ({prop.mesesTrabalhados}m)
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`font-semibold ${isVencendo ? "text-red-600" : ""}`}>
+                                        {formatData(f.data_vencimento)}
+                                      </span>
+                                      {isVencendo && (
+                                        <span className="flex h-2 w-2 rounded-full bg-red-500" title="Vence em breve"></span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">{f.dias_direito}</td>
+                                  <td className="px-4 py-3 text-center">{f.dias_gozados}</td>
+                                  <td className="px-4 py-3 text-center">{f.dias_abonados || 0}</td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`inline-flex items-center justify-center min-w-[30px] px-2 py-1 rounded font-bold text-xs ${saldoCalc > 0 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                                      {saldoCalc}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <div className="flex flex-col items-start gap-1">
+                                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
+                                        {f.status}
+                                      </span>
+                                      {f.status === "programadas" && f.data_inicio_programada && (
+                                        <span className="text-[10px] text-slate-500 font-medium">
+                                          {formatData(f.data_inicio_programada)} a {formatData(f.data_fim_programada)} ({f.dias_programados}d)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                                    <div className="flex items-center justify-center gap-2">
+                                      {saldoCalc > 0 && f.status !== "programadas" && (
                                         <button
                                           onClick={() => {
                                             setFeriasSelecionada(f);
@@ -821,262 +924,300 @@
                                         </button>
                                       )}
 
-                                    {f.status === "programadas" && (
-                                      <>
-                                        <button
-                                          onClick={() => {
-                                            setFeriasSelecionada(f);
-                                            setDataInicioProg(
-                                              f.data_inicio_programada || "",
-                                            );
-                                            setDiasProg(
-                                              f.dias_programados || "",
-                                            );
-                                            setModalOpen(true);
-                                          }}
-                                          disabled={isEmFerias}
-                                          className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
-                                            isEmFerias
-                                              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                              : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                          }`}
-                                          title={
-                                            isEmFerias
-                                              ? "Edição desabilitada durante o gozo de férias"
-                                              : "Editar Programação"
-                                          }
-                                        >
-                                          <Pencil size={14} />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleCancelarProgramacao(f)
-                                          }
-                                          disabled={isEmFerias}
-                                          className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
-                                            isEmFerias
-                                              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                              : "bg-red-50 text-red-600 hover:bg-red-100"
-                                          }`}
-                                          title={
-                                            isEmFerias
-                                              ? "Cancelamento desabilitado durante o gozo de férias"
-                                              : "Cancelar Programação"
-                                          }
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
-                                      </>
-                                    )}
+                                      {f.status === "programadas" && (
+                                        <>
+                                          <button
+                                            onClick={() => {
+                                              setFeriasSelecionada(f);
+                                              setDataInicioProg(f.data_inicio_programada || "");
+                                              setDiasProg(f.dias_programados || "");
+                                              setDiasAbonados(f.dias_abonados || "");
+                                              setModalOpen(true);
+                                            }}
+                                            disabled={isEmFerias}
+                                            className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
+                                              isEmFerias
+                                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                                : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                            }`}
+                                            title={isEmFerias ? "Edição desabilitada durante o gozo" : "Editar Programação"}
+                                          >
+                                            <Pencil size={14} />
+                                          </button>
+                                          <button
+                                            onClick={() => handleCancelarProgramacao(f)}
+                                            disabled={isEmFerias}
+                                            className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
+                                              isEmFerias
+                                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                                : "bg-red-50 text-red-600 hover:bg-red-100"
+                                            }`}
+                                            title={isEmFerias ? "Cancelamento desabilitado durante o gozo" : "Cancelar Programação"}
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+
+                      {/* MOBILE CARDS LAYOUT */}
+                      {!isLoading && feriasFiltradas.length > 0 && (
+                        <div className="md:hidden flex flex-col gap-4 p-4 bg-[#F8FAFC]">
+                          {feriasFiltradas.map((f, i) => {
+                            const diasVenc = calcDiasVencimento(f.data_vencimento);
+                            const saldoCalc = f.dias_saldo !== undefined && f.dias_saldo !== null
+                              ? f.dias_saldo
+                              : (f.dias_direito || 30) - (f.dias_gozados || 0);
+
+                            const isVencendo = diasVenc <= 90 && saldoCalc > 0;
+                            const prop = calcularAcumuloProporcional(f);
+
+                            let isEmFerias = false;
+                            if (
+                              f.status === "programadas" &&
+                              f.data_inicio_programada &&
+                              f.data_fim_programada
+                            ) {
+                              const hoje = new Date();
+                              hoje.setHours(0, 0, 0, 0);
+                              const dataInicio = new Date(f.data_inicio_programada + "T00:00:00");
+                              const dataFim = new Date(f.data_fim_programada + "T00:00:00");
+                              isEmFerias = hoje >= dataInicio && hoje <= dataFim;
+                            }
+
+                            return (
+                              <div key={f.id || i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h3 className="font-bold text-gray-800 text-base">{f.funcionario_nome}</h3>
+                                    <p className="text-xs text-slate-500">
+                                      Período: {formatData(f.data_inicio_aquisitivo)} a {formatData(f.data_fim_aquisitivo)}
+                                    </p>
                                   </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  )}
-
-                  {/* MOBILE CARDS LAYOUT */}
-                  {!isLoading && feriasFiltradas.length > 0 && (
-                    <div className="md:hidden flex flex-col gap-4 p-4 bg-[#F8FAFC]">
-                      {feriasFiltradas.map((f, i) => {
-                        const diasVenc = calcDiasVencimento(f.data_vencimento);
-                        const isVencendo = diasVenc <= 90 && f.dias_saldo > 0;
-
-                        let isEmFerias = false;
-                        if (
-                          f.status === "programadas" &&
-                          f.data_inicio_programada &&
-                          f.data_fim_programada
-                        ) {
-                          const hoje = new Date();
-                          hoje.setHours(0, 0, 0, 0);
-                          const dataInicio = new Date(
-                            f.data_inicio_programada + "T00:00:00",
-                          );
-                          const dataFim = new Date(
-                            f.data_fim_programada + "T00:00:00",
-                          );
-                          if (hoje >= dataInicio && hoje <= dataFim)
-                            isEmFerias = true;
-                        }
-
-                        let statusColor = "bg-slate-100 text-slate-600";
-                        if (f.status === "programadas")
-                          statusColor = "bg-blue-100 text-blue-700";
-                        if (f.status === "concluidas")
-                          statusColor = "bg-green-100 text-green-700";
-                        if (f.status === "pendente")
-                          statusColor = "bg-yellow-100 text-yellow-700";
-
-                        return (
-                          <div
-                            key={f.id || i}
-                            className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3"
-                          >
-                            {/* Card Header: Name & Status */}
-                            <div className="flex justify-between items-start">
-                              <div className="flex flex-col gap-1">
-                                <span className="font-bold text-gray-800 text-sm">
-                                  {f.funcionario_nome}
-                                </span>
-                                {isEmFerias && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-purple-100 text-purple-700 border border-purple-200 shadow-sm w-max">
-                                    Em Férias
+                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${f.status === "programadas" ? "bg-blue-100 text-blue-700" : f.status === "concluidas" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                    {f.status}
                                   </span>
-                                )}
-                              </div>
-                              <span
-                                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${statusColor}`}
-                              >
-                                {f.status}
-                              </span>
-                            </div>
-
-                            {/* Card Body: Details Grid */}
-                            <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-xs">
-                              <div>
-                                <p className="text-slate-500 font-medium">
-                                  Período Aquisitivo
-                                </p>
-                                <p className="font-semibold text-slate-700">
-                                  {formatData(f.data_inicio_aquisitivo)} a{" "}
-                                  {formatData(f.data_fim_aquisitivo)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-slate-500 font-medium">
-                                  Vencimento
-                                </p>
-                                <div className="flex items-center gap-1">
-                                  <span
-                                    className={`font-semibold ${isVencendo ? "text-red-600" : "text-slate-700"}`}
-                                  >
-                                    {formatData(f.data_vencimento)}
-                                  </span>
-                                  {isVencendo && (
-                                    <span className="flex h-2 w-2 rounded-full bg-red-500"></span>
-                                  )}
                                 </div>
-                              </div>
 
-                              <div className="flex flex-col gap-1 col-span-2 border-t border-slate-100 pt-2 mt-1">
-                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-                                  <div className="text-center">
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase">
-                                      Direito
-                                    </p>
-                                    <p className="font-black text-slate-700">
-                                      {f.dias_direito}
-                                    </p>
+                                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                  <div>
+                                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Acúmulo Proporcional</span>
+                                    <span className="font-bold text-emerald-700">{prop.diasAcumulados} dias ({prop.mesesTrabalhados}m)</span>
                                   </div>
-                                  <div className="text-center">
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase">
-                                      Gozados
-                                    </p>
-                                    <p className="font-black text-slate-700">
-                                      {f.dias_gozados}
-                                    </p>
+                                  <div>
+                                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Vencimento</span>
+                                    <span className={`font-bold ${isVencendo ? "text-red-600" : "text-slate-800"}`}>{formatData(f.data_vencimento)}</span>
                                   </div>
-                                  <div className="text-center">
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase">
-                                      Saldo
-                                    </p>
-                                    <p
-                                      className={`font-black text-lg leading-none ${f.dias_saldo > 0 ? "text-blue-600" : "text-slate-500"}`}
-                                    >
-                                      {f.dias_saldo}
-                                    </p>
+                                  <div>
+                                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Gozados / Abono</span>
+                                    <span className="font-semibold text-slate-700">{f.dias_gozados}d gozo / {f.dias_abonados || 0}d abono</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Saldo Disponível</span>
+                                    <span className={`font-black ${saldoCalc > 0 ? "text-blue-600" : "text-slate-500"}`}>{saldoCalc} dias</span>
                                   </div>
                                 </div>
-                              </div>
 
-                              {/* Vacation Scheduled Info */}
-                              {f.status === "programadas" &&
-                                f.data_inicio_programada && (
-                                  <div className="col-span-2 bg-blue-50/50 p-2 rounded border border-blue-100">
-                                    <p className="text-[11px] text-blue-800 font-medium text-center">
-                                      Programado:{" "}
-                                      {formatData(f.data_inicio_programada)} a{" "}
-                                      {formatData(f.data_fim_programada)} (
-                                      {f.dias_programados}d)
-                                    </p>
-                                  </div>
-                                )}
-                            </div>
-
-                            {/* Card Footer: Actions */}
-                            <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-3">
-                              {f.dias_saldo > 0 &&
-                                f.status !== "programadas" && (
+                                {saldoCalc > 0 && f.status !== "programadas" && (
                                   <button
                                     onClick={() => {
                                       setFeriasSelecionada(f);
                                       setDataInicioProg("");
                                       setDiasProg("");
+                                      setDiasAbonados("");
                                       setModalOpen(true);
                                     }}
-                                    className="w-full flex items-center justify-center gap-2 bg-[#002060] text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors"
+                                    className="w-full bg-[#002060] text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2"
                                   >
-                                    <Calendar size={16} />
-                                    Programar Férias
+                                    <Calendar size={16} /> Programar Férias
                                   </button>
                                 )}
 
-                              {f.status === "programadas" && (
-                                <div className="flex w-full gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setFeriasSelecionada(f);
-                                      setDataInicioProg(
-                                        f.data_inicio_programada || "",
-                                      );
-                                      setDiasProg(f.dias_programados || "");
-                                      setModalOpen(true);
-                                    }}
-                                    disabled={isEmFerias}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
-                                      isEmFerias
-                                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                        : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                                    }`}
-                                  >
-                                    <Pencil size={16} />
-                                    Editar
-                                  </button>
-                                  <button
-                                    onClick={() => handleCancelarProgramacao(f)}
-                                    disabled={isEmFerias}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
-                                      isEmFerias
-                                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                        : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
-                                    }`}
-                                  >
-                                    <Trash2 size={16} />
-                                    Cancelar
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                                {f.status === "programadas" && (
+                                  <div className="flex w-full gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setFeriasSelecionada(f);
+                                        setDataInicioProg(f.data_inicio_programada || "");
+                                        setDiasProg(f.dias_programados || "");
+                                        setDiasAbonados(f.dias_abonados || "");
+                                        setModalOpen(true);
+                                      }}
+                                      disabled={isEmFerias}
+                                      className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                                    >
+                                      <Pencil size={16} /> Editar
+                                    </button>
+                                    <button
+                                      onClick={() => handleCancelarProgramacao(f)}
+                                      disabled={isEmFerias}
+                                      className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                                    >
+                                      <Trash2 size={16} /> Cancelar
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                </>
+              ) : (
+                /* ABA DEVOLUÇÕES PENDENTES */
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-800">
+                        Pendências de Devolução de Materiais
+                      </h2>
+                      <p className="text-slate-500 text-sm">
+                        Controle de devolução de EPIs e Fardamentos de colaboradores desligados.
+                      </p>
+                    </div>
+
+                    <div className="bg-red-50 border border-red-200 px-4 py-2 rounded-xl flex items-center gap-3 w-full md:w-auto">
+                      <UserMinus size={22} className="text-[#E30613]" />
+                      <div>
+                        <p className="text-[10px] font-bold text-red-600 uppercase">
+                          Pendências Ativas
+                        </p>
+                        <p className="text-lg font-black text-red-700 leading-none">
+                          {devolucoes.length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 bg-slate-50">
+                      <div className="relative w-full md:w-96">
+                        <Search
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                          size={18}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Buscar por nome, CPF, setor..."
+                          className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {isLoading ? (
+                      <div className="p-8 text-center text-slate-500">
+                        Carregando pendências de devolução...
+                      </div>
+                    ) : devolucoesFiltradas.length === 0 ? (
+                      <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
+                        <CheckCircle2 size={40} className="text-emerald-500" />
+                        <p className="font-bold text-slate-700">Nenhuma devolução pendente!</p>
+                        <p className="text-xs text-slate-400">Todos os materiais foram devolvidos ou não há colaboradores desligados com entregas pendentes.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-[#F8FAFC]">
+                        {devolucoesFiltradas.map((item) => (
+                          <div
+                            key={item.id}
+                            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between gap-4"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+                                <div>
+                                  <h3 className="font-extrabold text-gray-900 text-base">
+                                    {item.funcionario_nome}
+                                  </h3>
+                                  <p className="text-xs text-slate-500 font-medium">
+                                    CPF: {item.cpf || "Não informado"}
+                                  </p>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                                  {item.status || "Pendente"}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Função</span>
+                                  <span className="font-semibold text-slate-800">{item.funcao || "-"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Setor / Unidade</span>
+                                  <span className="font-semibold text-slate-800">{item.setor || "-"} / {item.unidade || "-"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Admissão</span>
+                                  <span className="font-semibold text-slate-800">{formatData(item.data_admissao)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Desligamento</span>
+                                  <span className="font-bold text-red-600">{formatData(item.data_desligamento)}</span>
+                                </div>
+                              </div>
+
+                              {/* Itens Entregues */}
+                              <div className="space-y-2 pt-1">
+                                {item.epi_itens && (
+                                  <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-100 text-xs">
+                                    <div className="flex items-center gap-1.5 font-bold text-blue-900 mb-1">
+                                      <HardHat size={16} className="text-blue-600" />
+                                      <span>EPI Pendente ({formatData(item.epi_data)})</span>
+                                    </div>
+                                    <p className="text-slate-700 leading-relaxed font-mono text-[11px]">
+                                      {item.epi_itens}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.fardamento_itens && (
+                                  <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-100 text-xs">
+                                    <div className="flex items-center gap-1.5 font-bold text-purple-900 mb-1">
+                                      <Shirt size={16} className="text-purple-600" />
+                                      <span>Fardamento Pendente ({formatData(item.fardamento_data)})</span>
+                                    </div>
+                                    <p className="text-slate-700 leading-relaxed font-mono text-[11px]">
+                                      {item.fardamento_itens}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => handleMarcarDevolvido(item)}
+                              className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl shadow-sm hover:shadow transition-all flex items-center justify-center gap-2"
+                            >
+                              <CheckCircle2 size={16} />
+                              Marcar como Devolvido
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </main>
 
+            {/* MODAL PROGRAMAR FÉRIAS */}
             {modalOpen && feriasSelecionada && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
                   <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                       <Calendar size={20} />
-                      Programar Férias
+                      Programar / Vender Férias
                     </h3>
                     <button
                       onClick={() => setModalOpen(false)}
@@ -1094,7 +1235,9 @@
                       <p className="text-xs text-slate-500">
                         Saldo disponível:{" "}
                         <span className="font-bold text-blue-600">
-                          {feriasSelecionada.dias_saldo} dias
+                          {feriasSelecionada.dias_saldo !== undefined && feriasSelecionada.dias_saldo !== null
+                            ? feriasSelecionada.dias_saldo
+                            : (feriasSelecionada.dias_direito || 30) - (feriasSelecionada.dias_gozados || 0)} dias
                         </span>
                       </p>
                     </div>
@@ -1122,7 +1265,6 @@
                           value={diasProg}
                           onChange={(e) => setDiasProg(e.target.value)}
                           min="0"
-                          max={feriasSelecionada.dias_saldo}
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -1190,7 +1332,10 @@
                       <button
                         onClick={handleSalvarProgramacao}
                         disabled={
-                          !!erroProg || !dataInicioProg || !diasProg || isSaving
+                          !!erroProg ||
+                          (parseInt(diasProg) || 0) + (parseInt(diasAbonados) || 0) === 0 ||
+                          ((parseInt(diasProg) || 0) > 0 && (!dataInicioProg || !dataRetornoCalc)) ||
+                          isSaving
                         }
                         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2"
                       >
