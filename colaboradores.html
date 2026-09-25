@@ -959,8 +959,8 @@
                         {/* MODAL DETALHES DO COLABORADOR */}
             {isDetalhesModalOpen && selectedColaborador && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 overflow-y-auto">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fadeIn my-8">
-                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn my-auto">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center shrink-0">
                     <div>
                       <h3 className="font-bold text-base md:text-lg">{selectedColaborador.nome}</h3>
                       <p className="text-xs text-blue-200 font-mono mt-0.5">
@@ -1091,8 +1091,8 @@
 {/* MODAL CADASTRAR COLABORADOR */}
             {isCadastrarModalOpen && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 overflow-y-auto">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-8 overflow-hidden animate-fadeIn">
-                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn my-auto">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
                       <UserPlus size={20} /> Cadastrar Novo Funcionário
                     </h3>
@@ -1101,7 +1101,7 @@
                     </button>
                   </div>
 
-                  <form onSubmit={handleCadastrarSubmit} className="p-6 space-y-4 text-xs">
+                  <form onSubmit={handleCadastrarSubmit} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
                     {formErro && (
                       <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 flex items-start gap-2 font-medium">
                         <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -1316,8 +1316,8 @@
             {/* MODAL EDITAR COLABORADOR */}
             {isEditarModalOpen && selectedColaborador && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 overflow-y-auto">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-8 overflow-hidden animate-fadeIn">
-                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn my-auto">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
                       <Pencil size={20} /> Editar Cadastro - {selectedColaborador.nome}
                     </h3>
@@ -1326,7 +1326,7 @@
                     </button>
                   </div>
 
-                  <form onSubmit={handleEditarSubmit} className="p-6 space-y-4 text-xs">
+                  <form onSubmit={handleEditarSubmit} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
                     {formErro && (
                       <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 flex items-start gap-2 font-medium">
                         <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -1533,8 +1533,8 @@
             {/* MODAL DESLIGAR COLABORADOR */}
             {isDesligarModalOpen && selectedColaborador && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fadeIn">
-                  <div className="bg-red-700 p-4 text-white flex justify-between items-center">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn my-auto">
+                  <div className="bg-red-700 p-4 text-white flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
                       <UserMinus size={20} /> Desligar Colaborador
                     </h3>
@@ -1543,7 +1543,7 @@
                     </button>
                   </div>
 
-                  <form onSubmit={handleDesligarSubmit} className="p-6 space-y-4 text-xs">
+                  <form onSubmit={handleDesligarSubmit} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
                     <div className="bg-red-50 p-3 rounded-xl border border-red-200">
                       <p className="font-bold text-slate-800 text-sm">{selectedColaborador.nome}</p>
                       <p className="text-slate-500 mt-0.5">
