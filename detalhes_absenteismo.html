@@ -580,8 +580,8 @@
             {/* MODAL CADASTRAR FALTA */}
             {isModalOpen && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fadeIn">
-                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn my-auto">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
                       <Plus size={20} /> Cadastrar Falta / Afastamento
                     </h3>
@@ -590,7 +590,7 @@
                     </button>
                   </div>
 
-                  <form onSubmit={handleCadastrarFaltaSubmit} className="p-6 space-y-4 text-xs">
+                  <form onSubmit={handleCadastrarFaltaSubmit} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
                     <div>
                       <label className="block font-bold text-slate-700 uppercase mb-1">Selecionar Colaborador *</label>
                       <div className="relative mb-2">
