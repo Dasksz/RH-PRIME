@@ -2910,59 +2910,7 @@
                 </div>
               )}
 
-                            {/* Modal de Confirmação de Devolução */}
-              {isConfirmDevolucaoModalOpen && itemToDevolver && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
-                  <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
-                        <CheckCircle2 size={24} />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-[#002060]">
-                          Concluir Devolução
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {itemToDevolver.funcionario_nome}
-                        </p>
-                      </div>
-                    </div>
 
-                    <p className="text-sm text-gray-600 mb-6">
-                      Deseja marcar os itens como devolvidos e finalizar esta pendência? Você pode também gerar a Ficha de Devolução em PDF com as datas de entrega e devolução preenchidas.
-                    </p>
-
-                    <div className="flex flex-col gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => handleConfirmMarcarDevolvido(true)}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
-                      >
-                        <FileText size={16} /> Gerar Ficha PDF & Finalizar
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleConfirmMarcarDevolvido(false)}
-                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition-colors border border-slate-200"
-                      >
-                        Apenas Finalizar (Sem PDF)
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsConfirmDevolucaoModalOpen(false);
-                          setItemToDevolver(null);
-                        }}
-                        className="w-full bg-white hover:bg-gray-50 text-gray-500 font-semibold text-xs py-2 px-4 rounded-xl transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Modal de Acesso Restrito (Admin) */}
               {isAdminModalOpen && (
