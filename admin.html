@@ -451,7 +451,8 @@
           comments.forEach((comment, colIdx) => {
             const cellAddress = XLSX.utils.encode_cell({ r: 0, c: colIdx });
             if (!ws[cellAddress]) return;
-            ws[cellAddress].c = [{ a: "PRIME RH", t: comment }];
+            ws[cellAddress].c = [{ a: "PRIME RH", t: comment, hidden: true }];
+            ws[cellAddress].c.hidden = true;
           });
 
           // Set column widths
@@ -492,7 +493,8 @@
           comments.forEach((comment, colIdx) => {
             const cellAddress = XLSX.utils.encode_cell({ r: 0, c: colIdx });
             if (!ws[cellAddress]) return;
-            ws[cellAddress].c = [{ a: "PRIME RH", t: comment }];
+            ws[cellAddress].c = [{ a: "PRIME RH", t: comment, hidden: true }];
+            ws[cellAddress].c.hidden = true;
           });
 
           ws["!cols"] = [{ wch: 40 }, { wch: 25 }, { wch: 50 }];
