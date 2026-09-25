@@ -1039,6 +1039,25 @@
         };
 
         const generatePDF = (emp, items, dateStr, empresaInfo, isDevolucaoPDF = false) => {
+          const formatShortDate = (rawDate) => {
+            if (!rawDate) return "";
+            const str = String(rawDate).trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+              const [y, m, d] = str.split("-");
+              return `${d}/${m}/${y}`;
+            }
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+              return str;
+            }
+            const parsed = new Date(str);
+            if (!isNaN(parsed.getTime())) {
+              const d = String(parsed.getDate()).padStart(2, "0");
+              const m = String(parsed.getMonth() + 1).padStart(2, "0");
+              const y = parsed.getFullYear();
+              return `${d}/${m}/${y}`;
+            }
+            return str;
+          };
           const empNome = empresaInfo?.nome || "NUNES & VIEIRA LOGISTICA LTDA";
           const empCnpj = empresaInfo?.cnpj || "48.986.353/0001-39";
           const empEnd =
@@ -1164,21 +1183,8 @@
                 ${generateTableHeaders()}
                 ${chunk
                   .map((item) => {
-                    const dParts = (item.dataEntrega || "").split("-");
-                    const dStr =
-                      dParts.length === 3
-                        ? `${dParts[2]}/${dParts[1]}/${dParts[0]}`
-                        : item.dataEntrega || "";
-
-                    let devDateStr = "";
-                    if (item.dataDevolucao) {
-                      const devParts = item.dataDevolucao.split("-");
-                      devDateStr =
-                        devParts.length === 3
-                          ? `${devParts[2]}/${devParts[1]}/${devParts[0]}`
-                          : item.dataDevolucao;
-                    }
-
+                    const dStr = formatShortDate(item.dataEntrega);
+                    const devDateStr = formatShortDate(item.dataDevolucao);
                     const motivoStr = item.motivoDevolucao || "";
 
                     return `
@@ -1283,10 +1289,13 @@
           generatePDF(selectedEmployee, parsedItems, dateStr, empInfo, false);
         };
 
-                const handleGenerateDevolucaoPDF = (devolucaoRecord, onlyChecked = true) => {
+        const handleGenerateDevolucaoPDF = (devolucaoRecord, onlyChecked = true) => {
           if (!devolucaoRecord) return;
 
           const recordChecked = checkedDevolucaoItems[devolucaoRecord.id] || {};
+          const hasCheckedItems = Object.values(recordChecked).some(Boolean);
+          const filterCheckedOnly = onlyChecked && hasCheckedItems;
+
           const todayIso = new Date().toISOString().split("T")[0];
 
           // Parse EPI and Fardamento items
@@ -1306,11 +1315,11 @@
             const itemKey = `epi_${idx}_${it.nomeItem}`;
             const isChecked = !!recordChecked[itemKey];
 
-            if (!onlyChecked || isChecked) {
+            if (!filterCheckedOnly || isChecked) {
               itemsForPdf.push({
                 ...it,
-                dataDevolucao: isChecked ? todayIso : (onlyChecked ? todayIso : ""),
-                motivoDevolucao: isChecked || !onlyChecked ? "Desligamento" : ""
+                dataDevolucao: (isChecked || !filterCheckedOnly) ? todayIso : "",
+                motivoDevolucao: (isChecked || !filterCheckedOnly) ? "Desligamento" : ""
               });
             }
           });
@@ -1320,17 +1329,17 @@
             const itemKey = `fardamento_${idx}_${it.nomeItem}`;
             const isChecked = !!recordChecked[itemKey];
 
-            if (!onlyChecked || isChecked) {
+            if (!filterCheckedOnly || isChecked) {
               itemsForPdf.push({
                 ...it,
-                dataDevolucao: isChecked ? todayIso : (onlyChecked ? todayIso : ""),
-                motivoDevolucao: isChecked || !onlyChecked ? "Desligamento" : ""
+                dataDevolucao: (isChecked || !filterCheckedOnly) ? todayIso : "",
+                motivoDevolucao: (isChecked || !filterCheckedOnly) ? "Desligamento" : ""
               });
             }
           });
 
           if (itemsForPdf.length === 0) {
-            alert("Nenhum item marcado para gerar a ficha de devolução.");
+            alert("Nenhum item encontrado para gerar a ficha de devolução.");
             return;
           }
 
