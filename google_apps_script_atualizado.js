@@ -1,7 +1,7 @@
 // ==========================================
 // FUNÇÃO PARA CALCULAR HORAS ÚTEIS (ABSENTEÍSMO)
 // ==========================================
-function calcularHorasUteis(dataInicio, dataFim) {
+function calcularHorasUteis(dataInicio, dataFim, cargaHoraria) {
   if (!dataInicio || !dataFim) return 0;
 
   let dInicio = dataInicio instanceof Date ? new Date(dataInicio) : new Date(dataInicio + "T00:00:00");
@@ -11,20 +11,23 @@ function calcularHorasUteis(dataInicio, dataFim) {
     return 0;
   }
 
+  // Carga horária padrão mensal de 220h => ~8h seg-sex, 4h sab. Se for outra carga proporcional, ajusta
+  const fatorCarga = (cargaHoraria && !isNaN(Number(cargaHoraria)) && Number(cargaHoraria) > 0) ? (Number(cargaHoraria) / 220) : 1;
+
   let totalHoras = 0;
   let current = new Date(dInicio);
 
   while (current <= dFim) {
     const diaSemana = current.getDay();
     if (diaSemana >= 1 && diaSemana <= 5) {
-      totalHoras += 8;
+      totalHoras += 8 * fatorCarga;
     } else if (diaSemana === 6) {
-      totalHoras += 4;
+      totalHoras += 4 * fatorCarga;
     }
     current.setDate(current.getDate() + 1);
   }
 
-  return totalHoras;
+  return Math.round(totalHoras * 10) / 10;
 }
 
 // ==========================================
@@ -37,7 +40,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const SHEET_CONFIG = {
   "Controle EPI e Fardamento": {
     tableName: "funcionarios_epi",
-    nameField: "nome",
+    nameField: "cpf",
     fields: [
       "admissao",
       "nome",
@@ -53,6 +56,13 @@ const SHEET_CONFIG = {
       "fardamento_link",
       "validacao",
       "local_registro",
+      "whatsapp",
+      "tamanho_farda",
+      "sexo",
+      "calcado",
+      "calca",
+      "nascimento",
+      "carga_horaria",
     ],
   },
   movimentacoes: {
@@ -63,6 +73,7 @@ const SHEET_CONFIG = {
       "data_admissao",
       "data_desligamento",
       "motivo_saida",
+      "cpf",
     ],
   },
   absenteismo: {
@@ -76,6 +87,8 @@ const SHEET_CONFIG = {
       "horas_previstas",
       "horas_perdidas",
       "motivo",
+      "cpf",
+      "carga_horaria",
     ],
   },
   ferias: {
@@ -90,6 +103,7 @@ const SHEET_CONFIG = {
       "dias_gozados",
       "status",
       "dias_abonados",
+      "cpf",
     ],
   },
   epi_funcao: {
@@ -156,6 +170,12 @@ function addMonths(dateObj, months) {
   let result = new Date(dateObj);
   result.setMonth(result.getMonth() + months);
   return result;
+}
+
+// Limpa CPF mantendo apenas dígitos (chave/id de colaborador)
+function limparCPF(cpfVal) {
+  if (!cpfVal) return "";
+  return cpfVal.toString().replace(/\D/g, "");
 }
 
 // ==========================================
@@ -291,8 +311,8 @@ function buildPayload(sheetName, rowData) {
 
     payload = {
       admissao: formatarDataEPI(rowData[0]),
-      nome: rowData[1] ? rowData[1].toString() : "",
-      cpf: rowData[2] ? rowData[2].toString() : "",
+      nome: rowData[1] ? rowData[1].toString().trim() : "",
+      cpf: rowData[2] ? limparCPF(rowData[2]) : "",
       funcao: rowData[3] ? rowData[3].toString() : "",
       setor: rowData[4] ? rowData[4].toString() : "",
       unidade: rowData[5] ? rowData[5].toString() : "",
@@ -304,6 +324,13 @@ function buildPayload(sheetName, rowData) {
       fardamento_link: rowData[11] ? rowData[11].toString() : "",
       validacao: rowData[12] ? rowData[12].toString() : "",
       local_registro: rowData[13] ? rowData[13].toString() : "",
+      whatsapp: rowData[14] ? rowData[14].toString() : "",
+      tamanho_farda: rowData[16] ? rowData[16].toString() : "",
+      sexo: rowData[17] ? rowData[17].toString() : "",
+      calcado: rowData[18] ? rowData[18].toString() : "",
+      calca: rowData[19] ? rowData[19].toString() : "",
+      nascimento: formatarDataEPI(rowData[20]),
+      carga_horaria: rowData[21] && !isNaN(Number(rowData[21])) ? Number(rowData[21]) : 220,
     };
   } else if (sheetName === "epi_funcao") {
     config.fields.forEach((field, index) => {
@@ -319,6 +346,10 @@ function buildPayload(sheetName, rowData) {
       let val = rowData[index];
 
       if (field === "id" && (!val || val.toString().trim() === "")) return;
+
+      if (field === "cpf" && val) {
+        val = limparCPF(val);
+      }
 
       if (field === "mes_ref") {
         if (val instanceof Date) {
@@ -368,7 +399,7 @@ function buildPayload(sheetName, rowData) {
         }
         if (payload["data_inicio"] && payload["data_fim"]) {
             if (payload["horas_perdidas"] === undefined || payload["horas_perdidas"] === null || payload["horas_perdidas"] === "") {
-                payload["horas_perdidas"] = calcularHorasUteis(payload["data_inicio"], payload["data_fim"]);
+                payload["horas_perdidas"] = calcularHorasUteis(payload["data_inicio"], payload["data_fim"], payload["carga_horaria"]);
             }
         }
     }
@@ -401,6 +432,7 @@ function sincronizarAtivosParaFerias() {
     const nome = movData[i][0] ? movData[i][0].toString().trim() : "";
     const dtAdmissaoVal = movData[i][1];
     const dtDesligamentoVal = movData[i][2];
+    const cpfVal = movData[i][4] ? limparCPF(movData[i][4]) : "";
 
     if (nome && dtAdmissaoVal && (!dtDesligamentoVal || dtDesligamentoVal.toString().trim() === "")) {
       const nomeUpper = nome.toUpperCase();
@@ -417,10 +449,11 @@ function sincronizarAtivosParaFerias() {
         let dtFimStr = formatarData(dtFimAquisitivo);
         let dtVencStr = formatarData(dtVencimento);
 
-        feriasSheet.appendRow([nome, dtIniStr, dtFimStr, dtVencStr, 30, 0, "pendente", 0]);
+        feriasSheet.appendRow([nome, dtIniStr, dtFimStr, dtVencStr, 30, 0, "pendente", 0, cpfVal]);
 
         upsertRecord("rh_ferias", "funcionario_nome", {
           funcionario_nome: nome,
+          cpf: cpfVal,
           data_inicio_aquisitivo: dtIniStr,
           data_fim_aquisitivo: dtFimStr,
           data_vencimento: dtVencStr,
@@ -487,7 +520,7 @@ function verificarETratarDesligamento(funcionarioNome, dataDesligamento) {
       if (epiItens !== "" || fardItens !== "") {
         const devPayload = {
           funcionario_nome: row[1] ? row[1].toString() : funcionarioNome,
-          cpf: row[2] ? row[2].toString() : "",
+          cpf: row[2] ? limparCPF(row[2]) : "",
           funcao: row[3] ? row[3].toString() : "",
           setor: row[4] ? row[4].toString() : "",
           unidade: row[5] ? row[5].toString() : "",
@@ -549,24 +582,26 @@ function syncToSupabaseOnEdit(e) {
     const dataInicioCell = sheet.getRange(row, 3);
     const dataFimCell = sheet.getRange(row, 4);
     const horasPerdidasCell = sheet.getRange(row, 6);
+    const cargaHorariaCell = sheet.getRange(row, 9);
 
     const vDataInicio = dataInicioCell.getValue();
     const vDataFim = dataFimCell.getValue();
     const vHorasPerdidas = horasPerdidasCell.getValue();
+    const vCargaHoraria = cargaHorariaCell ? cargaHorariaCell.getValue() : 220;
 
     if (vDataInicio && vDataFim && (vHorasPerdidas === "" || vHorasPerdidas === null)) {
       let dtIniStr = formatarData(vDataInicio);
       let dtFimStr = formatarData(vDataFim);
 
       if (dtIniStr && dtFimStr) {
-        const horasCalculadas = calcularHorasUteis(dtIniStr, dtFimStr);
+        const horasCalculadas = calcularHorasUteis(dtIniStr, dtFimStr, vCargaHoraria);
         horasPerdidasCell.setValue(horasCalculadas);
       }
     }
   }
 
   const numColumns = config.fields.length;
-  const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 14 : numColumns;
+  const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 22 : numColumns;
 
   const rowData = sheet.getRange(row, 1, 1, columnsToFetch).getValues()[0];
   const payload = buildPayload(sheetName, rowData);
@@ -610,7 +645,7 @@ function syncAllToSupabase() {
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return;
 
-    const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 14 : config.fields.length;
+    const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 22 : config.fields.length;
 
     for (let i = 1; i < data.length; i++) {
       const rowData = data[i].slice(0, columnsToFetch);
@@ -648,7 +683,7 @@ function doPost(e) {
 
     if (table === "funcionarios_epi") {
       targetSheetName = "Controle EPI e Fardamento";
-      nomeBusca = type === "DELETE" ? (oldRecord ? oldRecord.nome : null) : (record ? record.nome : null);
+      nomeBusca = type === "DELETE" ? (oldRecord ? oldRecord.cpf || oldRecord.nome : null) : (record ? record.cpf || record.nome : null);
       fields = SHEET_CONFIG[targetSheetName].fields;
     } else if (table === "rh_movimentacoes") {
       targetSheetName = "movimentacoes";
@@ -677,17 +712,27 @@ function doPost(e) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(targetSheetName);
     if (!sheet) return ContentService.createTextOutput("Aba não encontrada").setMimeType(ContentService.MimeType.TEXT);
 
-    if (!nomeBusca) return ContentService.createTextOutput("Chave (nome/função) não fornecida pelo Supabase").setMimeType(ContentService.MimeType.TEXT);
+    if (!nomeBusca) return ContentService.createTextOutput("Chave (CPF/nome/função) não fornecida pelo Supabase").setMimeType(ContentService.MimeType.TEXT);
 
     const allData = sheet.getDataRange().getValues();
     let rowToUpdate = -1;
 
     let colNameIndex = 0;
-    if (table === "funcionarios_epi") colNameIndex = 1;
+    if (table === "funcionarios_epi") colNameIndex = 2; // Coluna C é CPF/Matricula
     if (table === "rh_absenteismo") colNameIndex = 1;
 
     for (let i = 1; i < allData.length; i++) {
-      if (targetSheetName === "absenteismo") {
+      if (targetSheetName === "Controle EPI e Fardamento") {
+        let cpfPlanilha = limparCPF(allData[i][2]);
+        let nomePlanilha = allData[i][1] ? allData[i][1].toString().trim() : "";
+        if (record && record.cpf && cpfPlanilha === limparCPF(record.cpf)) {
+          rowToUpdate = i + 1;
+          break;
+        } else if (record && record.nome && nomePlanilha.toUpperCase() === record.nome.toUpperCase()) {
+          rowToUpdate = i + 1;
+          break;
+        }
+      } else if (targetSheetName === "absenteismo") {
           let idPlanilha = allData[i][0];
           let nomePlanilha = allData[i][1];
           let dataInicioPlanilha = allData[i][2];
