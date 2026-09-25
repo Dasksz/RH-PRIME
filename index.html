@@ -170,6 +170,15 @@
           <line x1="9" y1="9" x2="15" y2="15" />
         </Icon>
       );
+            const FileText = (p) => (
+        <Icon {...p}>
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <line x1="10" y1="9" x2="8" y2="9" />
+        </Icon>
+      );
       const ArrowLeft = (p) => (
         <Icon {...p}>
           <line x1="19" y1="12" x2="5" y2="12" />
@@ -607,10 +616,14 @@
           setIsConfirmDevolucaoModalOpen(true);
         };
 
-        const handleConfirmMarcarDevolvido = async () => {
+        const handleConfirmMarcarDevolvido = async (generatePDFOption = false) => {
           if (!itemToDevolver) return;
           const item = itemToDevolver;
           try {
+            if (generatePDFOption) {
+              handleGenerateDevolucaoPDF(item, false);
+            }
+
             await supabase.from("sistema_logs").insert([
               {
                 tabela_afetada: "devolucoes_pendentes",
@@ -1025,7 +1038,7 @@
           );
         };
 
-        const generatePDF = (emp, items, dateStr, empresaInfo) => {
+        const generatePDF = (emp, items, dateStr, empresaInfo, isDevolucaoPDF = false) => {
           const empNome = empresaInfo?.nome || "NUNES & VIEIRA LOGISTICA LTDA";
           const empCnpj = empresaInfo?.cnpj || "48.986.353/0001-39";
           const empEnd =
@@ -1094,17 +1107,8 @@
                             </div>
                             <div style="flex: 1; padding: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px;">
                                 FICHA INDIVIDUAL DE FARDAMENTO E EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL – E.P.I.
-
-                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
-                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
-                              Local de Registro
-                            </span>
-                            <span className="text-xs md:text-sm font-semibold text-gray-800 break-words leading-tight">
-                              {selectedEmployee.local_registro || "-"}
-                            </span>
-                          </div>
+                            </div>
                         </div>
-
 
                         <!-- Employee Info -->
                         <div style="border: 1px solid black; margin-bottom: 5px;">
@@ -1160,11 +1164,23 @@
                 ${generateTableHeaders()}
                 ${chunk
                   .map((item) => {
-                    const dParts = item.dataEntrega.split("-");
+                    const dParts = (item.dataEntrega || "").split("-");
                     const dStr =
                       dParts.length === 3
                         ? `${dParts[2]}/${dParts[1]}/${dParts[0]}`
-                        : item.dataEntrega;
+                        : item.dataEntrega || "";
+
+                    let devDateStr = "";
+                    if (item.dataDevolucao) {
+                      const devParts = item.dataDevolucao.split("-");
+                      devDateStr =
+                        devParts.length === 3
+                          ? `${devParts[2]}/${devParts[1]}/${devParts[0]}`
+                          : item.dataDevolucao;
+                    }
+
+                    const motivoStr = item.motivoDevolucao || "";
+
                     return `
                         <tr style="page-break-inside: avoid;">
                             <td style="border: 1px solid black; padding: 8px 3px;">${dStr}</td>
@@ -1172,8 +1188,8 @@
                             <td style="border: 1px solid black; padding: 8px 3px;">${item.ca || ""}</td>
                             <td style="border: 1px solid black; padding: 8px 3px;">${item.qtd}</td>
                             <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
-                            <td style="border: 1px solid black; padding: 8px 3px;"></td>
+                            <td style="border: 1px solid black; padding: 8px 3px;">${devDateStr}</td>
+                            <td style="border: 1px solid black; padding: 8px 3px;">${motivoStr}</td>
                             <td style="border: 1px solid black; padding: 8px 3px;"></td>
                         </tr>
                     `;
@@ -1211,10 +1227,11 @@
             "_",
           );
           const dateFileName = dateStr.replace(/\//g, "-");
+          const filePrefix = isDevolucaoPDF ? "EPI_Devolucao" : "EPI_Comprovante";
 
           const opt = {
             margin: 5,
-            filename: `EPI_Comprovante_${safeName}_${dateFileName}.pdf`,
+            filename: `${filePrefix}_${safeName}_${dateFileName}.pdf`,
             image: { type: "jpeg", quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
@@ -1233,6 +1250,108 @@
             .then(() => {
               document.body.removeChild(container);
             });
+        };
+
+                const handlePrintEmployeeHistoryPDF = (type = null) => {
+          if (!selectedEmployee) return;
+          const tab = type || activeTab;
+          const itemData = tab === "epi" ? selectedEmployee.epi : selectedEmployee.fardamento;
+
+          if (!itemData || !itemData.itens) {
+            alert("Nenhum item registrado para gerar a ficha em PDF.");
+            return;
+          }
+
+          const parsedItems = parseItemString(
+            itemData.itens,
+            itemData.ultimaEntrega || new Date().toISOString().split("T")[0],
+            itemData.link
+          );
+
+          if (parsedItems.length === 0) {
+            alert("Nenhum item encontrado no histórico.");
+            return;
+          }
+
+          const empInfo = getEmpresaInfo(selectedEmployee.local_registro, empresas);
+          const dateStr = itemData.ultimaEntrega
+            ? itemData.ultimaEntrega.includes("-")
+              ? itemData.ultimaEntrega.split("-").reverse().join("/")
+              : itemData.ultimaEntrega
+            : new Date().toLocaleDateString("pt-BR");
+
+          generatePDF(selectedEmployee, parsedItems, dateStr, empInfo, false);
+        };
+
+                const handleGenerateDevolucaoPDF = (devolucaoRecord, onlyChecked = true) => {
+          if (!devolucaoRecord) return;
+
+          const recordChecked = checkedDevolucaoItems[devolucaoRecord.id] || {};
+          const todayIso = new Date().toISOString().split("T")[0];
+
+          // Parse EPI and Fardamento items
+          const epiItems = parseItemString(
+            devolucaoRecord.epi_itens,
+            devolucaoRecord.epi_data || todayIso
+          );
+          const fardamentoItems = parseItemString(
+            devolucaoRecord.fardamento_itens,
+            devolucaoRecord.fardamento_data || todayIso
+          );
+
+          const itemsForPdf = [];
+
+          // Process EPI items
+          epiItems.forEach((it, idx) => {
+            const itemKey = `epi_${idx}_${it.nomeItem}`;
+            const isChecked = !!recordChecked[itemKey];
+
+            if (!onlyChecked || isChecked) {
+              itemsForPdf.push({
+                ...it,
+                dataDevolucao: isChecked ? todayIso : (onlyChecked ? todayIso : ""),
+                motivoDevolucao: isChecked || !onlyChecked ? "Desligamento" : ""
+              });
+            }
+          });
+
+          // Process Fardamento items
+          fardamentoItems.forEach((it, idx) => {
+            const itemKey = `fardamento_${idx}_${it.nomeItem}`;
+            const isChecked = !!recordChecked[itemKey];
+
+            if (!onlyChecked || isChecked) {
+              itemsForPdf.push({
+                ...it,
+                dataDevolucao: isChecked ? todayIso : (onlyChecked ? todayIso : ""),
+                motivoDevolucao: isChecked || !onlyChecked ? "Desligamento" : ""
+              });
+            }
+          });
+
+          if (itemsForPdf.length === 0) {
+            alert("Nenhum item marcado para gerar a ficha de devolução.");
+            return;
+          }
+
+          const empObject = {
+            nome: devolucaoRecord.funcionario_nome,
+            cpf: devolucaoRecord.cpf,
+            admissao: devolucaoRecord.data_admissao
+              ? (devolucaoRecord.data_admissao.includes("-")
+                  ? devolucaoRecord.data_admissao.split("-").reverse().join("/")
+                  : devolucaoRecord.data_admissao)
+              : "",
+            setor: devolucaoRecord.setor,
+            cargo: devolucaoRecord.funcao,
+            unidade: devolucaoRecord.unidade,
+            local_registro: devolucaoRecord.local_registro
+          };
+
+          const empInfo = getEmpresaInfo(devolucaoRecord.local_registro, empresas);
+          const dateStr = new Date().toLocaleDateString("pt-BR");
+
+          generatePDF(empObject, itemsForPdf, dateStr, empInfo, true);
         };
 
         const handleRegisterAll = async () => {
@@ -1662,6 +1781,60 @@
                   </div>
                 </div>
               </main>
+
+                            {/* Modal de Confirmação de Devolução */}
+              {isConfirmDevolucaoModalOpen && itemToDevolver && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+                  <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-[#002060]">
+                          Concluir Devolução
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {itemToDevolver.funcionario_nome}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mb-6">
+                      Deseja marcar os itens como devolvidos e finalizar esta pendência? Você pode também gerar a Ficha de Devolução em PDF com as datas de entrega e devolução preenchidas.
+                    </p>
+
+                    <div className="flex flex-col gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmMarcarDevolvido(true)}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <FileText size={16} /> Gerar Ficha PDF & Finalizar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmMarcarDevolvido(false)}
+                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition-colors border border-slate-200"
+                      >
+                        Apenas Finalizar (Sem PDF)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsConfirmDevolucaoModalOpen(false);
+                          setItemToDevolver(null);
+                        }}
+                        className="w-full bg-white hover:bg-gray-50 text-gray-500 font-semibold text-xs py-2 px-4 rounded-xl transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Modal de Acesso Restrito (Admin) */}
               {isAdminModalOpen && (
@@ -2118,6 +2291,15 @@
 
                         {/* Botões movidos para a parte de baixo */}
                         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-3">
+                          <button
+                            onClick={() => handleGenerateDevolucaoPDF(item, true)}
+                            className="w-full sm:w-auto bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs px-4 py-3 rounded-xl transition-all border border-amber-200 flex items-center justify-center gap-1.5 shadow-xs"
+                            title="Gerar PDF da ficha de devolução apenas com os itens selecionados/conferidos"
+                          >
+                            <FileText size={16} className="text-amber-600" />
+                            Gerar Ficha de Devolução
+                          </button>
+
                           {!allChecked && totalItemsCount > 0 && (
                             <button
                               onClick={handleSelectAllItems}
@@ -2433,23 +2615,34 @@
                         <h3 className="text-base font-bold text-[#002060]">
                           Histórico Salvo
                         </h3>
-                        {((activeTab === "epi" &&
-                          selectedEmployee.epi.ultimaEntrega) ||
-                          (activeTab === "fardamento" &&
-                            selectedEmployee.fardamento.ultimaEntrega)) && (
-                          <button
-                            onClick={() => {
-                              setIsNewVerification(true);
-                              loadHistoryIntoStaged();
-                              window.scrollTo({ top: 0, behavior: "smooth" });
-                              if (scrollContainerRef.current)
-                                scrollContainerRef.current.scrollTop = 0;
-                            }}
-                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1"
-                          >
-                            <Activity size={14} /> Nova Entrega/Verificação
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {((activeTab === "epi" &&
+                            selectedEmployee.epi.ultimaEntrega) ||
+                            (activeTab === "fardamento" &&
+                              selectedEmployee.fardamento.ultimaEntrega)) && (
+                            <>
+                              <button
+                                onClick={() => handlePrintEmployeeHistoryPDF()}
+                                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1.5 border border-emerald-200"
+                                title="Gerar Ficha em PDF dos itens entregues"
+                              >
+                                <FileText size={14} /> Gerar Ficha (PDF)
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setIsNewVerification(true);
+                                  loadHistoryIntoStaged();
+                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                  if (scrollContainerRef.current)
+                                    scrollContainerRef.current.scrollTop = 0;
+                                }}
+                                className="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1"
+                              >
+                                <Activity size={14} /> Nova Entrega/Verificação
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       {(activeTab === "epi" &&
@@ -2704,6 +2897,60 @@
                         </button>
                       </div>
                     </form>
+                  </div>
+                </div>
+              )}
+
+                            {/* Modal de Confirmação de Devolução */}
+              {isConfirmDevolucaoModalOpen && itemToDevolver && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+                  <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-[#002060]">
+                          Concluir Devolução
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {itemToDevolver.funcionario_nome}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mb-6">
+                      Deseja marcar os itens como devolvidos e finalizar esta pendência? Você pode também gerar a Ficha de Devolução em PDF com as datas de entrega e devolução preenchidas.
+                    </p>
+
+                    <div className="flex flex-col gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmMarcarDevolvido(true)}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <FileText size={16} /> Gerar Ficha PDF & Finalizar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmMarcarDevolvido(false)}
+                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition-colors border border-slate-200"
+                      >
+                        Apenas Finalizar (Sem PDF)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsConfirmDevolucaoModalOpen(false);
+                          setItemToDevolver(null);
+                        }}
+                        className="w-full bg-white hover:bg-gray-50 text-gray-500 font-semibold text-xs py-2 px-4 rounded-xl transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
