@@ -107,6 +107,12 @@
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </Icon>
       );
+      const Eye = (p) => (
+        <Icon {...p}>
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </Icon>
+      );
       const XCircle = (p) => (
         <Icon {...p}>
           <circle cx="12" cy="12" r="10" />
@@ -176,6 +182,7 @@
         const [isCadastrarModalOpen, setIsCadastrarModalOpen] = useState(false);
         const [isDesligarModalOpen, setIsDesligarModalOpen] = useState(false);
         const [isEditarModalOpen, setIsEditarModalOpen] = useState(false);
+        const [isDetalhesModalOpen, setIsDetalhesModalOpen] = useState(false);
         const [selectedColaborador, setSelectedColaborador] = useState(null);
 
         // Form Cadastrar/Editar State
@@ -774,8 +781,59 @@
                 ) : colaboradoresFiltrados.length === 0 ? (
                   <div className="p-12 text-center text-slate-500">Nenhum colaborador encontrado para os filtros selecionados.</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
+                  <>
+                    {/* Visualização Compacta em Dispositivos Móveis */}
+                    <div className="block md:hidden divide-y divide-slate-100">
+                      {colaboradoresFiltrados.map((item) => {
+                        const cpfFormatado = formatarCPF(item.matricula || item.cpf);
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setSelectedColaborador(item);
+                              setIsDetalhesModalOpen(true);
+                            }}
+                            className={`p-3.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between gap-3 ${
+                              item.isDesligado ? "bg-red-50/40" : ""
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-slate-900 text-xs truncate">{item.nome}</h4>
+                                {item.isDesligado && (
+                                  <span className="text-[9px] font-extrabold text-red-600 bg-red-100 px-1.5 py-0.5 rounded uppercase">
+                                    Desligado
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                                <span>{item.funcao || "Sem função"}</span>
+                                <span>•</span>
+                                <span className="font-mono">{cpfFormatado || item.cpf}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedColaborador(item);
+                                  setIsDetalhesModalOpen(true);
+                                }}
+                                className="p-2 text-[#002060] bg-blue-50 rounded-xl font-bold text-[11px] flex items-center gap-1 hover:bg-blue-100"
+                              >
+                                <Eye size={14} />
+                                Ver
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Tabela Completa em Desktop */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider font-bold border-b border-slate-200">
                           <th className="p-3.5">Matrícula / CPF</th>
@@ -793,7 +851,7 @@
                         {colaboradoresFiltrados.map((item) => {
                           const cpfFormatado = formatarCPF(item.matricula || item.cpf);
                           return (
-                            <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${item.isDesligado ? "bg-red-50/40" : ""}`}>
+                            <tr key={item.id} onClick={() => { setSelectedColaborador(item); setIsDetalhesModalOpen(true); }} className={`hover:bg-slate-50 transition-colors cursor-pointer ${item.isDesligado ? "bg-red-50/40" : ""}`}>
                               <td className="p-3.5 font-mono text-slate-700">
                                 {cpfFormatado || item.cpf}
                                 {item.isDesligado && (
@@ -845,7 +903,7 @@
                                   "-"
                                 )}
                               </td>
-                              <td className="p-3.5 text-center">
+                              <td className="p-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-center gap-1">
                                   <button
                                     onClick={() => handleOpenEditar(item)}
@@ -858,12 +916,14 @@
                                   {!item.isDesligado && (
                                     <button
                                       onClick={() => {
-                                        setSelectedColaborador(item);
-                                        setDesligamentoData({
-                                          data_desligamento: new Date().toISOString().split("T")[0],
-                                          motivo_saida: "voluntario",
-                                        });
-                                        setIsDesligarModalOpen(true);
+                                        if (window.confirm(`Deseja realmente solicitar o desligamento de ${item.nome}?`)) {
+                                          setSelectedColaborador(item);
+                                          setDesligamentoData({
+                                            data_desligamento: new Date().toISOString().split("T")[0],
+                                            motivo_saida: "voluntario",
+                                          });
+                                          setIsDesligarModalOpen(true);
+                                        }
                                       }}
                                       className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                       title="Desligar Colaborador"
@@ -879,11 +939,144 @@
                       </tbody>
                     </table>
                   </div>
+                </>
                 )}
               </div>
             </main>
 
-            {/* MODAL CADASTRAR COLABORADOR */}
+                        {/* MODAL DETALHES DO COLABORADOR */}
+            {isDetalhesModalOpen && selectedColaborador && (
+              <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fadeIn my-8">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                    <div>
+                      <h3 className="font-bold text-base md:text-lg">{selectedColaborador.nome}</h3>
+                      <p className="text-xs text-blue-200 font-mono mt-0.5">
+                        CPF/Matrícula: {formatarCPF(selectedColaborador.matricula || selectedColaborador.cpf)}
+                      </p>
+                    </div>
+                    <button onClick={() => setIsDetalhesModalOpen(false)} className="text-white/80 hover:text-white">
+                      <XCircle size={22} />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-4 text-xs">
+                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Função</span>
+                        <span className="font-bold text-slate-800 text-sm">{selectedColaborador.funcao || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Setor</span>
+                        <span className="font-bold text-slate-800 text-sm">{selectedColaborador.setor || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Unidade</span>
+                        <span className="font-bold text-slate-800">{selectedColaborador.unidade || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Carga Horária</span>
+                        <span className="font-bold text-slate-800">{selectedColaborador.carga_horaria || 220}h/mês</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Nascimento</span>
+                        <span className="font-bold text-slate-800">
+                          {formatarDataDisplay(selectedColaborador.nascimento)}
+                          {selectedColaborador.idade !== null && ` (${selectedColaborador.idade} anos)`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Data Admissão</span>
+                        <span className="font-bold text-slate-800">{formatarDataDisplay(selectedColaborador.admissao)}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Local de Registro</span>
+                        <span className="font-bold text-slate-800">{selectedColaborador.local_registro || "-"}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <span className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Tamanhos de Uniforme</span>
+                      <div className="flex gap-2 flex-wrap">
+                        <span className="bg-white border border-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-xs">
+                          Farda: {selectedColaborador.tamanho_farda || "-"}
+                        </span>
+                        <span className="bg-white border border-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-xs">
+                          Calça: {selectedColaborador.calca || "-"}
+                        </span>
+                        <span className="bg-white border border-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-xs">
+                          Calçado: {selectedColaborador.calcado || "-"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex justify-between items-center">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Contato WhatsApp</span>
+                        <span className="font-bold text-slate-800">{selectedColaborador.whatsapp || "Não informado"}</span>
+                      </div>
+                      {selectedColaborador.whatsapp && (
+                        <a
+                          href={`https://wa.me/55${selectedColaborador.whatsapp.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1"
+                        >
+                          <Phone size={14} /> WhatsApp
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="pt-4 flex items-center justify-between gap-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsDetalhesModalOpen(false)}
+                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs"
+                      >
+                        Fechar
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsDetalhesModalOpen(false);
+                            handleOpenEditar(selectedColaborador);
+                          }}
+                          className="px-4 py-2 text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl font-bold text-xs flex items-center gap-1.5"
+                        >
+                          <Pencil size={14} /> Editar
+                        </button>
+
+                        {!selectedColaborador.isDesligado && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Deseja realmente solicitar o desligamento de ${selectedColaborador.nome}?`)) {
+                                setIsDetalhesModalOpen(false);
+                                setDesligamentoData({
+                                  data_desligamento: new Date().toISOString().split("T")[0],
+                                  motivo_saida: "voluntario",
+                                });
+                                setIsDesligarModalOpen(true);
+                              }
+                            }}
+                            className="px-4 py-2 text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-xs flex items-center gap-1.5"
+                          >
+                            <UserMinus size={14} /> Desligar / Remover
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+{/* MODAL CADASTRAR COLABORADOR */}
             {isCadastrarModalOpen && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 overflow-y-auto">
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-8 overflow-hidden animate-fadeIn">
