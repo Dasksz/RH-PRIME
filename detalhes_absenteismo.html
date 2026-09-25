@@ -126,6 +126,18 @@
           if (mesUrl) setMesFiltro(mesUrl);
         }, []);
 
+                // Lock background scroll when modal is open
+        useEffect(() => {
+          if (isModalOpen) {
+            document.body.style.overflow = "hidden";
+          } else {
+            document.body.style.overflow = "";
+          }
+          return () => {
+            document.body.style.overflow = "";
+          };
+        }, [isModalOpen]);
+
         useEffect(() => {
           checkSession();
         }, []);
