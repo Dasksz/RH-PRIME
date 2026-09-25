@@ -212,6 +212,18 @@
         const [formErro, setFormErro] = useState("");
         const [isSubmitting, setIsSaving] = useState(false);
 
+                // Lock background scroll when any modal is open
+        useEffect(() => {
+          if (isCadastrarModalOpen || isDesligarModalOpen || isEditarModalOpen || isDetalhesModalOpen) {
+            document.body.style.overflow = "hidden";
+          } else {
+            document.body.style.overflow = "";
+          }
+          return () => {
+            document.body.style.overflow = "";
+          };
+        }, [isCadastrarModalOpen, isDesligarModalOpen, isEditarModalOpen, isDetalhesModalOpen]);
+
         useEffect(() => {
           checkAuth();
         }, []);
