@@ -69,6 +69,7 @@
       const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></Icon>;
       const CheckCircle2 = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></Icon>;
       const XCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></Icon>;
+      const Search = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></Icon>;
 
       // Helper para calcular horas úteis
       function calcularHorasUteisLocal(dataInicio, dataFim, cargaHoraria) {
@@ -103,11 +104,13 @@
         const [isLoading, setIsLoading] = useState(true);
         const [mesFiltro, setMesFiltro] = useState("todos");
         const [funcFiltro, setFuncFiltro] = useState("todos");
+        const [searchTerm, setSearchTerm] = useState("");
         const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
 
         // Cadastrar Falta Modal State
         const [isModalOpen, setIsModalOpen] = useState(false);
         const [selectedColabCpf, setSelectedColabCpf] = useState("");
+        const [modalColabSearch, setModalColabSearch] = useState("");
         const [faltaForm, setFaltaForm] = useState({
           data_inicio: new Date().toISOString().split("T")[0],
           data_fim: new Date().toISOString().split("T")[0],
@@ -200,11 +203,42 @@
                 return false;
               }
             }
+            if (searchTerm.trim() !== "") {
+              const term = searchTerm.toLowerCase().trim();
+              const termDigits = term.replace(/\D/g, "");
+              const nomeMatch = item.funcionario_nome && item.funcionario_nome.toLowerCase().includes(term);
+              const cpfMatch = termDigits !== "" && item.cpf && item.cpf.replace(/\D/g, "").includes(termDigits);
+              const motivoMatch = item.motivo && item.motivo.toLowerCase().includes(term);
+              if (!nomeMatch && !cpfMatch && !motivoMatch) return false;
+            }
             return true;
           });
-        }, [absenteismo, mesFiltro, funcFiltro]);
+        }, [absenteismo, mesFiltro, funcFiltro, searchTerm]);
+
+        
+        // Colaboradores filtrados na modal de cadastro
+        const colaboradoresFiltradosModal = useMemo(() => {
+          if (!modalColabSearch.trim()) return colaboradores;
+          const term = modalColabSearch.toLowerCase().trim();
+          return colaboradores.filter((c) => {
+            const nomeMatch = c.nome && c.nome.toLowerCase().includes(term);
+            const cpfMatch = c.cpf && c.cpf.replace(/\D/g, "").includes(term.replace(/\D/g, ""));
+            return nomeMatch || (term.replace(/\D/g, "") !== "" && cpfMatch);
+          });
+        }, [colaboradores, modalColabSearch]);
 
         // Auto-calculo de horas na modal
+        
+        // Atualiza a seleção quando a busca na modal altera
+        useEffect(() => {
+          if (isModalOpen && colaboradoresFiltradosModal.length > 0) {
+            const exists = colaboradoresFiltradosModal.some(c => (c.cpf || c.nome) === selectedColabCpf);
+            if (!exists) {
+              setSelectedColabCpf(colaboradoresFiltradosModal[0].cpf || colaboradoresFiltradosModal[0].nome || "");
+            }
+          }
+        }, [modalColabSearch, isModalOpen, colaboradoresFiltradosModal]);
+
         const colabSelecionadoObj = useMemo(() => {
           return colaboradores.find((c) => (c.cpf || "").replace(/\D/g, "") === selectedColabCpf.replace(/\D/g, ""));
         }, [colaboradores, selectedColabCpf]);
@@ -421,7 +455,8 @@
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                   <button
                     onClick={() => {
-                      if (colaboradores.length > 0) setSelectedColabCpf(colaboradores[0].cpf || "");
+                      setModalColabSearch("");
+                      if (colaboradores.length > 0) setSelectedColabCpf(colaboradores[0].cpf || colaboradores[0].nome || "");
                       setIsModalOpen(true);
                     }}
                     className="flex items-center gap-2 bg-[#002060] hover:bg-[#001848] text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm"
@@ -440,33 +475,46 @@
               </div>
 
               {/* Filtros em Linha */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                  <label className="text-xs font-bold text-slate-600 uppercase whitespace-nowrap">Mês Ref:</label>
-                  <select
-                    className="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-lg p-2.5 outline-none w-full md:w-48"
-                    value={mesFiltro}
-                    onChange={(e) => setMesFiltro(e.target.value)}
-                  >
-                    <option value="todos">Todos os Períodos</option>
-                    {mesesDisponiveis.map((mes, idx) => (
-                      <option key={idx} value={mes}>{mes}</option>
-                    ))}
-                  </select>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full md:w-80">
+                  <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar por nome, CPF ou motivo..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 text-slate-900 text-xs font-medium rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-[#002060]"
+                  />
                 </div>
 
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                  <label className="text-xs font-bold text-slate-600 uppercase whitespace-nowrap">Filtrar Colaborador:</label>
-                  <select
-                    className="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-lg p-2.5 outline-none w-full md:w-64"
-                    value={funcFiltro}
-                    onChange={(e) => setFuncFiltro(e.target.value)}
-                  >
-                    <option value="todos">Todos os Colaboradores</option>
-                    {colaboradores.map((c) => (
-                      <option key={c.id} value={c.cpf || c.nome}>{c.nome}</option>
-                    ))}
-                  </select>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <label className="text-xs font-bold text-slate-600 uppercase whitespace-nowrap">Mês Ref:</label>
+                    <select
+                      className="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-xl p-2.5 outline-none w-full sm:w-44 focus:ring-2 focus:ring-[#002060]"
+                      value={mesFiltro}
+                      onChange={(e) => setMesFiltro(e.target.value)}
+                    >
+                      <option value="todos">Todos os Períodos</option>
+                      {mesesDisponiveis.map((mes, idx) => (
+                        <option key={idx} value={mes}>{mes}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <label className="text-xs font-bold text-slate-600 uppercase whitespace-nowrap">Colaborador:</label>
+                    <select
+                      className="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-xl p-2.5 outline-none w-full sm:w-56 focus:ring-2 focus:ring-[#002060]"
+                      value={funcFiltro}
+                      onChange={(e) => setFuncFiltro(e.target.value)}
+                    >
+                      <option value="todos">Todos os Colaboradores</option>
+                      {colaboradores.map((c) => (
+                        <option key={c.id} value={c.cpf || c.nome}>{c.nome}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -533,17 +581,31 @@
                   <form onSubmit={handleCadastrarFaltaSubmit} className="p-6 space-y-4 text-xs">
                     <div>
                       <label className="block font-bold text-slate-700 uppercase mb-1">Selecionar Colaborador *</label>
+                      <div className="relative mb-2">
+                        <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Pesquisar colaborador por nome ou CPF..."
+                          value={modalColabSearch}
+                          onChange={(e) => setModalColabSearch(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-[#002060] outline-none"
+                        />
+                      </div>
                       <select
                         required
                         value={selectedColabCpf}
                         onChange={(e) => setSelectedColabCpf(e.target.value)}
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                       >
-                        {colaboradores.map((c) => (
-                          <option key={c.id} value={c.cpf || c.nome}>
-                            {c.nome} - {c.carga_horaria || 220}h/mês
-                          </option>
-                        ))}
+                        {colaboradoresFiltradosModal.length === 0 ? (
+                          <option value="" disabled>Nenhum colaborador encontrado</option>
+                        ) : (
+                          colaboradoresFiltradosModal.map((c) => (
+                            <option key={c.id} value={c.cpf || c.nome}>
+                              {c.nome} - {c.carga_horaria || 220}h/mês
+                            </option>
+                          ))
+                        )}
                       </select>
                       {colabSelecionadoObj && (
                         <p className="text-[10px] text-blue-700 font-bold mt-1">
