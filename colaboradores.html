@@ -172,6 +172,7 @@
         const [isAuthChecking, setIsAuthChecking] = useState(true);
         const [colaboradores, setColaboradores] = useState([]);
         const [movimentacoes, setMovimentacoes] = useState([]);
+        const [empresas, setEmpresas] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
         const [searchTerm, setSearchTerm] = useState("");
         const [filterStatus, setFilterStatus] = useState("ativos"); // "ativos", "desligados", "todos"
@@ -276,8 +277,16 @@
 
             if (movErr) throw movErr;
 
+            const { data: empData, error: empErr } = await supabase
+              .from("empresas")
+              .select("*")
+              .order("nome", { ascending: true });
+
+            if (empErr) console.error("Erro ao carregar empresas:", empErr);
+
             setColaboradores(epiData || []);
             setMovimentacoes(movData || []);
+            setEmpresas(empData || []);
           } catch (err) {
             console.error("Erro ao carregar colaboradores:", err);
           } finally {
@@ -1280,9 +1289,19 @@
                           onChange={(e) => setEditFormData({ ...formData, local_registro: e.target.value })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                         >
-                          <option value="NUNES & VIEIRA LOGISTICA LTDA">NUNES & VIEIRA LOGISTICA LTDA (Itabuna)</option>
-                          <option value="PRIME DISTRIBUICAO LTDA - ILHÉUS ">PRIME DISTRIBUICAO LTDA - ILHÉUS</option>
-                          <option value="PRIME DISTRIBUICAO LTDA - JEQUIÉ ">PRIME DISTRIBUICAO LTDA - JEQUIÉ</option>
+                          {empresas.length === 0 ? (
+                            <>
+                              <option value="NUNES & VIEIRA LOGISTICA LTDA">NUNES & VIEIRA LOGISTICA LTDA (Itabuna)</option>
+                              <option value="PRIME DISTRIBUICAO LTDA - ILHÉUS ">PRIME DISTRIBUICAO LTDA - ILHÉUS</option>
+                              <option value="PRIME DISTRIBUICAO LTDA - JEQUIÉ ">PRIME DISTRIBUICAO LTDA - JEQUIÉ</option>
+                            </>
+                          ) : (
+                            empresas.map((e) => (
+                              <option key={e.id} value={e.nome}>
+                                {e.nome} {e.cnpj ? `(CNPJ: ${e.cnpj})` : ""}
+                              </option>
+                            ))
+                          )}
                         </select>
                       </div>
                     </div>
@@ -1497,9 +1516,19 @@
                           onChange={(e) => setEditFormData({ ...formData, local_registro: e.target.value })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                         >
-                          <option value="NUNES & VIEIRA LOGISTICA LTDA">NUNES & VIEIRA LOGISTICA LTDA (Itabuna)</option>
-                          <option value="PRIME DISTRIBUICAO LTDA - ILHÉUS ">PRIME DISTRIBUICAO LTDA - ILHÉUS</option>
-                          <option value="PRIME DISTRIBUICAO LTDA - JEQUIÉ ">PRIME DISTRIBUICAO LTDA - JEQUIÉ</option>
+                          {empresas.length === 0 ? (
+                            <>
+                              <option value="NUNES & VIEIRA LOGISTICA LTDA">NUNES & VIEIRA LOGISTICA LTDA (Itabuna)</option>
+                              <option value="PRIME DISTRIBUICAO LTDA - ILHÉUS ">PRIME DISTRIBUICAO LTDA - ILHÉUS</option>
+                              <option value="PRIME DISTRIBUICAO LTDA - JEQUIÉ ">PRIME DISTRIBUICAO LTDA - JEQUIÉ</option>
+                            </>
+                          ) : (
+                            empresas.map((e) => (
+                              <option key={e.id} value={e.nome}>
+                                {e.nome} {e.cnpj ? `(CNPJ: ${e.cnpj})` : ""}
+                              </option>
+                            ))
+                          )}
                         </select>
                       </div>
                     </div>
