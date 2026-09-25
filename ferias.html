@@ -1,28 +1,607 @@
-<<<<<<< SEARCH
-                <nav className="hidden md:flex items-center gap-6">
-                  <a
-                    href="index.html"
-                    className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PRIME RH - Controle de Férias</title>
+    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg" />
+
+    <!-- Carregando Tailwind CSS para o Design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Carregando React via CDN -->
+    <script
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+      crossorigin
+    ></script>
+
+    <!-- Carregando Babel para ler o código React dentro do HTML -->
+    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+
+    <style>
+      body {
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+      }
+    </style>
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+
+    <script type="text/babel" data-type="text/javascript" data-presets="react">
+      const { useState, useMemo, useEffect, useRef } = React;
+
+      // Configuração do Supabase
+      const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
+      const SUPABASE_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // ==========================================
+      // 1. ÍCONES (Componentes SVG Nativos)
+      // ==========================================
+      const Icon = ({ size = 24, className = "", children }) => (
+        <svg
+          width={size}
+          height={size}
+          className={className}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {children}
+        </svg>
+      );
+
+      const Shield = (p) => (
+        <Icon {...p}>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </Icon>
+      );
+      const Search = (p) => (
+        <Icon {...p}>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </Icon>
+      );
+      const AlertCircle = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </Icon>
+      );
+      const CheckCircle2 = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="m9 12 2 2 4-4" />
+        </Icon>
+      );
+      const Calendar = (p) => (
+        <Icon {...p}>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </Icon>
+      );
+      const Trash2 = (p) => (
+        <Icon {...p}>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </Icon>
+      );
+      const CheckCheck = (p) => (
+        <Icon {...p}>
+          <polyline points="18 6 7 17 2 12" />
+          <polyline points="22 10 11 21 6 16" />
+        </Icon>
+      );
+      const Activity = (p) => (
+        <Icon {...p}>
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </Icon>
+      );
+      const XCircle = (p) => (
+        <Icon {...p}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </Icon>
+      );
+      const Pencil = (p) => (
+        <Icon {...p}>
+          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+          <path d="m15 5 4 4" />
+        </Icon>
+      );
+
+      // ==========================================
+      // 2. APLICATIVO REACT PRINCIPAL
+      // ==========================================
+
+      function App() {
+        const [session, setSession] = useState(null);
+        const [isAuthChecking, setIsAuthChecking] = useState(true);
+        const [ferias, setFerias] = useState([]);
+        const [absenteismo, setAbsenteismo] = useState([]);
+        const [isLoading, setIsLoading] = useState(true);
+
+        // Navegação mobile
+        const [menuOpen, setMenuOpen] = useState(false);
+        const [filtroStatus, setFiltroStatus] = useState("todos");
+        const [searchTerm, setSearchTerm] = useState("");
+
+        // Estado para Programação de Férias
+        const [modalOpen, setModalOpen] = useState(false);
+        const [feriasSelecionada, setFeriasSelecionada] = useState(null);
+        const [dataInicioProg, setDataInicioProg] = useState("");
+        const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+        const [adminPasswordInput, setAdminPasswordInput] = useState("");
+        const [adminPasswordError, setAdminPasswordError] = useState("");
+        const [diasProg, setDiasProg] = useState("");
+        const [dataFimProg, setDataFimProg] = useState("");
+        const [dataRetornoCalc, setDataRetornoCalc] = useState("");
+        const [diasAbonados, setDiasAbonados] = useState("");
+        const [erroProg, setErroProg] = useState("");
+        const [isSaving, setIsSaving] = useState(false);
+
+        useEffect(() => {
+          checkSession();
+        }, []);
+
+        const handleVerifyAdminPassword = async () => {
+          setAdminPasswordError("");
+          try {
+            const { data, error } = await supabase
+              .from("configuracoes_admin")
+              .select("valor")
+              .eq("chave", "admin_password")
+              .single();
+
+            const correctPass = data ? data.valor : "admin123";
+            if (adminPasswordInput === correctPass) {
+              setIsAdminModalOpen(false);
+              setAdminPasswordInput("");
+              window.location.href = "admin.html";
+            } else {
+              setAdminPasswordError("Senha incorreta. Tente novamente.");
+            }
+          } catch (err) {
+            console.error("Erro ao verificar senha de admin:", err);
+            if (adminPasswordInput === "admin123") {
+              setIsAdminModalOpen(false);
+              setAdminPasswordInput("");
+              window.location.href = "admin.html";
+            } else {
+              setAdminPasswordError("Erro ao verificar senha ou senha incorreta.");
+            }
+          }
+        };
+
+        const checkSession = async () => {
+          try {
+            const {
+              data: { session },
+              error,
+            } = await supabase.auth.getSession();
+            if (error) throw error;
+
+            if (!session) {
+              window.location.href = "login.html";
+              return;
+            }
+
+            setSession(session);
+
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("status")
+              .eq("id", session.user.id)
+              .single();
+
+            if (!profile || profile.status !== "aprovado") {
+              window.location.href = "login.html";
+              return;
+            }
+
+            setIsAuthChecking(false);
+            loadData();
+          } catch (error) {
+            console.error("Error checking auth:", error);
+            window.location.href = "login.html";
+          }
+        };
+
+        const loadData = async () => {
+          setIsLoading(true);
+          try {
+            // Prioridade para abate e agendamento: ordenar por data_inicio_aquisitivo ASC
+            const { data: feriasData } = await supabase
+              .from("rh_ferias")
+              .select("*")
+              .order("data_inicio_aquisitivo", { ascending: true });
+            setFerias(feriasData || []);
+
+            const { data: absData } = await supabase
+              .from("rh_absenteismo")
+              .select("*");
+            setAbsenteismo(absData || []);
+          } catch (error) {
+            console.error("Erro ao carregar dados:", error);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        const handleLogout = async () => {
+          await supabase.auth.signOut();
+          window.location.href = "login.html";
+        };
+
+        const formatData = (dateStr) => {
+          if (!dateStr) return "-";
+          const [ano, mes, dia] = dateStr.split("-");
+          if (!dia) return dateStr;
+          return `${dia}/${mes}/${ano}`;
+        };
+
+        // Calcula dias para o vencimento
+        const calcDiasVencimento = (dataVencimento) => {
+          if (!dataVencimento) return 9999;
+          const venc = new Date(dataVencimento + "T00:00:00");
+          const hoje = new Date();
+          const diffTime = venc - hoje;
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        };
+
+        // Função de cálculo de acúmulo proporcional dinâmico considerando absenteísmo (15+ horas de faltas não justificadas)
+        const calcularAcumuloProporcional = (item) => {
+          if (!item || !item.data_inicio_aquisitivo)
+            return { diasAcumulados: 0, mesesTrabalhados: 0 };
+
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+
+          const dtInicio = new Date(item.data_inicio_aquisitivo + "T00:00:00");
+          let dtFim = item.data_fim_aquisitivo
+            ? new Date(item.data_fim_aquisitivo + "T00:00:00")
+            : new Date(dtInicio.getFullYear() + 1, dtInicio.getMonth(), dtInicio.getDate() - 1);
+
+          if (hoje < dtInicio) {
+            return { diasAcumulados: 0, mesesTrabalhados: 0 };
+          }
+
+          const nomeUpper = item.funcionario_nome
+            ? item.funcionario_nome.trim().toUpperCase()
+            : "";
+          const absFunc = absenteismo.filter(
+            (a) =>
+              a.funcionario_nome &&
+              a.funcionario_nome.trim().toUpperCase() === nomeUpper,
+          );
+
+          let mesesContados = 0;
+          let diasAcc = 0;
+
+          let currMonthStart = new Date(dtInicio);
+
+          while (currMonthStart <= dtFim && currMonthStart <= hoje) {
+            let nextMonthStart = new Date(currMonthStart);
+            nextMonthStart.setMonth(nextMonthStart.getMonth() + 1);
+
+            mesesContados++;
+
+            // Verificar se o funcionário acumulou 15+ horas de faltas sem atestado nesse mês
+            let horasFaltasSemAtestado = 0;
+            absFunc.forEach((abs) => {
+              if (!abs.data_inicio) return;
+              const dtAbs = new Date(abs.data_inicio + "T00:00:00");
+              if (dtAbs >= currMonthStart && dtAbs < nextMonthStart) {
+                const motivoClean = abs.motivo ? abs.motivo.toString().toLowerCase() : "";
+                if (!motivoClean.includes("atestado")) {
+                  horasFaltasSemAtestado += Number(abs.horas_perdidas) || 0;
+                }
+              }
+            });
+
+            if (horasFaltasSemAtestado < 15) {
+              diasAcc += 2.5;
+            }
+
+            currMonthStart = nextMonthStart;
+            if (mesesContados >= 12) break;
+          }
+
+          diasAcc = Math.min(30, diasAcc);
+
+          return {
+            diasAcumulados: Math.round(diasAcc * 10) / 10,
+            mesesTrabalhados: Math.min(12, mesesContados),
+          };
+        };
+
+        const calcularDataRetorno = (dataInicioStr, quantidadeDias) => {
+          if (!dataInicioStr || !quantidadeDias || isNaN(quantidadeDias))
+            return null;
+
+          let dias = parseInt(quantidadeDias);
+          let dataInicio = new Date(dataInicioStr + "T00:00:00");
+          let dataFim = new Date(dataInicioStr + "T00:00:00");
+          dataFim.setDate(dataFim.getDate() + dias - 1);
+
+          let dataRetorno = new Date(dataFim);
+          dataRetorno.setDate(dataRetorno.getDate() + 1);
+
+          if (dataRetorno.getDay() === 6) {
+            dataRetorno.setDate(dataRetorno.getDate() + 2);
+          } else if (dataRetorno.getDay() === 0) {
+            dataRetorno.setDate(dataRetorno.getDate() + 1);
+          }
+
+          return {
+            fim: dataFim.toISOString().split("T")[0],
+            retorno: dataRetorno.toISOString().split("T")[0],
+          };
+        };
+
+        useEffect(() => {
+          if (!feriasSelecionada) return;
+
+          const gozo = parseInt(diasProg) || 0;
+          const abono = parseInt(diasAbonados) || 0;
+          const totalConsumido = gozo + abono;
+          const saldoDisponivel =
+            feriasSelecionada.dias_saldo !== undefined && feriasSelecionada.dias_saldo !== null
+              ? feriasSelecionada.dias_saldo
+              : (feriasSelecionada.dias_direito || 30) - (feriasSelecionada.dias_gozados || 0);
+
+          if (abono > 10) {
+            setErroProg("O limite máximo para venda (abono) é de 10 dias.");
+            setDataFimProg("");
+            setDataRetornoCalc("");
+            return;
+          }
+          if (abono < 0 || gozo < 0) {
+            setErroProg("A quantidade de dias não pode ser negativa.");
+            setDataFimProg("");
+            setDataRetornoCalc("");
+            return;
+          }
+          if (totalConsumido > saldoDisponivel) {
+            setErroProg(
+              `A soma dos dias (${totalConsumido} dias) não pode ser maior que o saldo disponível (${saldoDisponivel} dias).`,
+            );
+            setDataFimProg("");
+            setDataRetornoCalc("");
+            return;
+          }
+
+          if (gozo > 0) {
+            if (!dataInicioProg) {
+              setErroProg("");
+              setDataFimProg("");
+              setDataRetornoCalc("");
+              return;
+            }
+            const dateObj = new Date(dataInicioProg + "T00:00:00");
+            const dayOfWeek = dateObj.getDay();
+
+            if (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0) {
+              setErroProg("As férias não podem iniciar na sexta, sábado ou domingo.");
+              setDataFimProg("");
+              setDataRetornoCalc("");
+            } else {
+              setErroProg("");
+              const result = calcularDataRetorno(dataInicioProg, diasProg);
+              if (result) {
+                setDataFimProg(result.fim);
+                setDataRetornoCalc(result.retorno);
+              }
+            }
+          } else if (abono > 0) {
+            setErroProg("");
+            setDataFimProg("");
+            setDataRetornoCalc("");
+          } else {
+            setErroProg("");
+            setDataFimProg("");
+            setDataRetornoCalc("");
+          }
+        }, [dataInicioProg, diasProg, diasAbonados, feriasSelecionada]);
+
+        const handleCancelarProgramacao = async (feriasObj) => {
+          if (
+            !window.confirm(
+              `Deseja realmente cancelar a programação de ${feriasObj.funcionario_nome}?`,
+            )
+          )
+            return;
+
+          try {
+            const saldoCalc = (feriasObj.dias_direito || 30) - (feriasObj.dias_gozados || 0);
+            const { error } = await supabase
+              .from("rh_ferias")
+              .update({
+                status: saldoCalc > 0 ? "pendente" : "concluidas",
+                data_inicio_programada: null,
+                dias_programados: null,
+                data_fim_programada: null,
+                data_retorno: null,
+                dias_abonados: 0,
+              })
+              .eq("id", feriasObj.id);
+
+            if (error) throw error;
+
+            loadData();
+          } catch (err) {
+            console.error("Erro ao cancelar programação:", err);
+            alert("Erro ao cancelar a programação.");
+          }
+        };
+
+        const handleSalvarProgramacao = async () => {
+          const gozoNum = parseInt(diasProg) || 0;
+          const abonoNum = parseInt(diasAbonados) || 0;
+
+          if (erroProg || (gozoNum === 0 && abonoNum === 0)) {
+            alert("Corrija os erros antes de salvar.");
+            return;
+          }
+          if (gozoNum > 0 && (!dataInicioProg || !dataRetornoCalc)) {
+            alert("Informe a data de início para os dias de férias.");
+            return;
+          }
+
+          setIsSaving(true);
+          try {
+            const hojeStr = new Date().toISOString().split("T")[0];
+            const isRetroativa = gozoNum > 0 ? (dataFimProg < hojeStr) : true;
+
+            const payload = {
+              dias_programados: gozoNum,
+              dias_abonados: abonoNum,
+            };
+
+            if (gozoNum > 0) {
+              payload.data_inicio_programada = dataInicioProg;
+              payload.data_fim_programada = dataFimProg;
+              payload.data_retorno = dataRetornoCalc;
+            }
+
+            if (isRetroativa) {
+              const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + gozoNum + abonoNum;
+              payload.status = "concluidas";
+              payload.dias_gozados = novosDiasGozados;
+            } else {
+              payload.status = "programadas";
+            }
+
+            delete payload.dias_saldo;
+
+            const { error } = await supabase
+              .from("rh_ferias")
+              .update(payload)
+              .eq("id", feriasSelecionada.id);
+
+            if (error) throw error;
+
+            setModalOpen(false);
+            setFeriasSelecionada(null);
+            setDataInicioProg("");
+            setDiasProg("");
+            setDiasAbonados("");
+            loadData();
+          } catch (err) {
+            console.error("Erro ao salvar:", err);
+            alert("Erro ao salvar programação.");
+          } finally {
+            setIsSaving(false);
+          }
+        };
+
+        // Filtro de férias
+        const feriasFiltradas = ferias.filter((f) => {
+          const matchTerm = f.funcionario_nome
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase());
+
+          const saldo = f.dias_saldo !== undefined && f.dias_saldo !== null
+            ? f.dias_saldo
+            : (f.dias_direito || 30) - (f.dias_gozados || 0);
+
+          let matchStatus = false;
+          if (filtroStatus === "todos") {
+            matchStatus = true;
+          } else if (filtroStatus === "pendente") {
+            matchStatus = saldo > 0 && f.status !== "programadas";
+          } else if (filtroStatus === "programadas") {
+            matchStatus = f.status === "programadas";
+          } else if (filtroStatus === "concluidas") {
+            matchStatus = f.dias_gozados > 0 || f.status === "concluidas";
+          }
+
+          return matchTerm && matchStatus;
+        });
+
+        // Estatísticas
+        const statVencendo = ferias.filter(
+          (f) => {
+            const saldo = f.dias_saldo !== undefined ? f.dias_saldo : (f.dias_direito - f.dias_gozados);
+            return calcDiasVencimento(f.data_vencimento) <= 90 && saldo > 0;
+          }
+        ).length;
+
+        const statSaldoTotal = ferias.reduce(
+          (acc, curr) => {
+            const saldo = curr.dias_saldo !== undefined ? curr.dias_saldo : ((curr.dias_direito || 30) - (curr.dias_gozados || 0));
+            return acc + (saldo || 0);
+          },
+          0,
+        );
+
+        if (isAuthChecking) {
+          return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
+            <header className="bg-[#002060] text-white shadow-md sticky top-0 z-50">
+              <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Clique para abrir Área Restrita do Administrador">
+                  <Shield size={28} className="text-[#E30613] group-hover:scale-110 transition-transform" />
+                  <div>
+                    <h1 className="text-xl font-extrabold tracking-tight leading-none group-hover:text-red-200 transition-colors">
+                      PRIME RH
+                    </h1>
+                    <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">
+                      Controle de Férias
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  className="md:hidden p-2 text-white"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                >
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
                   >
-                    EPI/Fardamento
-                  </a>
-                  <span className="text-sm font-bold text-white border-b-2 border-[#E30613] pb-1">
-                    Férias
-                  </span>
-                  <a
-                    href="indicadores.html"
-                    className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
-                  >
-                    Indicadores
-                  </a>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 text-red-300 hover:text-white ml-4 text-sm font-medium"
-                  >
-                    Sair
-                  </button>
-                </nav>
-=======
+                    <path d="M4 6h16M4 12h16M4 18h16"></path>
+                  </svg>
+                </button>
+
                 <nav className="hidden md:flex items-center gap-6">
                   <a
                     href="index.html"
@@ -52,26 +631,8 @@
                     Sair
                   </button>
                 </nav>
->>>>>>> REPLACE
-<<<<<<< SEARCH
-              {menuOpen && (
-                <nav className="md:hidden bg-[#001848] px-5 py-3 flex flex-col gap-3">
-                  <a
-                    href="index.html"
-                    className="text-sm font-medium text-slate-300"
-                  >
-                    EPI/Fardamento
-                  </a>
-                  <span className="text-sm font-bold text-white">
-                    Controle de Férias
-                  </span>
-                  <a
-                    href="indicadores.html"
-                    className="text-sm font-medium text-slate-300"
-                  >
-                    Indicadores de RH
-                  </a>
-=======
+              </div>
+
               {menuOpen && (
                 <nav className="md:hidden bg-[#001848] px-5 py-3 flex flex-col gap-3">
                   <a
@@ -95,4 +656,578 @@
                   >
                     Indicadores de RH
                   </a>
->>>>>>> REPLACE
+                  <hr className="border-slate-700 my-1" />
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm font-medium text-red-300 text-left"
+                  >
+                    Sair do Sistema
+                  </button>
+                </nav>
+              )}
+            {/* Modal de Acesso Restrito (Admin) */}
+            {isAdminModalOpen && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-gray-100 text-gray-800">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2.5 bg-red-50 text-[#E30613] rounded-xl">
+                      <Shield size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-[#002060]">
+                        Área Restrita
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Digite a senha de administrador
+                      </p>
+                    </div>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleVerifyAdminPassword();
+                    }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <input
+                        type="password"
+                        autoFocus
+                        placeholder="Senha de acesso"
+                        value={adminPasswordInput}
+                        onChange={(e) => setAdminPasswordInput(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] outline-none transition-all text-sm"
+                      />
+                      {adminPasswordError && (
+                        <p className="text-xs text-red-500 mt-1.5 font-medium">
+                          {adminPasswordError}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAdminModalOpen(false);
+                          setAdminPasswordError("");
+                          setAdminPasswordInput("");
+                        }}
+                        className="flex-1 bg-white hover:bg-gray-50 text-gray-600 font-semibold text-xs py-2.5 px-3 rounded-xl border border-gray-200 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 bg-[#002060] hover:bg-[#001848] text-white font-semibold text-xs py-2.5 px-3 rounded-xl transition-colors"
+                      >
+                        Acessar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+            </header>
+
+            <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Calendário e Saldos
+                  </h2>
+                  <p className="text-slate-500 text-sm">
+                    Acompanhe férias a vencer, acúmulo proporcional e saldos.
+                  </p>
+                </div>
+
+                <div className="flex gap-4 w-full md:w-auto">
+                  <div className="bg-orange-50 border border-orange-200 px-4 py-2 rounded-xl flex items-center gap-3">
+                    <AlertCircle size={20} className="text-orange-500" />
+                    <div>
+                      <p className="text-[10px] font-bold text-orange-600 uppercase">
+                        Vencendo (90 dias)
+                      </p>
+                      <p className="text-lg font-black text-orange-700 leading-none">
+                        {statVencendo}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl flex items-center gap-3">
+                    <Activity size={20} className="text-blue-500" />
+                    <div>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase">
+                        Total Dias (Passivo)
+                      </p>
+                      <p className="text-lg font-black text-blue-700 leading-none">
+                        {statSaldoTotal}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:overflow-visible bg-[#F8FAFC] md:bg-white border-transparent md:border-slate-200 shadow-none md:shadow-sm">
+                <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center">
+                  <div className="relative w-full md:w-96">
+                    <Search
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      size={18}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Buscar colaborador..."
+                      className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                    {["todos", "pendente", "programadas", "concluidas"].map(
+                      (st) => (
+                        <button
+                          key={st}
+                          onClick={() => setFiltroStatus(st)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors whitespace-nowrap ${
+                            filtroStatus === st
+                              ? "bg-[#002060] text-white"
+                              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                          }`}
+                        >
+                          {st === "todos"
+                            ? "Todos"
+                            : st === "pendente"
+                            ? "Com Saldo"
+                            : st}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {isLoading ? (
+                    <div className="p-8 text-center text-slate-500">
+                      Carregando informações de férias...
+                    </div>
+                  ) : feriasFiltradas.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500">
+                      Nenhum registro encontrado.
+                    </div>
+                  ) : (
+                    <table className="w-full text-left border-collapse hidden md:table text-sm">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                          <th className="px-4 py-3 font-bold">Colaborador</th>
+                          <th className="px-4 py-3 font-bold">Período Aquisitivo</th>
+                          <th className="px-4 py-3 font-bold">Acúmulo Proporcional</th>
+                          <th className="px-4 py-3 font-bold">Vencimento</th>
+                          <th className="px-4 py-3 font-bold text-center">Direito</th>
+                          <th className="px-4 py-3 font-bold text-center">Gozados</th>
+                          <th className="px-4 py-3 font-bold text-center">Abono</th>
+                          <th className="px-4 py-3 font-bold text-center">Saldo</th>
+                          <th className="px-4 py-3 font-bold">Status</th>
+                          <th className="px-4 py-3 font-bold text-center">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {feriasFiltradas.map((f, i) => {
+                          const diasVenc = calcDiasVencimento(f.data_vencimento);
+                          const saldoCalc = f.dias_saldo !== undefined && f.dias_saldo !== null
+                            ? f.dias_saldo
+                            : (f.dias_direito || 30) - (f.dias_gozados || 0);
+
+                          const isVencendo = diasVenc <= 90 && saldoCalc > 0;
+                          const prop = calcularAcumuloProporcional(f);
+
+                          let isEmFerias = false;
+                          if (
+                            f.status === "programadas" &&
+                            f.data_inicio_programada &&
+                            f.data_fim_programada
+                          ) {
+                            const hoje = new Date();
+                            hoje.setHours(0, 0, 0, 0);
+                            const dataInicio = new Date(f.data_inicio_programada + "T00:00:00");
+                            const dataFim = new Date(f.data_fim_programada + "T00:00:00");
+                            isEmFerias = hoje >= dataInicio && hoje <= dataFim;
+                          }
+
+                          let statusColor = "bg-slate-100 text-slate-700";
+                          if (f.status === "programadas") statusColor = "bg-blue-100 text-blue-700";
+                          if (f.status === "concluidas") statusColor = "bg-green-100 text-green-700";
+                          if (f.status === "pendente") statusColor = "bg-yellow-100 text-yellow-700";
+
+                          return (
+                            <tr key={f.id || i} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 font-bold text-gray-800">
+                                <div className="flex items-center gap-2 whitespace-nowrap">
+                                  <span className="truncate max-w-[200px] xl:max-w-xs">
+                                    {f.funcionario_nome}
+                                  </span>
+                                  {isEmFerias && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-purple-100 text-purple-700 border border-purple-200 shadow-sm shrink-0">
+                                      Em Férias
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-xs whitespace-nowrap">
+                                {formatData(f.data_inicio_aquisitivo)} a{" "}
+                                {formatData(f.data_fim_aquisitivo)}
+                              </td>
+                              <td className="px-4 py-3 text-xs whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  {prop.diasAcumulados} dias ({prop.mesesTrabalhados}m)
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-semibold ${isVencendo ? "text-red-600" : ""}`}>
+                                    {formatData(f.data_vencimento)}
+                                  </span>
+                                  {isVencendo && (
+                                    <span className="flex h-2 w-2 rounded-full bg-red-500" title="Vence em breve"></span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-center">{f.dias_direito}</td>
+                              <td className="px-4 py-3 text-center">{f.dias_gozados}</td>
+                              <td className="px-4 py-3 text-center">{f.dias_abonados || 0}</td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`inline-flex items-center justify-center min-w-[30px] px-2 py-1 rounded font-bold text-xs ${saldoCalc > 0 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                                  {saldoCalc}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex flex-col items-start gap-1">
+                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
+                                    {f.status}
+                                  </span>
+                                  {f.status === "programadas" && f.data_inicio_programada && (
+                                    <span className="text-[10px] text-slate-500 font-medium">
+                                      {formatData(f.data_inicio_programada)} a {formatData(f.data_fim_programada)} ({f.dias_programados}d)
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-2">
+                                  {saldoCalc > 0 && f.status !== "programadas" && (
+                                    <button
+                                      onClick={() => {
+                                        setFeriasSelecionada(f);
+                                        setDataInicioProg("");
+                                        setDiasProg("");
+                                        setDiasAbonados("");
+                                        setModalOpen(true);
+                                      }}
+                                      className="inline-flex items-center gap-1 bg-[#002060] text-white px-2 py-1.5 rounded text-xs font-medium hover:bg-blue-800 transition-colors"
+                                    >
+                                      <Calendar size={14} />
+                                      Programar
+                                    </button>
+                                  )}
+
+                                  {f.status === "programadas" && (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setFeriasSelecionada(f);
+                                          setDataInicioProg(f.data_inicio_programada || "");
+                                          setDiasProg(f.dias_programados || "");
+                                          setDiasAbonados(f.dias_abonados || "");
+                                          setModalOpen(true);
+                                        }}
+                                        disabled={isEmFerias}
+                                        className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
+                                          isEmFerias
+                                            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                            : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                        }`}
+                                        title={isEmFerias ? "Edição desabilitada durante o gozo" : "Editar Programação"}
+                                      >
+                                        <Pencil size={14} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleCancelarProgramacao(f)}
+                                        disabled={isEmFerias}
+                                        className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${
+                                          isEmFerias
+                                            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                            : "bg-red-50 text-red-600 hover:bg-red-100"
+                                        }`}
+                                        title={isEmFerias ? "Cancelamento desabilitado durante o gozo" : "Cancelar Programação"}
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {/* MOBILE CARDS LAYOUT */}
+                  {!isLoading && feriasFiltradas.length > 0 && (
+                    <div className="md:hidden flex flex-col gap-4 p-4 bg-[#F8FAFC]">
+                      {feriasFiltradas.map((f, i) => {
+                        const diasVenc = calcDiasVencimento(f.data_vencimento);
+                        const saldoCalc = f.dias_saldo !== undefined && f.dias_saldo !== null
+                          ? f.dias_saldo
+                          : (f.dias_direito || 30) - (f.dias_gozados || 0);
+
+                        const isVencendo = diasVenc <= 90 && saldoCalc > 0;
+                        const prop = calcularAcumuloProporcional(f);
+
+                        let isEmFerias = false;
+                        if (
+                          f.status === "programadas" &&
+                          f.data_inicio_programada &&
+                          f.data_fim_programada
+                        ) {
+                          const hoje = new Date();
+                          hoje.setHours(0, 0, 0, 0);
+                          const dataInicio = new Date(f.data_inicio_programada + "T00:00:00");
+                          const dataFim = new Date(f.data_fim_programada + "T00:00:00");
+                          isEmFerias = hoje >= dataInicio && hoje <= dataFim;
+                        }
+
+                        return (
+                          <div key={f.id || i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="font-bold text-gray-800 text-base">{f.funcionario_nome}</h3>
+                                <p className="text-xs text-slate-500">
+                                  Período: {formatData(f.data_inicio_aquisitivo)} a {formatData(f.data_fim_aquisitivo)}
+                                </p>
+                              </div>
+                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${f.status === "programadas" ? "bg-blue-100 text-blue-700" : f.status === "concluidas" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                {f.status}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                              <div>
+                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Acúmulo Proporcional</span>
+                                <span className="font-bold text-emerald-700">{prop.diasAcumulados} dias ({prop.mesesTrabalhados}m)</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Vencimento</span>
+                                <span className={`font-bold ${isVencendo ? "text-red-600" : "text-slate-800"}`}>{formatData(f.data_vencimento)}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Gozados / Abono</span>
+                                <span className="font-semibold text-slate-700">{f.dias_gozados}d gozo / {f.dias_abonados || 0}d abono</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Saldo Disponível</span>
+                                <span className={`font-black ${saldoCalc > 0 ? "text-blue-600" : "text-slate-500"}`}>{saldoCalc} dias</span>
+                              </div>
+                            </div>
+
+                            {saldoCalc > 0 && f.status !== "programadas" && (
+                              <button
+                                onClick={() => {
+                                  setFeriasSelecionada(f);
+                                  setDataInicioProg("");
+                                  setDiasProg("");
+                                  setDiasAbonados("");
+                                  setModalOpen(true);
+                                }}
+                                className="w-full bg-[#002060] text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2"
+                              >
+                                <Calendar size={16} /> Programar Férias
+                              </button>
+                            )}
+
+                            {f.status === "programadas" && (
+                              <div className="flex w-full gap-2">
+                                <button
+                                  onClick={() => {
+                                    setFeriasSelecionada(f);
+                                    setDataInicioProg(f.data_inicio_programada || "");
+                                    setDiasProg(f.dias_programados || "");
+                                    setDiasAbonados(f.dias_abonados || "");
+                                    setModalOpen(true);
+                                  }}
+                                  disabled={isEmFerias}
+                                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                                >
+                                  <Pencil size={16} /> Editar
+                                </button>
+                                <button
+                                  onClick={() => handleCancelarProgramacao(f)}
+                                  disabled={isEmFerias}
+                                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                                >
+                                  <Trash2 size={16} /> Cancelar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </main>
+
+            {/* MODAL PROGRAMAR FÉRIAS */}
+            {modalOpen && feriasSelecionada && (
+              <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <Calendar size={20} />
+                      Programar / Vender Férias
+                    </h3>
+                    <button
+                      onClick={() => setModalOpen(false)}
+                      className="text-white/80 hover:text-white"
+                    >
+                      <XCircle size={24} />
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">
+                        {feriasSelecionada.funcionario_nome}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Saldo disponível:{" "}
+                        <span className="font-bold text-blue-600">
+                          {feriasSelecionada.dias_saldo !== undefined && feriasSelecionada.dias_saldo !== null
+                            ? feriasSelecionada.dias_saldo
+                            : (feriasSelecionada.dias_direito || 30) - (feriasSelecionada.dias_gozados || 0)} dias
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          Data Início
+                        </label>
+                        <input
+                          type="date"
+                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={dataInicioProg}
+                          onChange={(e) => setDataInicioProg(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          Dias Gozo
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="0"
+                          value={diasProg}
+                          onChange={(e) => setDiasProg(e.target.value)}
+                          min="0"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          Venda (Abono)
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="Máx 10"
+                          value={diasAbonados}
+                          onChange={(e) => setDiasAbonados(e.target.value)}
+                          min="0"
+                          max="10"
+                        />
+                      </div>
+                    </div>
+
+                    {erroProg && (
+                      <div className="bg-red-50 text-red-700 text-xs p-2.5 rounded-lg border border-red-200 flex items-start gap-2">
+                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                        <span>{erroProg}</span>
+                      </div>
+                    )}
+
+                    {!erroProg && (dataRetornoCalc || parseInt(diasAbonados) > 0) && (
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 space-y-1">
+                        {dataRetornoCalc && (
+                          <>
+                            <p className="text-xs text-slate-600">
+                              Período: <strong>{formatData(dataInicioProg)}</strong>{" "}
+                              a <strong>{formatData(dataFimProg)}</strong>
+                            </p>
+                            <p className="text-sm text-blue-800">
+                              Retorno ao trabalho:{" "}
+                              <strong>{formatData(dataRetornoCalc)}</strong>
+                            </p>
+                          </>
+                        )}
+                        {parseInt(diasAbonados) > 0 && (
+                          <p className="text-xs text-blue-900 font-semibold">
+                            Venda de Férias (Abono): <strong>{diasAbonados} dias</strong>
+                          </p>
+                        )}
+                        {((dataFimProg && dataFimProg < new Date().toISOString().split("T")[0]) || (!diasProg && parseInt(diasAbonados) > 0)) && (
+                          <div className="mt-2 pt-2 border-t border-blue-200 text-xs text-amber-800 bg-amber-50/80 p-2 rounded-lg flex items-start gap-2 font-medium">
+                            <CheckCheck size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                            <span>
+                              {parseInt(diasAbonados) > 0 && !diasProg
+                                ? "Lançamento de venda de férias. Ao salvar, o saldo do colaborador será atualizado e marcado como Concluído."
+                                : "Este período é retroativo (fim menor que a data de hoje). Ao salvar, as férias serão registradas diretamente como Concluídas e o saldo do colaborador será atualizado."}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+                      <button
+                        onClick={() => setModalOpen(false)}
+                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSalvarProgramacao}
+                        disabled={
+                          !!erroProg ||
+                          (parseInt(diasProg) || 0) + (parseInt(diasAbonados) || 0) === 0 ||
+                          ((parseInt(diasProg) || 0) > 0 && (!dataInicioProg || !dataRetornoCalc)) ||
+                          isSaving
+                        }
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2"
+                      >
+                        {isSaving ? (
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        ) : (
+                          <CheckCircle2 size={16} />
+                        )}
+                        Salvar Programação
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
