@@ -434,6 +434,12 @@ function sincronizarAtivosParaFerias() {
     const dtDesligamentoVal = movData[i][2];
     const cpfVal = movData[i][4] ? limparCPF(movData[i][4]) : "";
 
+    if (nome && dtDesligamentoVal && dtDesligamentoVal.toString().trim() !== "") {
+      // Se houver data de desligamento, garante que seja removido de férias e absenteísmo
+      verificarETratarDesligamento(nome, dtDesligamentoVal);
+      continue;
+    }
+
     if (nome && dtAdmissaoVal && (!dtDesligamentoVal || dtDesligamentoVal.toString().trim() === "")) {
       const nomeUpper = nome.toUpperCase();
       if (!feriasNomesSet.has(nomeUpper)) {

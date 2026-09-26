@@ -234,6 +234,8 @@
           }
         };
 
+        const [movimentacoes, setMovimentacoes] = useState([]);
+
         const loadData = async () => {
           setIsLoading(true);
           try {
@@ -248,12 +250,42 @@
               .from("rh_absenteismo")
               .select("*");
             setAbsenteismo(absData || []);
+
+            const { data: movData } = await supabase
+              .from("rh_movimentacoes")
+              .select("*");
+            setMovimentacoes(movData || []);
           } catch (error) {
             console.error("Erro ao carregar dados:", error);
           } finally {
             setIsLoading(false);
           }
         };
+
+        // Helper para calcular saldo real de férias: DIREITO - GOZADOS - ABONO
+        const calcularSaldoFerias = (f) => {
+          if (!f) return 0;
+          const direito = f.dias_direito || 30;
+          const gozados = f.dias_gozados || 0;
+          const abonados = f.dias_abonados || 0;
+          return direito - gozados - abonados;
+        };
+
+        // Helper para verificar se colaborador foi desligado
+        const isDesligado = (f) => {
+          if (!f) return false;
+          const cpfClean = f.cpf ? f.cpf.replace(/\D/g, "") : "";
+          const nomeClean = f.funcionario_nome ? f.funcionario_nome.trim().toUpperCase() : "";
+          return movimentacoes.some((m) => {
+            if (!m.data_desligamento) return false;
+            const mCpfClean = m.cpf ? m.cpf.replace(/\D/g, "") : "";
+            const mNomeClean = m.funcionario_nome ? m.funcionario_nome.trim().toUpperCase() : "";
+            if (cpfClean && mCpfClean && cpfClean === mCpfClean) return true;
+            if (nomeClean && mNomeClean && nomeClean === mNomeClean) return true;
+            return false;
+          });
+        };
+
 
         const handleLogout = async () => {
           await supabase.auth.signOut();
@@ -372,10 +404,7 @@
           const gozo = parseInt(diasProg) || 0;
           const abono = parseInt(diasAbonados) || 0;
           const totalConsumido = gozo + abono;
-          const saldoDisponivel =
-            feriasSelecionada.dias_saldo !== undefined && feriasSelecionada.dias_saldo !== null
-              ? feriasSelecionada.dias_saldo
-              : (feriasSelecionada.dias_direito || 30) - (feriasSelecionada.dias_gozados || 0);
+          const saldoDisponivel = calcularSaldoFerias(feriasSelecionada);
 
           if (abono > 10) {
             setErroProg("O limite máximo para venda (abono) é de 10 dias.");
@@ -440,7 +469,7 @@
             return;
 
           try {
-            const saldoCalc = (feriasObj.dias_direito || 30) - (feriasObj.dias_gozados || 0);
+            const saldoCalc = calcularSaldoFerias(feriasObj);
             const { error } = await supabase
               .from("rh_ferias")
               .update({
@@ -492,9 +521,12 @@
             }
 
             if (isRetroativa) {
-              const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + gozoNum + abonoNum;
-              payload.status = "concluidas";
+              const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + gozoNum;
+              const novosDiasAbonados = (feriasSelecionada.dias_abonados || 0) + abonoNum;
+              const saldoRemanescente = (feriasSelecionada.dias_direito || 30) - novosDiasGozados - novosDiasAbonados;
+              payload.status = saldoRemanescente <= 0 ? "concluidas" : "pendente";
               payload.dias_gozados = novosDiasGozados;
+              payload.dias_abonados = novosDiasAbonados;
             } else {
               payload.status = "programadas";
             }
@@ -522,15 +554,15 @@
           }
         };
 
-        // Filtro de férias
+        // Filtro de férias (oculta colaboradores desligados)
         const feriasFiltradas = ferias.filter((f) => {
-          const matchTerm = f.funcionario_nome
+          if (isDesligado(f)) return false;
+
+          const matchTerm = (f.funcionario_nome || "")
             .toLowerCase()
             .includes(searchTerm.toLowerCase());
 
-          const saldo = f.dias_saldo !== undefined && f.dias_saldo !== null
-            ? f.dias_saldo
-            : (f.dias_direito || 30) - (f.dias_gozados || 0);
+          const saldo = calcularSaldoFerias(f);
 
           let matchStatus = false;
           if (filtroStatus === "todos") {
@@ -540,23 +572,25 @@
           } else if (filtroStatus === "programadas") {
             matchStatus = f.status === "programadas";
           } else if (filtroStatus === "concluidas") {
-            matchStatus = f.dias_gozados > 0 || f.status === "concluidas";
+            matchStatus = (f.dias_gozados > 0 || f.dias_abonados > 0 || f.status === "concluidas") && saldo === 0;
           }
 
           return matchTerm && matchStatus;
         });
 
-        // Estatísticas
+        // Estatísticas (filtrando colaboradores ativos)
         const statVencendo = ferias.filter(
           (f) => {
-            const saldo = f.dias_saldo !== undefined ? f.dias_saldo : (f.dias_direito - f.dias_gozados);
+            if (isDesligado(f)) return false;
+            const saldo = calcularSaldoFerias(f);
             return calcDiasVencimento(f.data_vencimento) <= 90 && saldo > 0;
           }
         ).length;
 
         const statSaldoTotal = ferias.reduce(
           (acc, curr) => {
-            const saldo = curr.dias_saldo !== undefined ? curr.dias_saldo : ((curr.dias_direito || 30) - (curr.dias_gozados || 0));
+            if (isDesligado(curr)) return acc;
+            const saldo = calcularSaldoFerias(curr);
             return acc + (saldo || 0);
           },
           0,
@@ -836,9 +870,7 @@
                       <tbody className="divide-y divide-slate-200">
                         {feriasFiltradas.map((f, i) => {
                           const diasVenc = calcDiasVencimento(f.data_vencimento);
-                          const saldoCalc = f.dias_saldo !== undefined && f.dias_saldo !== null
-                            ? f.dias_saldo
-                            : (f.dias_direito || 30) - (f.dias_gozados || 0);
+                          const saldoCalc = calcularSaldoFerias(f);
 
                           const isVencendo = diasVenc <= 90 && saldoCalc > 0;
                           const prop = calcularAcumuloProporcional(f);
@@ -980,9 +1012,7 @@
                     <div className="md:hidden flex flex-col gap-4 p-4 bg-[#F8FAFC]">
                       {feriasFiltradas.map((f, i) => {
                         const diasVenc = calcDiasVencimento(f.data_vencimento);
-                        const saldoCalc = f.dias_saldo !== undefined && f.dias_saldo !== null
-                          ? f.dias_saldo
-                          : (f.dias_direito || 30) - (f.dias_gozados || 0);
+                        const saldoCalc = calcularSaldoFerias(f);
 
                         const isVencendo = diasVenc <= 90 && saldoCalc > 0;
                         const prop = calcularAcumuloProporcional(f);
@@ -1106,9 +1136,7 @@
                       <p className="text-xs text-slate-500">
                         Saldo disponível:{" "}
                         <span className="font-bold text-blue-600">
-                          {feriasSelecionada.dias_saldo !== undefined && feriasSelecionada.dias_saldo !== null
-                            ? feriasSelecionada.dias_saldo
-                            : (feriasSelecionada.dias_direito || 30) - (feriasSelecionada.dias_gozados || 0)} dias
+                          {calcularSaldoFerias(feriasSelecionada)} dias
                         </span>
                       </p>
                     </div>
