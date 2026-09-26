@@ -175,7 +175,7 @@ function addMonths(dateObj, months) {
 // Limpa CPF mantendo apenas dígitos (chave/id de colaborador)
 function limparCPF(cpfVal) {
   if (!cpfVal) return "";
-  return cpfVal.toString().replace(/\D/g, "");
+  return cpfVal.toString().trim().replace(/\D/g, "");
 }
 
 // ==========================================
