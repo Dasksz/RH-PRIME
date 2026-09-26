@@ -173,6 +173,9 @@
           dias_direito: 30,
           dias_gozados: 0,
           dias_abonados: 0,
+          data_inicio_programada: "",
+          data_fim_programada: "",
+          data_retorno: "",
           data_inicio_aquisitivo: "",
           data_fim_aquisitivo: "",
           data_vencimento: "",
@@ -511,12 +514,33 @@
             dias_direito: f.dias_direito || 30,
             dias_gozados: f.dias_gozados || 0,
             dias_abonados: f.dias_abonados || 0,
+            data_inicio_programada: f.data_inicio_programada || "",
+            data_fim_programada: f.data_fim_programada || "",
+            data_retorno: f.data_retorno || "",
             data_inicio_aquisitivo: f.data_inicio_aquisitivo || "",
             data_fim_aquisitivo: f.data_fim_aquisitivo || "",
             data_vencimento: f.data_vencimento || "",
             status: f.status || "pendente",
           });
           setIsEditLaunchModalOpen(true);
+        };
+
+        const handleEditLaunchDateChange = (field, val, currentData) => {
+          const newData = { ...currentData, [field]: val };
+          if ((field === "data_inicio_programada" || field === "dias_gozados") && newData.data_inicio_programada) {
+            const gozo = parseInt(newData.dias_gozados) || 0;
+            if (gozo > 0) {
+              const dtIni = new Date(newData.data_inicio_programada + "T00:00:00");
+              const dtFim = new Date(dtIni);
+              dtFim.setDate(dtFim.getDate() + gozo - 1);
+              newData.data_fim_programada = dtFim.toISOString().split("T")[0];
+
+              const dtRet = new Date(dtFim);
+              dtRet.setDate(dtRet.getDate() + 1);
+              newData.data_retorno = dtRet.toISOString().split("T")[0];
+            }
+          }
+          setEditLaunchData(newData);
         };
 
         const handleSalvarEditLaunch = async (e) => {
@@ -533,6 +557,9 @@
               dias_direito: direitoNum,
               dias_gozados: gozoNum,
               dias_abonados: abonoNum,
+              data_inicio_programada: editLaunchData.data_inicio_programada || null,
+              data_fim_programada: editLaunchData.data_fim_programada || null,
+              data_retorno: editLaunchData.data_retorno || null,
               data_inicio_aquisitivo: editLaunchData.data_inicio_aquisitivo || null,
               data_fim_aquisitivo: editLaunchData.data_fim_aquisitivo || null,
               data_vencimento: editLaunchData.data_vencimento || null,
@@ -1242,7 +1269,7 @@
                           min="0"
                           value={editLaunchData.dias_direito}
                           onChange={(e) => setEditLaunchData({ ...editLaunchData, dias_direito: e.target.value })}
-                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none font-bold"
                         />
                       </div>
                       <div>
@@ -1254,8 +1281,8 @@
                           required
                           min="0"
                           value={editLaunchData.dias_gozados}
-                          onChange={(e) => setEditLaunchData({ ...editLaunchData, dias_gozados: e.target.value })}
-                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                          onChange={(e) => handleEditLaunchDateChange("dias_gozados", e.target.value, editLaunchData)}
+                          className="w-full border border-blue-400 bg-blue-50/50 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none font-bold text-blue-900"
                         />
                       </div>
                       <div>
@@ -1268,8 +1295,49 @@
                           min="0"
                           value={editLaunchData.dias_abonados}
                           onChange={(e) => setEditLaunchData({ ...editLaunchData, dias_abonados: e.target.value })}
-                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none font-bold"
                         />
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                      <p className="text-xs font-bold text-[#002060] uppercase flex items-center gap-1.5">
+                        <Calendar size={14} /> Período de Gozo das Férias
+                      </p>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                            Data Início
+                          </label>
+                          <input
+                            type="date"
+                            value={editLaunchData.data_inicio_programada}
+                            onChange={(e) => handleEditLaunchDateChange("data_inicio_programada", e.target.value, editLaunchData)}
+                            className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-600 outline-none bg-white font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                            Data Fim
+                          </label>
+                          <input
+                            type="date"
+                            value={editLaunchData.data_fim_programada}
+                            onChange={(e) => setEditLaunchData({ ...editLaunchData, data_fim_programada: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-600 outline-none bg-white font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                            Data Retorno
+                          </label>
+                          <input
+                            type="date"
+                            value={editLaunchData.data_retorno}
+                            onChange={(e) => setEditLaunchData({ ...editLaunchData, data_retorno: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-600 outline-none bg-white font-semibold"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -1282,7 +1350,7 @@
                           type="date"
                           value={editLaunchData.data_inicio_aquisitivo}
                           onChange={(e) => setEditLaunchData({ ...editLaunchData, data_inicio_aquisitivo: e.target.value })}
-                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-600 outline-none"
                         />
                       </div>
                       <div>
@@ -1293,7 +1361,7 @@
                           type="date"
                           value={editLaunchData.data_fim_aquisitivo}
                           onChange={(e) => setEditLaunchData({ ...editLaunchData, data_fim_aquisitivo: e.target.value })}
-                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-600 outline-none"
                         />
                       </div>
                     </div>
@@ -1307,7 +1375,7 @@
                           type="date"
                           value={editLaunchData.data_vencimento}
                           onChange={(e) => setEditLaunchData({ ...editLaunchData, data_vencimento: e.target.value })}
-                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-600 outline-none"
                         />
                       </div>
 
@@ -1318,7 +1386,7 @@
                         <select
                           value={editLaunchData.status}
                           onChange={(e) => setEditLaunchData({ ...editLaunchData, status: e.target.value })}
-                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-600 outline-none font-bold"
                         >
                           <option value="pendente">Pendente</option>
                           <option value="programadas">Programadas</option>
