@@ -166,6 +166,18 @@
         const [diasAbonados, setDiasAbonados] = useState("");
         const [erroProg, setErroProg] = useState("");
         const [isSaving, setIsSaving] = useState(false);
+        const [isEditLaunchModalOpen, setIsEditLaunchModalOpen] = useState(false);
+        const [editLaunchData, setEditLaunchData] = useState({
+          id: null,
+          funcionario_nome: "",
+          dias_direito: 30,
+          dias_gozados: 0,
+          dias_abonados: 0,
+          data_inicio_aquisitivo: "",
+          data_fim_aquisitivo: "",
+          data_vencimento: "",
+          status: "pendente",
+        });
 
         useEffect(() => {
           checkSession();
@@ -488,6 +500,60 @@
           } catch (err) {
             console.error("Erro ao cancelar programação:", err);
             alert("Erro ao cancelar a programação.");
+          }
+        };
+
+        const handleOpenEditLaunch = (f) => {
+          setFeriasSelecionada(f);
+          setEditLaunchData({
+            id: f.id,
+            funcionario_nome: f.funcionario_nome,
+            dias_direito: f.dias_direito || 30,
+            dias_gozados: f.dias_gozados || 0,
+            dias_abonados: f.dias_abonados || 0,
+            data_inicio_aquisitivo: f.data_inicio_aquisitivo || "",
+            data_fim_aquisitivo: f.data_fim_aquisitivo || "",
+            data_vencimento: f.data_vencimento || "",
+            status: f.status || "pendente",
+          });
+          setIsEditLaunchModalOpen(true);
+        };
+
+        const handleSalvarEditLaunch = async (e) => {
+          e.preventDefault();
+          if (!editLaunchData.id) return;
+
+          setIsSaving(true);
+          try {
+            const gozoNum = parseInt(editLaunchData.dias_gozados) || 0;
+            const abonoNum = parseInt(editLaunchData.dias_abonados) || 0;
+            const direitoNum = parseInt(editLaunchData.dias_direito) || 30;
+
+            const payload = {
+              dias_direito: direitoNum,
+              dias_gozados: gozoNum,
+              dias_abonados: abonoNum,
+              data_inicio_aquisitivo: editLaunchData.data_inicio_aquisitivo || null,
+              data_fim_aquisitivo: editLaunchData.data_fim_aquisitivo || null,
+              data_vencimento: editLaunchData.data_vencimento || null,
+              status: editLaunchData.status,
+            };
+
+            const { error } = await supabase
+              .from("rh_ferias")
+              .update(payload)
+              .eq("id", editLaunchData.id);
+
+            if (error) throw error;
+
+            alert("Lançamento de férias atualizado com sucesso!");
+            setIsEditLaunchModalOpen(false);
+            loadData();
+          } catch (err) {
+            console.error("Erro ao atualizar lançamento de férias:", err);
+            alert("Erro ao atualizar lançamento: " + err.message);
+          } finally {
+            setIsSaving(false);
           }
         };
 
@@ -947,8 +1013,23 @@
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-center whitespace-nowrap">
-                                <div className="flex items-center justify-center gap-2">
-                                  {saldoCalc > 0 && f.status !== "programadas" && (
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleOpenEditLaunch(f)}
+                                    className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                                    title="Editar Lançamento (Dias gozados/abono/datas)"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <div className="flex gap-2 w-full mb-2">
+                              <button
+                                onClick={() => handleOpenEditLaunch(f)}
+                                className="flex-1 bg-slate-100 text-slate-700 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center gap-1 hover:bg-slate-200 border border-slate-300"
+                              >
+                                <Pencil size={14} /> Editar Lançamento
+                              </button>
+                            </div>
+                            {saldoCalc > 0 && f.status !== "programadas" && (
                                     <button
                                       onClick={() => {
                                         setFeriasSelecionada(f);
@@ -1063,6 +1144,14 @@
                               </div>
                             </div>
 
+                            <div className="flex gap-2 w-full mb-2">
+                              <button
+                                onClick={() => handleOpenEditLaunch(f)}
+                                className="flex-1 bg-slate-100 text-slate-700 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center gap-1 hover:bg-slate-200 border border-slate-300"
+                              >
+                                <Pencil size={14} /> Editar Lançamento
+                              </button>
+                            </div>
                             {saldoCalc > 0 && f.status !== "programadas" && (
                               <button
                                 onClick={() => {
@@ -1110,6 +1199,159 @@
                 </div>
               </div>
             </main>
+
+
+            {/* MODAL EDITAR LANÇAMENTO DE FÉRIAS */}
+            {isEditLaunchModalOpen && (
+              <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+                  <div className="bg-[#002060] p-4 text-white flex justify-between items-center">
+                    <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
+                      <Pencil size={20} />
+                      Editar Lançamento de Férias
+                    </h3>
+                    <button
+                      onClick={() => setIsEditLaunchModalOpen(false)}
+                      className="text-white/80 hover:text-white"
+                    >
+                      <XCircle size={22} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSalvarEditLaunch} className="p-5 space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Colaborador
+                      </label>
+                      <input
+                        type="text"
+                        disabled
+                        value={editLaunchData.funcionario_nome}
+                        className="w-full bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-sm font-bold text-slate-800"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Dias Direito
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="0"
+                          value={editLaunchData.dias_direito}
+                          onChange={(e) => setEditLaunchData({ ...editLaunchData, dias_direito: e.target.value })}
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Dias Gozados
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="0"
+                          value={editLaunchData.dias_gozados}
+                          onChange={(e) => setEditLaunchData({ ...editLaunchData, dias_gozados: e.target.value })}
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Dias Abono
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="0"
+                          value={editLaunchData.dias_abonados}
+                          onChange={(e) => setEditLaunchData({ ...editLaunchData, dias_abonados: e.target.value })}
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Início P. Aquisitivo
+                        </label>
+                        <input
+                          type="date"
+                          value={editLaunchData.data_inicio_aquisitivo}
+                          onChange={(e) => setEditLaunchData({ ...editLaunchData, data_inicio_aquisitivo: e.target.value })}
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Fim P. Aquisitivo
+                        </label>
+                        <input
+                          type="date"
+                          value={editLaunchData.data_fim_aquisitivo}
+                          onChange={(e) => setEditLaunchData({ ...editLaunchData, data_fim_aquisitivo: e.target.value })}
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Data Vencimento
+                        </label>
+                        <input
+                          type="date"
+                          value={editLaunchData.data_vencimento}
+                          onChange={(e) => setEditLaunchData({ ...editLaunchData, data_vencimento: e.target.value })}
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Status
+                        </label>
+                        <select
+                          value={editLaunchData.status}
+                          onChange={(e) => setEditLaunchData({ ...editLaunchData, status: e.target.value })}
+                          className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
+                        >
+                          <option value="pendente">Pendente</option>
+                          <option value="programadas">Programadas</option>
+                          <option value="concluidas">Concluídas</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditLaunchModalOpen(false)}
+                        className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-sm"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="px-6 py-2.5 text-white bg-[#002060] hover:bg-blue-900 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm"
+                      >
+                        {isSaving ? (
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        ) : (
+                          <CheckCircle2 size={16} />
+                        )}
+                        Salvar Alterações
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {/* MODAL PROGRAMAR FÉRIAS */}
             {modalOpen && feriasSelecionada && (
