@@ -670,6 +670,15 @@
 
           return matchTerm && matchStatus;
         }).sort((a, b) => {
+          const saldoA = calcularSaldoFerias(a);
+          const saldoB = calcularSaldoFerias(b);
+          const temSaldoA = saldoA > 0 ? 1 : 0;
+          const temSaldoB = saldoB > 0 ? 1 : 0;
+
+          if (temSaldoA !== temSaldoB) {
+            return temSaldoB - temSaldoA; // com saldo (> 0) vem primeiro
+          }
+
           if (!a.data_vencimento) return 1;
           if (!b.data_vencimento) return -1;
           return a.data_vencimento.localeCompare(b.data_vencimento);
