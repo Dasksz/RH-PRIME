@@ -393,6 +393,8 @@
             local_registro: colab.local_registro || "NUNES & VIEIRA LOGISTICA LTDA",
             whatsapp: colab.whatsapp || "",
             carga_horaria: colab.carga_horaria || 220,
+            data_desligamento: colab.data_desligamento || "",
+            motivo_saida: colab.motivo_saida || "voluntario",
           });
           setFormErro("");
           setIsEditarModalOpen(true);
@@ -560,6 +562,70 @@
 
             if (editErr) throw editErr;
 
+            if (formData.data_desligamento) {
+              const { data: existingMov } = await supabase
+                .from("rh_movimentacoes")
+                .select("id")
+                .or(`cpf.eq.${cpfClean},funcionario_nome.eq.${formData.nome.trim().toUpperCase()}`)
+                .maybeSingle();
+
+              if (existingMov) {
+                await supabase
+                  .from("rh_movimentacoes")
+                  .update({
+                    data_desligamento: formData.data_desligamento,
+                    motivo_saida: formData.motivo_saida,
+                  })
+                  .eq("id", existingMov.id);
+              } else {
+                await supabase.from("rh_movimentacoes").insert([
+                  {
+                    funcionario_nome: formData.nome.trim().toUpperCase(),
+                    cpf: cpfClean,
+                    data_admissao: formData.admissao,
+                    data_desligamento: formData.data_desligamento,
+                    motivo_saida: formData.motivo_saida,
+                  },
+                ]);
+              }
+
+              const desligadoPayload = {
+                cpf: cpfClean,
+                nome: formData.nome.trim().toUpperCase(),
+                funcao: formData.funcao.trim().toUpperCase(),
+                setor: formData.setor.trim().toUpperCase(),
+                unidade: formData.unidade,
+                admissao: admDisplay,
+                data_desligamento: formData.data_desligamento,
+                motivo_saida: formData.motivo_saida,
+                whatsapp: formData.whatsapp.trim(),
+                tamanho_farda: formData.tamanho_farda,
+                calcado: formData.calcado,
+                calca: formData.calca,
+                sexo: formData.sexo,
+                carga_horaria: Number(formData.carga_horaria) || 220,
+                local_registro: formData.local_registro,
+                updated_at: new Date().toISOString()
+              };
+
+              const { data: existingDesligado } = await supabase
+                .from("rh_desligados")
+                .select("id")
+                .or(`cpf.eq.${cpfClean},nome.eq.${formData.nome.trim().toUpperCase()}`)
+                .maybeSingle();
+
+              if (existingDesligado) {
+                await supabase
+                  .from("rh_desligados")
+                  .update(desligadoPayload)
+                  .eq("id", existingDesligado.id);
+              } else {
+                await supabase
+                  .from("rh_desligados")
+                  .insert([desligadoPayload]);
+              }
+            }
+
             // Log
             await supabase.from("sistema_logs").insert([
               {
@@ -643,7 +709,48 @@
               ]);
             }
 
-            // 3. Remover de férias e absenteísmo do funcionário ativo
+            // 3. Salvar histórico na tabela rh_desligados
+            const desligadoPayload = {
+              cpf: cpfClean,
+              nome: nomeColab,
+              funcao: selectedColaborador.funcao || "",
+              setor: selectedColaborador.setor || "",
+              unidade: selectedColaborador.unidade || "",
+              admissao: selectedColaborador.admissao || "",
+              data_desligamento: desligamentoData.data_desligamento,
+              motivo_saida: desligamentoData.motivo_saida,
+              whatsapp: selectedColaborador.whatsapp || "",
+              tamanho_farda: selectedColaborador.tamanho_farda || "",
+              calcado: selectedColaborador.calcado || "",
+              calca: selectedColaborador.calca || "",
+              sexo: selectedColaborador.sexo || "",
+              carga_horaria: selectedColaborador.carga_horaria || 220,
+              local_registro: selectedColaborador.local_registro || "",
+              epi_data: selectedColaborador.epi_data || "",
+              epi_itens: selectedColaborador.epi_itens || "",
+              fardamento_data: selectedColaborador.fardamento_data || "",
+              fardamento_itens: selectedColaborador.fardamento_itens || "",
+              updated_at: new Date().toISOString()
+            };
+
+            const { data: existingDesligado } = await supabase
+              .from("rh_desligados")
+              .select("id")
+              .or(`cpf.eq.${cpfClean},nome.eq.${nomeColab}`)
+              .maybeSingle();
+
+            if (existingDesligado) {
+              await supabase
+                .from("rh_desligados")
+                .update(desligadoPayload)
+                .eq("id", existingDesligado.id);
+            } else {
+              await supabase
+                .from("rh_desligados")
+                .insert([desligadoPayload]);
+            }
+
+            // 4. Remover de férias e absenteísmo do funcionário ativo
             await supabase.from("rh_ferias").delete().or(`cpf.eq.${cpfClean},funcionario_nome.eq.${nomeColab}`);
 
             // Log
@@ -1268,6 +1375,32 @@
                           <option value="FILIAL 1">FILIAL 1</option>
                         </select>
                       </div>
+
+                      {(selectedColaborador.isDesligado || formData.data_desligamento) && (
+                        <>
+                          <div>
+                            <label className="block font-bold text-red-700 uppercase mb-1">Data de Desligamento</label>
+                            <input
+                              type="date"
+                              value={formData.data_desligamento}
+                              onChange={(e) => setEditFormData({ ...formData, data_desligamento: e.target.value })}
+                              className="w-full p-2.5 bg-red-50 border border-red-200 text-red-900 font-medium rounded-xl focus:bg-white focus:ring-2 focus:ring-red-600 text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-red-700 uppercase mb-1">Motivo da Saída</label>
+                            <select
+                              value={formData.motivo_saida}
+                              onChange={(e) => setEditFormData({ ...formData, motivo_saida: e.target.value })}
+                              className="w-full p-2.5 bg-red-50 border border-red-200 text-red-900 font-medium rounded-xl focus:bg-white focus:ring-2 focus:ring-red-600 text-sm"
+                            >
+                              <option value="voluntario">Voluntário (Pedido de Demissão)</option>
+                              <option value="involuntario">Involuntário (Demissão sem justa causa)</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Carga Horária Mensal (Horas) *</label>
