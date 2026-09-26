@@ -254,11 +254,11 @@
         const loadData = async () => {
           setIsLoading(true);
           try {
-            // Prioridade para abate e agendamento: ordenar por data_inicio_aquisitivo ASC
+            // Ordenar por data_vencimento ASC (data de vencimento mais próxima)
             const { data: feriasData } = await supabase
               .from("rh_ferias")
               .select("*")
-              .order("data_inicio_aquisitivo", { ascending: true });
+              .order("data_vencimento", { ascending: true });
             setFerias(feriasData || []);
 
             const { data: absData } = await supabase
@@ -669,6 +669,10 @@
           }
 
           return matchTerm && matchStatus;
+        }).sort((a, b) => {
+          if (!a.data_vencimento) return 1;
+          if (!b.data_vencimento) return -1;
+          return a.data_vencimento.localeCompare(b.data_vencimento);
         });
 
         // Estatísticas (filtrando colaboradores ativos)
