@@ -149,14 +149,14 @@
 
         const valUpper = (value || "").trim().toUpperCase();
 
-        const filteredOptions = useMemo(() => {
-          if (!valUpper) return options;
-          return options.filter((opt) => opt.toUpperCase().includes(valUpper));
-        }, [options, valUpper]);
-
         const hasExactMatch = useMemo(() => {
           return options.some((opt) => opt.toUpperCase() === valUpper);
         }, [options, valUpper]);
+
+        const filteredOptions = useMemo(() => {
+          if (!valUpper || hasExactMatch) return options;
+          return options.filter((opt) => opt.toUpperCase().includes(valUpper));
+        }, [options, valUpper, hasExactMatch]);
 
         return (
           <div className="relative" ref={containerRef}>
@@ -299,14 +299,10 @@
         }, [colaboradores]);
 
         const opcoesUnidades = useMemo(() => {
-          const set = new Set();
+          const set = new Set(["FILIAL 1", "FILIAL 5", "FILIAL 8"]);
           colaboradores.forEach((c) => {
             if (c.unidade && c.unidade.trim()) set.add(c.unidade.trim().toUpperCase());
           });
-          if (set.size === 0) {
-            set.add("FILIAL 5");
-            set.add("FILIAL 8");
-          }
           return Array.from(set).sort();
         }, [colaboradores]);
 
