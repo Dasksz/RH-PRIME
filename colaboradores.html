@@ -126,6 +126,104 @@
         </Icon>
       );
 
+      const ChevronDown = (p) => (
+        <Icon {...p}><polyline points="6 9 12 15 18 9" /></Icon>
+      );
+      const Check = (p) => (
+        <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>
+      );
+
+      const ComboboxInput = ({ label, required, value, onChange, options = [], placeholder, uppercase = true }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const containerRef = React.useRef(null);
+
+        useEffect(() => {
+          const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+              setIsOpen(false);
+            }
+          };
+          document.addEventListener("mousedown", handleClickOutside);
+          return () => document.removeEventListener("mousedown", handleClickOutside);
+        }, []);
+
+        const valUpper = (value || "").trim().toUpperCase();
+
+        const filteredOptions = useMemo(() => {
+          if (!valUpper) return options;
+          return options.filter((opt) => opt.toUpperCase().includes(valUpper));
+        }, [options, valUpper]);
+
+        const hasExactMatch = useMemo(() => {
+          return options.some((opt) => opt.toUpperCase() === valUpper);
+        }, [options, valUpper]);
+
+        return (
+          <div className="relative" ref={containerRef}>
+            {label && <label className="block font-bold text-slate-700 uppercase mb-1">{label}</label>}
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                required={required}
+                placeholder={placeholder}
+                value={value || ""}
+                onFocus={() => setIsOpen(true)}
+                onChange={(e) => {
+                  const val = uppercase ? e.target.value.toUpperCase() : e.target.value;
+                  onChange(val);
+                  setIsOpen(true);
+                }}
+                className={`w-full p-2.5 pr-8 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm ${uppercase ? "uppercase" : ""}`}
+              />
+              <button
+                type="button"
+                tabIndex="-1"
+                onClick={() => setIsOpen(!isOpen)}
+                className="absolute right-2.5 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+              >
+                <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+
+            {isOpen && (
+              <div className="absolute z-[150] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto py-1 animate-fadeIn">
+                {filteredOptions.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-xs md:text-sm hover:bg-blue-50 hover:text-[#002060] font-medium transition-colors flex items-center justify-between border-b border-slate-50 last:border-none ${opt.toUpperCase() === valUpper ? "bg-blue-50/70 text-[#002060] font-bold" : "text-slate-700"}`}
+                    onClick={() => {
+                      onChange(opt);
+                      setIsOpen(false);
+                    }}
+                  >
+                    <span>{opt}</span>
+                    {opt.toUpperCase() === valUpper && <Check size={14} className="text-[#002060] shrink-0" />}
+                  </button>
+                ))}
+
+                {valUpper && !hasExactMatch && (
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-xs md:text-sm bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold transition-colors flex items-center gap-1.5 border-t border-amber-200"
+                    onClick={() => {
+                      onChange(valUpper);
+                      setIsOpen(false);
+                    }}
+                  >
+                    <span>+ Usar / Cadastrar Novo: "{valUpper}"</span>
+                  </button>
+                )}
+
+                {filteredOptions.length === 0 && !valUpper && (
+                  <div className="px-3 py-2 text-xs text-slate-400 italic">Nenhuma opção disponível. Digite para criar.</div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      };
+
       // Função para calcular idade a partir da data de nascimento (YYYY-MM-DD ou DD/MM/YYYY)
       function calcularIdade(dataNasc) {
         if (!dataNasc) return null;
@@ -173,6 +271,7 @@
         const [colaboradores, setColaboradores] = useState([]);
         const [movimentacoes, setMovimentacoes] = useState([]);
         const [empresas, setEmpresas] = useState([]);
+        const [funcoesTabela, setFuncoesTabela] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
         const [searchTerm, setSearchTerm] = useState("");
         const [filterStatus, setFilterStatus] = useState("ativos"); // "ativos", "desligados", "todos"
@@ -180,11 +279,16 @@
 // Listas dinâmicas de opções a partir dos colaboradores cadastrados no banco
         const opcoesFuncoes = useMemo(() => {
           const set = new Set();
+          funcoesTabela.forEach((f) => {
+            if (f.funcao && f.funcao.trim() && f.funcao.trim().toUpperCase() !== "FUNÇÃO") {
+              set.add(f.funcao.trim().toUpperCase());
+            }
+          });
           colaboradores.forEach((c) => {
             if (c.funcao && c.funcao.trim()) set.add(c.funcao.trim().toUpperCase());
           });
           return Array.from(set).sort();
-        }, [colaboradores]);
+        }, [colaboradores, funcoesTabela]);
 
         const opcoesSetores = useMemo(() => {
           const set = new Set();
@@ -337,9 +441,14 @@
 
             if (empErr) console.error("Erro ao carregar empresas:", empErr);
 
+            const { data: funcoesData } = await supabase
+              .from("epi_funcao")
+              .select("funcao");
+
             setColaboradores(epiData || []);
             setMovimentacoes(movData || []);
             setEmpresas(empData || []);
+            setFuncoesTabela(funcoesData || []);
           } catch (err) {
             console.error("Erro ao carregar colaboradores:", err);
           } finally {
@@ -1343,56 +1452,30 @@
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Farda / Blusa</label>
-                        <input
-                          type="text"
-                          list="lista-fardas"
-                          placeholder="Ex: PP, P, M, G, GG, EXG"
-                          value={formData.tamanho_farda}
-                          onChange={(e) => setEditFormData({ ...formData, tamanho_farda: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-fardas">
-                          {opcoesFardas.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Tamanho Farda / Blusa"
+                        value={formData.tamanho_farda}
+                        onChange={(val) => setEditFormData({ ...formData, tamanho_farda: val })}
+                        options={opcoesFardas}
+                        placeholder="Ex: PP, P, M, G, GG, EXG"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calça</label>
-                        <input
-                          type="text"
-                          list="lista-calcas"
-                          placeholder="Ex: P, M, G, 38, 40, 42"
-                          value={formData.calca}
-                          onChange={(e) => setEditFormData({ ...formData, calca: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-calcas">
-                          {opcoesCalcas.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Tamanho Calça"
+                        value={formData.calca}
+                        onChange={(val) => setEditFormData({ ...formData, calca: val })}
+                        options={opcoesCalcas}
+                        placeholder="Ex: P, M, G, 38, 40, 42"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calçado</label>
-                        <input
-                          type="text"
-                          list="lista-calcados"
-                          placeholder="Ex: 38, 40, 42"
-                          value={formData.calcado}
-                          onChange={(e) => setEditFormData({ ...formData, calcado: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        />
-                        <datalist id="lista-calcados">
-                          {opcoesCalcados.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Tamanho Calçado"
+                        value={formData.calcado}
+                        onChange={(val) => setEditFormData({ ...formData, calcado: val })}
+                        options={opcoesCalcados}
+                        placeholder="Ex: 38, 40, 42"
+                        uppercase={false}
+                      />
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">WhatsApp</label>
@@ -1405,59 +1488,32 @@
                         />
                       </div>
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Função *</label>
-                        <input
-                          type="text"
-                          required
-                          list="lista-funcoes"
-                          placeholder="Ex: MOTORISTA DE CAMINHAO"
-                          value={formData.funcao}
-                          onChange={(e) => setEditFormData({ ...formData, funcao: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-funcoes">
-                          {opcoesFuncoes.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Função *"
+                        required={true}
+                        value={formData.funcao}
+                        onChange={(val) => setEditFormData({ ...formData, funcao: val })}
+                        options={opcoesFuncoes}
+                        placeholder="Ex: MOTORISTA DE CAMINHAO"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Setor *</label>
-                        <input
-                          type="text"
-                          required
-                          list="lista-setores"
-                          placeholder="Ex: TRANSPORTE, ARMAZEM, COMERCIAL"
-                          value={formData.setor}
-                          onChange={(e) => setEditFormData({ ...formData, setor: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-setores">
-                          {opcoesSetores.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Setor *"
+                        required={true}
+                        value={formData.setor}
+                        onChange={(val) => setEditFormData({ ...formData, setor: val })}
+                        options={opcoesSetores}
+                        placeholder="Ex: TRANSPORTE, ARMAZEM, COMERCIAL"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Unidade *</label>
-                        <input
-                          type="text"
-                          required
-                          list="lista-unidades"
-                          placeholder="Ex: FILIAL 5, FILIAL 8"
-                          value={formData.unidade}
-                          onChange={(e) => setEditFormData({ ...formData, unidade: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-unidades">
-                          {opcoesUnidades.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Unidade *"
+                        required={true}
+                        value={formData.unidade}
+                        onChange={(val) => setEditFormData({ ...formData, unidade: val })}
+                        options={opcoesUnidades}
+                        placeholder="Ex: FILIAL 5, FILIAL 8"
+                      />
 
                       {(selectedColaborador?.isDesligado || formData.data_desligamento) && (
                         <>
@@ -1631,56 +1687,30 @@
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Farda / Blusa</label>
-                        <input
-                          type="text"
-                          list="lista-fardas"
-                          placeholder="Ex: PP, P, M, G, GG, EXG"
-                          value={formData.tamanho_farda}
-                          onChange={(e) => setEditFormData({ ...formData, tamanho_farda: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-fardas">
-                          {opcoesFardas.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Tamanho Farda / Blusa"
+                        value={formData.tamanho_farda}
+                        onChange={(val) => setEditFormData({ ...formData, tamanho_farda: val })}
+                        options={opcoesFardas}
+                        placeholder="Ex: PP, P, M, G, GG, EXG"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calça</label>
-                        <input
-                          type="text"
-                          list="lista-calcas"
-                          placeholder="Ex: P, M, G, 38, 40, 42"
-                          value={formData.calca}
-                          onChange={(e) => setEditFormData({ ...formData, calca: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-calcas">
-                          {opcoesCalcas.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Tamanho Calça"
+                        value={formData.calca}
+                        onChange={(val) => setEditFormData({ ...formData, calca: val })}
+                        options={opcoesCalcas}
+                        placeholder="Ex: P, M, G, 38, 40, 42"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calçado</label>
-                        <input
-                          type="text"
-                          list="lista-calcados"
-                          placeholder="Ex: 38, 40, 42"
-                          value={formData.calcado}
-                          onChange={(e) => setEditFormData({ ...formData, calcado: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        />
-                        <datalist id="lista-calcados">
-                          {opcoesCalcados.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Tamanho Calçado"
+                        value={formData.calcado}
+                        onChange={(val) => setEditFormData({ ...formData, calcado: val })}
+                        options={opcoesCalcados}
+                        placeholder="Ex: 38, 40, 42"
+                        uppercase={false}
+                      />
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">WhatsApp</label>
@@ -1693,59 +1723,32 @@
                         />
                       </div>
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Função *</label>
-                        <input
-                          type="text"
-                          required
-                          list="lista-funcoes"
-                          placeholder="Ex: MOTORISTA DE CAMINHAO"
-                          value={formData.funcao}
-                          onChange={(e) => setEditFormData({ ...formData, funcao: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-funcoes">
-                          {opcoesFuncoes.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Função *"
+                        required={true}
+                        value={formData.funcao}
+                        onChange={(val) => setEditFormData({ ...formData, funcao: val })}
+                        options={opcoesFuncoes}
+                        placeholder="Ex: MOTORISTA DE CAMINHAO"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Setor *</label>
-                        <input
-                          type="text"
-                          required
-                          list="lista-setores"
-                          placeholder="Ex: TRANSPORTE, ARMAZEM, COMERCIAL"
-                          value={formData.setor}
-                          onChange={(e) => setEditFormData({ ...formData, setor: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-setores">
-                          {opcoesSetores.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Setor *"
+                        required={true}
+                        value={formData.setor}
+                        onChange={(val) => setEditFormData({ ...formData, setor: val })}
+                        options={opcoesSetores}
+                        placeholder="Ex: TRANSPORTE, ARMAZEM, COMERCIAL"
+                      />
 
-                      <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Unidade *</label>
-                        <input
-                          type="text"
-                          required
-                          list="lista-unidades"
-                          placeholder="Ex: FILIAL 5, FILIAL 8"
-                          value={formData.unidade}
-                          onChange={(e) => setEditFormData({ ...formData, unidade: e.target.value.toUpperCase() })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
-                        />
-                        <datalist id="lista-unidades">
-                          {opcoesUnidades.map((item) => (
-                            <option key={item} value={item} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <ComboboxInput
+                        label="Unidade *"
+                        required={true}
+                        value={formData.unidade}
+                        onChange={(val) => setEditFormData({ ...formData, unidade: val })}
+                        options={opcoesUnidades}
+                        placeholder="Ex: FILIAL 5, FILIAL 8"
+                      />
 
                       {(selectedColaborador?.isDesligado || formData.data_desligamento) && (
                         <>
