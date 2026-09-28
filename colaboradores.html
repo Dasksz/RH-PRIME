@@ -177,6 +177,59 @@
         const [searchTerm, setSearchTerm] = useState("");
         const [filterStatus, setFilterStatus] = useState("ativos"); // "ativos", "desligados", "todos"
 
+// Listas dinâmicas de opções a partir dos colaboradores cadastrados no banco
+        const opcoesFuncoes = useMemo(() => {
+          const set = new Set();
+          colaboradores.forEach((c) => {
+            if (c.funcao && c.funcao.trim()) set.add(c.funcao.trim().toUpperCase());
+          });
+          return Array.from(set).sort();
+        }, [colaboradores]);
+
+        const opcoesSetores = useMemo(() => {
+          const set = new Set();
+          colaboradores.forEach((c) => {
+            if (c.setor && c.setor.trim()) set.add(c.setor.trim().toUpperCase());
+          });
+          return Array.from(set).sort();
+        }, [colaboradores]);
+
+        const opcoesUnidades = useMemo(() => {
+          const set = new Set();
+          colaboradores.forEach((c) => {
+            if (c.unidade && c.unidade.trim()) set.add(c.unidade.trim().toUpperCase());
+          });
+          if (set.size === 0) {
+            set.add("FILIAL 5");
+            set.add("FILIAL 8");
+          }
+          return Array.from(set).sort();
+        }, [colaboradores]);
+
+        const opcoesFardas = useMemo(() => {
+          const set = new Set(["PP", "P", "M", "G", "GG", "EXG"]);
+          colaboradores.forEach((c) => {
+            if (c.tamanho_farda && c.tamanho_farda.trim()) set.add(c.tamanho_farda.trim().toUpperCase());
+          });
+          return Array.from(set);
+        }, [colaboradores]);
+
+        const opcoesCalcas = useMemo(() => {
+          const set = new Set(["PP", "P", "M", "G", "GG", "EXG", "36", "38", "40", "42", "44", "46", "48"]);
+          colaboradores.forEach((c) => {
+            if (c.calca && c.calca.trim()) set.add(c.calca.trim().toUpperCase());
+          });
+          return Array.from(set);
+        }, [colaboradores]);
+
+        const opcoesCalcados = useMemo(() => {
+          const set = new Set(["35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46"]);
+          colaboradores.forEach((c) => {
+            if (c.calcado && c.calcado.trim()) set.add(c.calcado.trim().toUpperCase());
+          });
+          return Array.from(set);
+        }, [colaboradores]);
+
         const [menuOpen, setMenuOpen] = useState(false);
 
         // Modais
@@ -198,7 +251,7 @@
           calca: "M",
           funcao: "",
           setor: "",
-          unidade: opcoesUnidades[0] || "FILIAL 5",
+          unidade: "FILIAL 5",
           local_registro: "NUNES & VIEIRA LOGISTICA LTDA",
           whatsapp: "",
           carga_horaria: 220,
@@ -340,59 +393,6 @@
             return matchNome || matchCpf || matchFuncao || matchSetor || matchUnidade;
           });
         }, [listaColaboradoresProcessada, searchTerm, filterStatus]);
-
-        // Listas dinâmicas de opções a partir dos colaboradores cadastrados no banco
-        const opcoesFuncoes = useMemo(() => {
-          const set = new Set();
-          colaboradores.forEach((c) => {
-            if (c.funcao && c.funcao.trim()) set.add(c.funcao.trim().toUpperCase());
-          });
-          return Array.from(set).sort();
-        }, [colaboradores]);
-
-        const opcoesSetores = useMemo(() => {
-          const set = new Set();
-          colaboradores.forEach((c) => {
-            if (c.setor && c.setor.trim()) set.add(c.setor.trim().toUpperCase());
-          });
-          return Array.from(set).sort();
-        }, [colaboradores]);
-
-        const opcoesUnidades = useMemo(() => {
-          const set = new Set();
-          colaboradores.forEach((c) => {
-            if (c.unidade && c.unidade.trim()) set.add(c.unidade.trim().toUpperCase());
-          });
-          if (set.size === 0) {
-            set.add("FILIAL 5");
-            set.add("FILIAL 8");
-          }
-          return Array.from(set).sort();
-        }, [colaboradores]);
-
-        const opcoesFardas = useMemo(() => {
-          const set = new Set(["PP", "P", "M", "G", "GG", "EXG"]);
-          colaboradores.forEach((c) => {
-            if (c.tamanho_farda && c.tamanho_farda.trim()) set.add(c.tamanho_farda.trim().toUpperCase());
-          });
-          return Array.from(set);
-        }, [colaboradores]);
-
-        const opcoesCalcas = useMemo(() => {
-          const set = new Set(["PP", "P", "M", "G", "GG", "EXG", "36", "38", "40", "42", "44", "46", "48"]);
-          colaboradores.forEach((c) => {
-            if (c.calca && c.calca.trim()) set.add(c.calca.trim().toUpperCase());
-          });
-          return Array.from(set);
-        }, [colaboradores]);
-
-        const opcoesCalcados = useMemo(() => {
-          const set = new Set(["35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46"]);
-          colaboradores.forEach((c) => {
-            if (c.calcado && c.calcado.trim()) set.add(c.calcado.trim().toUpperCase());
-          });
-          return Array.from(set);
-        }, [colaboradores]);
 
         // Handlers de formulários
         const handleOpenCadastrar = () => {
