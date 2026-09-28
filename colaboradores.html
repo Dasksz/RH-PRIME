@@ -198,7 +198,7 @@
           calca: "M",
           funcao: "",
           setor: "",
-          unidade: "FILIAL 5",
+          unidade: opcoesUnidades[0] || "FILIAL 5",
           local_registro: "NUNES & VIEIRA LOGISTICA LTDA",
           whatsapp: "",
           carga_horaria: 220,
@@ -340,6 +340,59 @@
             return matchNome || matchCpf || matchFuncao || matchSetor || matchUnidade;
           });
         }, [listaColaboradoresProcessada, searchTerm, filterStatus]);
+
+        // Listas dinâmicas de opções a partir dos colaboradores cadastrados no banco
+        const opcoesFuncoes = useMemo(() => {
+          const set = new Set();
+          colaboradores.forEach((c) => {
+            if (c.funcao && c.funcao.trim()) set.add(c.funcao.trim().toUpperCase());
+          });
+          return Array.from(set).sort();
+        }, [colaboradores]);
+
+        const opcoesSetores = useMemo(() => {
+          const set = new Set();
+          colaboradores.forEach((c) => {
+            if (c.setor && c.setor.trim()) set.add(c.setor.trim().toUpperCase());
+          });
+          return Array.from(set).sort();
+        }, [colaboradores]);
+
+        const opcoesUnidades = useMemo(() => {
+          const set = new Set();
+          colaboradores.forEach((c) => {
+            if (c.unidade && c.unidade.trim()) set.add(c.unidade.trim().toUpperCase());
+          });
+          if (set.size === 0) {
+            set.add("FILIAL 5");
+            set.add("FILIAL 8");
+          }
+          return Array.from(set).sort();
+        }, [colaboradores]);
+
+        const opcoesFardas = useMemo(() => {
+          const set = new Set(["PP", "P", "M", "G", "GG", "EXG"]);
+          colaboradores.forEach((c) => {
+            if (c.tamanho_farda && c.tamanho_farda.trim()) set.add(c.tamanho_farda.trim().toUpperCase());
+          });
+          return Array.from(set);
+        }, [colaboradores]);
+
+        const opcoesCalcas = useMemo(() => {
+          const set = new Set(["PP", "P", "M", "G", "GG", "EXG", "36", "38", "40", "42", "44", "46", "48"]);
+          colaboradores.forEach((c) => {
+            if (c.calca && c.calca.trim()) set.add(c.calca.trim().toUpperCase());
+          });
+          return Array.from(set);
+        }, [colaboradores]);
+
+        const opcoesCalcados = useMemo(() => {
+          const set = new Set(["35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46"]);
+          colaboradores.forEach((c) => {
+            if (c.calcado && c.calcado.trim()) set.add(c.calcado.trim().toUpperCase());
+          });
+          return Array.from(set);
+        }, [colaboradores]);
 
         // Handlers de formulários
         const handleOpenCadastrar = () => {
@@ -1292,40 +1345,53 @@
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Farda / Blusa</label>
-                        <select
+                        <input
+                          type="text"
+                          list="lista-fardas"
+                          placeholder="Ex: PP, P, M, G, GG, EXG"
                           value={formData.tamanho_farda}
-                          onChange={(e) => setEditFormData({ ...formData, tamanho_farda: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        >
-                          <option value="PP">PP</option>
-                          <option value="P">P</option>
-                          <option value="M">M</option>
-                          <option value="G">G</option>
-                          <option value="GG">GG</option>
-                          <option value="EXG">EXG / EX G</option>
-                        </select>
+                          onChange={(e) => setEditFormData({ ...formData, tamanho_farda: e.target.value.toUpperCase() })}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
+                        />
+                        <datalist id="lista-fardas">
+                          {opcoesFardas.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calça</label>
                         <input
                           type="text"
-                          placeholder="Ex: P, M, G, 40, 42"
+                          list="lista-calcas"
+                          placeholder="Ex: P, M, G, 38, 40, 42"
                           value={formData.calca}
-                          onChange={(e) => setEditFormData({ ...formData, calca: e.target.value })}
+                          onChange={(e) => setEditFormData({ ...formData, calca: e.target.value.toUpperCase() })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
                         />
+                        <datalist id="lista-calcas">
+                          {opcoesCalcas.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calçado</label>
                         <input
                           type="text"
+                          list="lista-calcados"
                           placeholder="Ex: 38, 40, 42"
                           value={formData.calcado}
                           onChange={(e) => setEditFormData({ ...formData, calcado: e.target.value })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                         />
+                        <datalist id="lista-calcados">
+                          {opcoesCalcados.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
@@ -1344,11 +1410,17 @@
                         <input
                           type="text"
                           required
+                          list="lista-funcoes"
                           placeholder="Ex: MOTORISTA DE CAMINHAO"
                           value={formData.funcao}
-                          onChange={(e) => setEditFormData({ ...formData, funcao: e.target.value })}
+                          onChange={(e) => setEditFormData({ ...formData, funcao: e.target.value.toUpperCase() })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
                         />
+                        <datalist id="lista-funcoes">
+                          {opcoesFuncoes.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
@@ -1356,24 +1428,35 @@
                         <input
                           type="text"
                           required
+                          list="lista-setores"
                           placeholder="Ex: TRANSPORTE, ARMAZEM, COMERCIAL"
                           value={formData.setor}
-                          onChange={(e) => setEditFormData({ ...formData, setor: e.target.value })}
+                          onChange={(e) => setEditFormData({ ...formData, setor: e.target.value.toUpperCase() })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
                         />
+                        <datalist id="lista-setores">
+                          {opcoesSetores.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Unidade *</label>
-                        <select
+                        <input
+                          type="text"
+                          required
+                          list="lista-unidades"
+                          placeholder="Ex: FILIAL 5, FILIAL 8"
                           value={formData.unidade}
-                          onChange={(e) => setEditFormData({ ...formData, unidade: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        >
-                          <option value="FILIAL 5">FILIAL 5</option>
-                          <option value="FILIAL 8">FILIAL 8</option>
-                          <option value="FILIAL 1">FILIAL 1</option>
-                        </select>
+                          onChange={(e) => setEditFormData({ ...formData, unidade: e.target.value.toUpperCase() })}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
+                        />
+                        <datalist id="lista-unidades">
+                          {opcoesUnidades.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       {(selectedColaborador?.isDesligado || formData.data_desligamento) && (
@@ -1550,44 +1633,60 @@
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Farda / Blusa</label>
-                        <select
+                        <input
+                          type="text"
+                          list="lista-fardas"
+                          placeholder="Ex: PP, P, M, G, GG, EXG"
                           value={formData.tamanho_farda}
-                          onChange={(e) => setEditFormData({ ...formData, tamanho_farda: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        >
-                          <option value="PP">PP</option>
-                          <option value="P">P</option>
-                          <option value="M">M</option>
-                          <option value="G">G</option>
-                          <option value="GG">GG</option>
-                          <option value="EXG">EXG / EX G</option>
-                        </select>
+                          onChange={(e) => setEditFormData({ ...formData, tamanho_farda: e.target.value.toUpperCase() })}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
+                        />
+                        <datalist id="lista-fardas">
+                          {opcoesFardas.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calça</label>
                         <input
                           type="text"
+                          list="lista-calcas"
+                          placeholder="Ex: P, M, G, 38, 40, 42"
                           value={formData.calca}
-                          onChange={(e) => setEditFormData({ ...formData, calca: e.target.value })}
+                          onChange={(e) => setEditFormData({ ...formData, calca: e.target.value.toUpperCase() })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
                         />
+                        <datalist id="lista-calcas">
+                          {opcoesCalcas.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Tamanho Calçado</label>
                         <input
                           type="text"
+                          list="lista-calcados"
+                          placeholder="Ex: 38, 40, 42"
                           value={formData.calcado}
                           onChange={(e) => setEditFormData({ ...formData, calcado: e.target.value })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                         />
+                        <datalist id="lista-calcados">
+                          {opcoesCalcados.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">WhatsApp</label>
                         <input
                           type="text"
+                          placeholder="Ex: 73 99999-9999"
                           value={formData.whatsapp}
                           onChange={(e) => setEditFormData({ ...formData, whatsapp: e.target.value })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
@@ -1599,10 +1698,17 @@
                         <input
                           type="text"
                           required
+                          list="lista-funcoes"
+                          placeholder="Ex: MOTORISTA DE CAMINHAO"
                           value={formData.funcao}
-                          onChange={(e) => setEditFormData({ ...formData, funcao: e.target.value })}
+                          onChange={(e) => setEditFormData({ ...formData, funcao: e.target.value.toUpperCase() })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
                         />
+                        <datalist id="lista-funcoes">
+                          {opcoesFuncoes.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
@@ -1610,23 +1716,35 @@
                         <input
                           type="text"
                           required
+                          list="lista-setores"
+                          placeholder="Ex: TRANSPORTE, ARMAZEM, COMERCIAL"
                           value={formData.setor}
-                          onChange={(e) => setEditFormData({ ...formData, setor: e.target.value })}
+                          onChange={(e) => setEditFormData({ ...formData, setor: e.target.value.toUpperCase() })}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
                         />
+                        <datalist id="lista-setores">
+                          {opcoesSetores.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
                         <label className="block font-bold text-slate-700 uppercase mb-1">Unidade *</label>
-                        <select
+                        <input
+                          type="text"
+                          required
+                          list="lista-unidades"
+                          placeholder="Ex: FILIAL 5, FILIAL 8"
                           value={formData.unidade}
-                          onChange={(e) => setEditFormData({ ...formData, unidade: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        >
-                          <option value="FILIAL 5">FILIAL 5</option>
-                          <option value="FILIAL 8">FILIAL 8</option>
-                          <option value="FILIAL 1">FILIAL 1</option>
-                        </select>
+                          onChange={(e) => setEditFormData({ ...formData, unidade: e.target.value.toUpperCase() })}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm uppercase"
+                        />
+                        <datalist id="lista-unidades">
+                          {opcoesUnidades.map((item) => (
+                            <option key={item} value={item} />
+                          ))}
+                        </datalist>
                       </div>
 
                       {(selectedColaborador?.isDesligado || formData.data_desligamento) && (
