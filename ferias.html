@@ -251,6 +251,53 @@
 
         const [movimentacoes, setMovimentacoes] = useState([]);
 
+        // Helper para adicionar 1 ano a uma data YYYY-MM-DD
+        const addOneYear = (dateStr) => {
+          if (!dateStr) return dateStr;
+          const parts = dateStr.split("-");
+          if (parts.length !== 3) return dateStr;
+          let ano = parseInt(parts[0], 10) + 1;
+          let mes = parts[1];
+          let dia = parts[2];
+          if (mes === "02" && dia === "29") {
+            const isLeap = (ano % 4 === 0 && ano % 100 !== 0) || (ano % 400 === 0);
+            if (!isLeap) dia = "28";
+          }
+          return `${ano}-${mes}-${dia}`;
+        };
+
+        // Helper para avançar período aquisitivo quando férias são concluídas
+        const calcularProximoPeriodoAquisitivo = (f) => {
+          const novIni = addOneYear(f.data_inicio_aquisitivo);
+          let novFim = addOneYear(f.data_fim_aquisitivo);
+          if (!f.data_fim_aquisitivo && novIni) {
+            const dtIni = new Date(novIni + "T00:00:00");
+            const dtFim = new Date(dtIni);
+            dtFim.setFullYear(dtFim.getFullYear() + 1);
+            dtFim.setDate(dtFim.getDate() - 1);
+            novFim = dtFim.toISOString().split("T")[0];
+          }
+          let novVenc = addOneYear(f.data_vencimento);
+          if (!f.data_vencimento && novFim) {
+            const dtF = new Date(novFim + "T00:00:00");
+            dtF.setMonth(dtF.getMonth() + 11);
+            novVenc = dtF.toISOString().split("T")[0];
+          }
+          return {
+            data_inicio_aquisitivo: novIni || null,
+            data_fim_aquisitivo: novFim || null,
+            data_vencimento: novVenc || null,
+            dias_direito: 30,
+            dias_gozados: 0,
+            dias_abonados: 0,
+            dias_programados: null,
+            data_inicio_programada: null,
+            data_fim_programada: null,
+            data_retorno: null,
+            status: "pendente",
+          };
+        };
+
         const loadData = async () => {
           setIsLoading(true);
           try {
@@ -259,7 +306,50 @@
               .from("rh_ferias")
               .select("*")
               .order("data_vencimento", { ascending: true });
-            setFerias(feriasData || []);
+
+            let finalFerias = feriasData || [];
+            let needsReload = false;
+            const hojeStr = new Date().toISOString().split("T")[0];
+
+            if (feriasData && feriasData.length > 0) {
+              for (const f of feriasData) {
+                const gozoProg = f.dias_programados || 0;
+                const isProg = f.status === "programadas" || f.data_fim_programada;
+                const isFinalizada = isProg && f.data_fim_programada && f.data_fim_programada < hojeStr;
+
+                const direito = f.dias_direito || 30;
+                const gozadosAtual = (f.dias_gozados || 0) + (isFinalizada ? gozoProg : 0);
+                const abonadosAtual = f.dias_abonados || 0;
+                const saldoAtual = direito - gozadosAtual - abonadosAtual;
+
+                if (isFinalizada || f.status === "concluidas" || saldoAtual <= 0) {
+                  needsReload = true;
+                  if (saldoAtual <= 0 || f.status === "concluidas") {
+                    const prox = calcularProximoPeriodoAquisitivo(f);
+                    await supabase.from("rh_ferias").update(prox).eq("id", f.id);
+                  } else {
+                    await supabase.from("rh_ferias").update({
+                      status: "pendente",
+                      dias_gozados: gozadosAtual,
+                      dias_programados: null,
+                      data_inicio_programada: null,
+                      data_fim_programada: null,
+                      data_retorno: null,
+                    }).eq("id", f.id);
+                  }
+                }
+              }
+
+              if (needsReload) {
+                const { data: updatedFerias } = await supabase
+                  .from("rh_ferias")
+                  .select("*")
+                  .order("data_vencimento", { ascending: true });
+                finalFerias = updatedFerias || [];
+              }
+            }
+
+            setFerias(finalFerias);
 
             const { data: absData } = await supabase
               .from("rh_absenteismo")
@@ -552,8 +642,9 @@
             const gozoNum = parseInt(editLaunchData.dias_gozados) || 0;
             const abonoNum = parseInt(editLaunchData.dias_abonados) || 0;
             const direitoNum = parseInt(editLaunchData.dias_direito) || 30;
+            const saldoCalc = direitoNum - gozoNum - abonoNum;
 
-            const payload = {
+            let payload = {
               dias_direito: direitoNum,
               dias_gozados: gozoNum,
               dias_abonados: abonoNum,
@@ -565,6 +656,14 @@
               data_vencimento: editLaunchData.data_vencimento || null,
               status: editLaunchData.status,
             };
+
+            if (editLaunchData.status === "concluidas" || saldoCalc <= 0) {
+              const prox = calcularProximoPeriodoAquisitivo(editLaunchData);
+              payload = {
+                ...payload,
+                ...prox,
+              };
+            }
 
             const { error } = await supabase
               .from("rh_ferias")
@@ -617,9 +716,14 @@
               const novosDiasGozados = (feriasSelecionada.dias_gozados || 0) + gozoNum;
               const novosDiasAbonados = (feriasSelecionada.dias_abonados || 0) + abonoNum;
               const saldoRemanescente = (feriasSelecionada.dias_direito || 30) - novosDiasGozados - novosDiasAbonados;
-              payload.status = saldoRemanescente <= 0 ? "concluidas" : "pendente";
-              payload.dias_gozados = novosDiasGozados;
-              payload.dias_abonados = novosDiasAbonados;
+              if (saldoRemanescente <= 0) {
+                const prox = calcularProximoPeriodoAquisitivo(feriasSelecionada);
+                Object.assign(payload, prox);
+              } else {
+                payload.status = "pendente";
+                payload.dias_gozados = novosDiasGozados;
+                payload.dias_abonados = novosDiasAbonados;
+              }
             } else {
               payload.status = "programadas";
             }
