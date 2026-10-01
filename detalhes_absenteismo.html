@@ -134,15 +134,27 @@
         });
         const [isSubmitting, setIsSaving] = useState(false);
 
+        // Editar Falta Modal State
+        const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+        const [editItem, setEditItem] = useState({
+          id: null,
+          funcionario_nome: "",
+          data_inicio: "",
+          data_fim: "",
+          horas_perdidas: "",
+          motivo: "",
+          carga_horaria: 220,
+        });
+
         useEffect(() => {
           const urlParams = new URLSearchParams(window.location.search);
           const mesUrl = urlParams.get("mes");
           if (mesUrl) setMesFiltro(mesUrl);
         }, []);
 
-                // Lock background scroll when modal is open
+        // Lock background scroll when modal is open
         useEffect(() => {
-          if (isModalOpen) {
+          if (isModalOpen || isEditModalOpen) {
             document.body.style.overflow = "hidden";
           } else {
             document.body.style.overflow = "";
@@ -150,7 +162,7 @@
           return () => {
             document.body.style.overflow = "";
           };
-        }, [isModalOpen]);
+        }, [isModalOpen, isEditModalOpen]);
 
         useEffect(() => {
           checkSession();
