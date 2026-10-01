@@ -412,20 +412,31 @@ function buildPayload(sheetName, rowData) {
 // AUTOMAÇÕES DE MOVIMENTAÇÕES E FÉRIAS
 // ==========================================
 
-// Sincroniza ativos de Movimentações -> Férias automaticamente
+// Sincroniza ativos de Movimentações -> Férias e Controle EPI e Fardamento automaticamente
 function sincronizarAtivosParaFerias() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const movSheet = ss.getSheetByName("movimentacoes");
   const feriasSheet = ss.getSheetByName("ferias");
-  if (!movSheet || !feriasSheet) return;
+  const epiSheet = ss.getSheetByName("Controle EPI e Fardamento");
+  if (!movSheet) return;
 
   const movData = movSheet.getDataRange().getValues();
-  const feriasData = feriasSheet.getDataRange().getValues();
+  const feriasData = feriasSheet ? feriasSheet.getDataRange().getValues() : [];
+  const epiData = epiSheet ? epiSheet.getDataRange().getValues() : [];
 
   const feriasNomesSet = new Set();
   for (let i = 1; i < feriasData.length; i++) {
     const nome = feriasData[i][0] ? feriasData[i][0].toString().trim().toUpperCase() : "";
     if (nome) feriasNomesSet.add(nome);
+  }
+
+  const epiCpfsSet = new Set();
+  const epiNomesSet = new Set();
+  for (let i = 1; i < epiData.length; i++) {
+    const nome = epiData[i][1] ? epiData[i][1].toString().trim().toUpperCase() : "";
+    const cpf = epiData[i][2] ? limparCPF(epiData[i][2]) : "";
+    if (cpf) epiCpfsSet.add(cpf);
+    if (nome) epiNomesSet.add(nome);
   }
 
   for (let i = 1; i < movData.length; i++) {
@@ -442,16 +453,18 @@ function sincronizarAtivosParaFerias() {
 
     if (nome && dtAdmissaoVal && (!dtDesligamentoVal || dtDesligamentoVal.toString().trim() === "")) {
       const nomeUpper = nome.toUpperCase();
-      if (!feriasNomesSet.has(nomeUpper)) {
-        let dtAdmissao = dtAdmissaoVal instanceof Date ? dtAdmissaoVal : new Date(formatarData(dtAdmissaoVal));
-        if (isNaN(dtAdmissao.getTime())) continue;
+      let dtAdmissao = dtAdmissaoVal instanceof Date ? dtAdmissaoVal : new Date(formatarData(dtAdmissaoVal));
+      if (isNaN(dtAdmissao.getTime())) continue;
 
+      let dtIniStr = formatarData(dtAdmissao);
+
+      // 1. Sincronizar em Férias
+      if (feriasSheet && !feriasNomesSet.has(nomeUpper)) {
         let dtFimAquisitivo = addYears(dtAdmissao, 1);
         dtFimAquisitivo.setDate(dtFimAquisitivo.getDate() - 1);
 
         let dtVencimento = addMonths(dtFimAquisitivo, 11);
 
-        let dtIniStr = formatarData(dtAdmissao);
         let dtFimStr = formatarData(dtFimAquisitivo);
         let dtVencStr = formatarData(dtVencimento);
 
@@ -471,6 +484,25 @@ function sincronizarAtivosParaFerias() {
 
         feriasNomesSet.add(nomeUpper);
         console.log(`Criado registro de férias automático para ${nome}`);
+      }
+
+      // 2. Sincronizar em Controle EPI e Fardamento
+      const jaExisteEpi = (cpfVal && epiCpfsSet.has(cpfVal)) || epiNomesSet.has(nomeUpper);
+      if (epiSheet && !jaExisteEpi) {
+        // [admissao, nome, cpf, funcao, setor, unidade, epi_data, epi_itens, epi_link, fardamento_data, fardamento_itens, fardamento_link, validacao, local_registro, whatsapp, tamanho_farda, sexo, calcado, calca, nascimento, carga_horaria]
+        epiSheet.appendRow([dtIniStr, nome, cpfVal, "", "", "", "", "", "", "", "", "", "☑ OK", "", "", "", "", "", "", "", 220]);
+
+        upsertRecord("funcionarios_epi", "cpf", {
+          cpf: cpfVal || nome,
+          nome: nome,
+          admissao: dtIniStr,
+          carga_horaria: 220,
+          validacao: "☑ OK"
+        });
+
+        if (cpfVal) epiCpfsSet.add(cpfVal);
+        epiNomesSet.add(nomeUpper);
+        console.log(`Criado registro de EPI e Fardamento automático para ${nome}`);
       }
     }
   }
