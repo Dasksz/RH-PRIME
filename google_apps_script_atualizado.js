@@ -487,22 +487,63 @@ function sincronizarAtivosParaFerias() {
       }
 
       // 2. Sincronizar em Controle EPI e Fardamento
-      const jaExisteEpi = (cpfVal && epiCpfsSet.has(cpfVal)) || epiNomesSet.has(nomeUpper);
-      if (epiSheet && !jaExisteEpi) {
-        // [admissao, nome, cpf, funcao, setor, unidade, epi_data, epi_itens, epi_link, fardamento_data, fardamento_itens, fardamento_link, validacao, local_registro, whatsapp, tamanho_farda, sexo, calcado, calca, nascimento, carga_horaria]
-        epiSheet.appendRow([dtIniStr, nome, cpfVal, "", "", "", "", "", "", "", "", "", "☑ OK", "", "", "", "", "", "", "", 220]);
+      let epiRowIdx = -1;
+      if (epiSheet && epiData.length > 1) {
+        for (let j = 1; j < epiData.length; j++) {
+          let cpfPlanilha = epiData[j][2] ? limparCPF(epiData[j][2]) : "";
+          let nomePlanilha = epiData[j][1] ? epiData[j][1].toString().trim().toUpperCase() : "";
+          if ((cpfVal && cpfPlanilha === cpfVal) || (nomeUpper && nomePlanilha === nomeUpper)) {
+            epiRowIdx = j + 1;
+            break;
+          }
+        }
+      }
 
-        upsertRecord("funcionarios_epi", "cpf", {
-          cpf: cpfVal || nome,
-          nome: nome,
-          admissao: dtIniStr,
-          carga_horaria: 220,
-          validacao: "☑ OK"
-        });
+      if (epiSheet) {
+        if (epiRowIdx === -1) {
+          // [admissao, nome, cpf, funcao, setor, unidade, epi_data, epi_itens, epi_link, fardamento_data, fardamento_itens, fardamento_link, validacao, local_registro, whatsapp, tamanho_farda, sexo, calcado, calca, nascimento, carga_horaria]
+          epiSheet.appendRow([dtIniStr, nome, cpfVal, "", "", "", "", "", "", "", "", "", "☑ OK", "", "", "", "", "", "", "", 220]);
 
-        if (cpfVal) epiCpfsSet.add(cpfVal);
-        epiNomesSet.add(nomeUpper);
-        console.log(`Criado registro de EPI e Fardamento automático para ${nome}`);
+          upsertRecord("funcionarios_epi", "cpf", {
+            cpf: cpfVal || nome,
+            nome: nome,
+            admissao: dtIniStr,
+            carga_horaria: 220,
+            validacao: "☑ OK"
+          });
+
+          if (cpfVal) epiCpfsSet.add(cpfVal);
+          epiNomesSet.add(nomeUpper);
+          console.log(`Criado registro de EPI e Fardamento automático para ${nome}`);
+        } else {
+          // Se já existe na planilha, verificar se campos essenciais como admissao, cpf ou validacao precisam ser preenchidos
+          let rowData = epiData[epiRowIdx - 1];
+          let updated = false;
+
+          if (!rowData[0] || rowData[0].toString().trim() === "") {
+            epiSheet.getRange(epiRowIdx, 1).setValue(dtIniStr); // Coluna A: Admissão
+            updated = true;
+          }
+          if (cpfVal && (!rowData[2] || limparCPF(rowData[2]) === "")) {
+            epiSheet.getRange(epiRowIdx, 3).setValue(cpfVal); // Coluna C: CPF
+            updated = true;
+          }
+          if (!rowData[12] || rowData[12].toString().trim() === "") {
+            epiSheet.getRange(epiRowIdx, 13).setValue("☑ OK"); // Coluna M: Validação
+            updated = true;
+          }
+
+          if (updated) {
+            upsertRecord("funcionarios_epi", "cpf", {
+              cpf: cpfVal || limparCPF(rowData[2]) || nome,
+              nome: rowData[1] ? rowData[1].toString().trim() : nome,
+              admissao: dtIniStr,
+              carga_horaria: rowData[20] || 220,
+              validacao: "☑ OK"
+            });
+            console.log(`Atualizado registro de EPI e Fardamento com informações para ${nome}`);
+          }
+        }
       }
     }
   }
