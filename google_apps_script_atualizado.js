@@ -37,6 +37,47 @@ function formatarDataParaPlanilha(val) {
 }
 
 /**
+ * Determina o CNPJ do Local de Registro baseado no nome do local ou lista de empresas
+ */
+function obterCnpjLocalRegistro(localRegistro, empresasList) {
+  if (!localRegistro) {
+    const def = empresasList && empresasList.find((e) => e.nome && e.nome.toUpperCase().includes("NUNES"));
+    return def && def.cnpj ? def.cnpj : "48.986.353/0001-39";
+  }
+
+  const str = localRegistro.toString().trim().toUpperCase();
+
+  if (empresasList && empresasList.length > 0) {
+    for (let i = 0; i < empresasList.length; i++) {
+      const emp = empresasList[i];
+      if (emp.nome && emp.cnpj) {
+        const empNome = emp.nome.trim().toUpperCase();
+        if (str.includes(empNome) || empNome.includes(str)) {
+          return emp.cnpj;
+        }
+      }
+    }
+  }
+
+  if (str.includes("JEQUIÉ") || str.includes("JEQUIE") || str.includes("0002-82")) {
+    const eq = empresasList && empresasList.find((e) => e.cnpj && e.cnpj.includes("0002-82"));
+    return eq && eq.cnpj ? eq.cnpj : "52.522.019/0002-82";
+  }
+
+  if (str.includes("ILHÉUS") || str.includes("ILHEUS") || str.includes("0001-00")) {
+    const eq = empresasList && empresasList.find((e) => e.cnpj && e.cnpj.includes("0001-00"));
+    return eq && eq.cnpj ? eq.cnpj : "52.522.019/0001-00";
+  }
+
+  if (str.includes("NUNES") || str.includes("ITABUNA") || str.includes("VIEIRA") || str.includes("0001-39")) {
+    const eq = empresasList && empresasList.find((e) => e.cnpj && e.cnpj.includes("0001-39"));
+    return eq && eq.cnpj ? eq.cnpj : "48.986.353/0001-39";
+  }
+
+  return "48.986.353/0001-39";
+}
+
+/**
  * Função principal para sincronizar a aba 'Controle EPI e Fardamento' com os dados do Supabase
  */
 function sincronizarControleEPI() {
@@ -52,8 +93,6 @@ function sincronizarControleEPI() {
     return;
   }
 
-  // Fetch de dados do banco Supabase
-  const url = SUPABASE_URL + "/rest/v1/funcionarios_epi?select=*";
   const options = {
     method: "get",
     headers: {
@@ -63,6 +102,21 @@ function sincronizarControleEPI() {
     },
     muteHttpExceptions: true
   };
+
+  // Fetch de empresas para vinculo do CNPJ
+  let empresas = [];
+  try {
+    const urlEmpresas = SUPABASE_URL + "/rest/v1/empresas?select=*";
+    const respEmpresas = UrlFetchApp.fetch(urlEmpresas, options);
+    if (respEmpresas.getResponseCode() === 200) {
+      empresas = JSON.parse(respEmpresas.getContentText());
+    }
+  } catch(err) {
+    console.log("Erro ao buscar lista de empresas: " + err.message);
+  }
+
+  // Fetch de dados do banco Supabase
+  const url = SUPABASE_URL + "/rest/v1/funcionarios_epi?select=*";
 
   try {
     const response = UrlFetchApp.fetch(url, options);
@@ -99,8 +153,8 @@ function sincronizarControleEPI() {
       return;
     }
 
-    // Obtém a lista completa de dados (linha 2 em diante, 21 colunas)
-    const rangeData = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
+    // Obtém a lista completa de dados (linha 2 em diante, 23 colunas A ate W)
+    const rangeData = sheet.getRange(2, 1, lastRow - 1, 23).getValues();
 
     let atualizados = 0;
 
@@ -136,6 +190,7 @@ function sincronizarControleEPI() {
       // Col 19 (S): TAMANHO FARDA
       // Col 20 (T): CALÇA
       // Col 21 (U): CALÇADO
+      // Col 23 (W): CNPJ - LOCAL DE REGISTRO
 
       if (dados.admissao !== undefined && dados.admissao !== null) sheet.getRange(linha, 1).setValue(formatarDataParaPlanilha(dados.admissao));
       if (dados.nome !== undefined && dados.nome !== null) sheet.getRange(linha, 2).setValue(dados.nome);
@@ -158,6 +213,11 @@ function sincronizarControleEPI() {
       if (dados.tamanho_farda !== undefined && dados.tamanho_farda !== null) sheet.getRange(linha, 19).setValue(dados.tamanho_farda);
       if (dados.calca !== undefined && dados.calca !== null) sheet.getRange(linha, 20).setValue(dados.calca);
       if (dados.calcado !== undefined && dados.calcado !== null) sheet.getRange(linha, 21).setValue(dados.calcado);
+
+      // Coluna W (23): CNPJ - LOCAL DE REGISTRO
+      const locReg = dados.local_registro || row[13];
+      const cnpjVal = obterCnpjLocalRegistro(locReg, empresas);
+      sheet.getRange(linha, 23).setValue("'" + cnpjVal);
 
       atualizados++;
     }
@@ -230,6 +290,13 @@ function onEdit(e) {
         }
 
         atualizarCampoSupabase(nomeFuncionario, campoSupabase, valor);
+      }
+
+      // Se alterou LOCAL DO REGISTRO (Coluna N / 14), atualiza o CNPJ na Coluna W / 23
+      if (col === 14) {
+        const localRegEditado = range.getValue();
+        const cnpjEditado = obterCnpjLocalRegistro(localRegEditado, []);
+        sheet.getRange(row, 23).setValue("'" + cnpjEditado);
       }
     }
   }
@@ -1149,6 +1216,12 @@ function doPost(e) {
         }
       }
     });
+
+    // Se for funcionarios_epi, atualiza tambem o CNPJ na Coluna W (23) se disponivel no payload ou record
+    if (targetSheetName === "Controle EPI e Fardamento" && record && record.local_registro) {
+      const cnpjCalc = obterCnpjLocalRegistro(record.local_registro, []);
+      sheet.getRange(rowToUpdate !== -1 ? rowToUpdate : sheet.getLastRow() + 1, 23).setValue("'" + cnpjCalc);
+    }
 
     if (rowToUpdate !== -1) {
       sheet.getRange(rowToUpdate, 1, 1, fields.length).setValues([newRowData]);
