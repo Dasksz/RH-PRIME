@@ -863,12 +863,15 @@
           const itemData = activeTab === "epi" ? emp.epi : emp.fardamento;
 
           if (itemData && itemData.itens) {
-            // Convert stored DD/MM/YYYY to YYYY-MM-DD for the input type="date"
-            let isoDate = new Date().toISOString().split("T")[0]; // Default to today
+            let defaultIsoDate = itemData.ultimaEntrega
+              ? (itemData.ultimaEntrega.includes("/")
+                  ? itemData.ultimaEntrega.split("/").reverse().join("-")
+                  : itemData.ultimaEntrega)
+              : new Date().toISOString().split("T")[0];
 
             const parsedItems = parseItemString(
               itemData.itens,
-              isoDate,
+              defaultIsoDate,
               itemData.link,
             );
             setStagedItems(parsedItems);
@@ -1400,39 +1403,16 @@
         const handleRegisterAll = async () => {
           if (stagedItems.length === 0) return;
 
-          // Check for different dates
-          const uniqueDates = [
-            ...new Set(stagedItems.map((i) => i.dataEntrega)),
-          ];
-          let finalDateToUse = stagedItems[stagedItems.length - 1].dataEntrega;
-
           let finalItemsForSupabase = [...stagedItems];
           let pdfItems = [...stagedItems];
 
-          if (isNewVerification && uniqueDates.length > 1) {
-            // Sort dates to find the latest
-            const sortedDates = [...uniqueDates].sort(
-              (a, b) => new Date(b) - new Date(a),
-            );
-            finalDateToUse = sortedDates[0];
+          // Find latest delivery date across staged items for the main table column (epi_data / fardamento_data)
+          const sortedDates = [...stagedItems.map((i) => i.dataEntrega)].sort(
+            (a, b) => new Date(b) - new Date(a),
+          );
+          const finalDateToUse = sortedDates[0] || new Date().toISOString().split("T")[0];
 
-            const confirmed = window.confirm(
-              `Aviso: Há itens com datas diferentes na lista.\n\nA data de todos os itens será atualizada para a data mais recente informada (${new Date(finalDateToUse + "T00:00:00").toLocaleDateString("pt-BR")}) no banco.\n\nDeseja continuar?`,
-            );
-            if (!confirmed) return;
-
-            // Update all items to the latest date
-            finalItemsForSupabase = finalItemsForSupabase.map((item) => ({
-              ...item,
-              dataEntrega: finalDateToUse,
-            }));
-            pdfItems = [...finalItemsForSupabase];
-            setStagedItems(finalItemsForSupabase);
-          } else if (!isNewVerification) {
-            // O usuário solicitou que, ao gerar o PDF, TODO o histórico (antigo + novo) apareça na ficha.
-            // Para isso, os itens novos já estão todos em finalItemsForSupabase.
-            // Não vamos mais filtrar os itens para conter apenas os novos da mesma data, vamos colocar todos
-            // E lá embaixo, adicionaremos o histórico prévio.
+          if (!isNewVerification) {
             pdfItems = [...finalItemsForSupabase];
           }
 
@@ -1441,7 +1421,7 @@
             const empToUpdate = employees.find((e) => e.id === selectedEmpId);
             if (!empToUpdate) return;
 
-            // Format from YYYY-MM-DD to DD/MM/YYYY if needed, assuming input type="date"
+            // Format from YYYY-MM-DD to DD/MM/YYYY for main column date display
             const parts = finalDateToUse.split("-");
             let formattedDate = finalDateToUse;
             if (parts.length === 3) {
@@ -1451,7 +1431,7 @@
             const latestLink =
               stagedItems[stagedItems.length - 1].linkComprovante;
 
-            // Generate string format: "Nome (CA: valor, Qtd: valor - YYYY-MM-DD)"
+            // Generate string format preserving each item's original dataEntrega: "Nome (CA: valor, Qtd: valor - YYYY-MM-DD)"
             let itemsJoined = finalItemsForSupabase
               .map((i) => {
                 const caStr = i.ca ? `CA: ${i.ca}, ` : "";
@@ -1487,13 +1467,7 @@
 
             if (error) throw error;
 
-            // Ensure all items passed to PDF generation have the final normalized date (if unifying)
-            let finalItemsForPDF = isNewVerification
-              ? pdfItems.map((item) => ({
-                  ...item,
-                  dataEntrega: finalDateToUse,
-                }))
-              : pdfItems;
+            let finalItemsForPDF = pdfItems;
 
             if (!isNewVerification) {
               const currentHistory =
