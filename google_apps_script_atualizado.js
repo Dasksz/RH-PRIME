@@ -19,6 +19,24 @@ function onOpen() {
 }
 
 /**
+ * Helper para formatar data do banco (YYYY-MM-DD) para formato visual da planilha (DD/MM/YYYY)
+ */
+function formatarDataParaPlanilha(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    const d = val.getDate().toString().padStart(2, "0");
+    const m = (val.getMonth() + 1).toString().padStart(2, "0");
+    const y = val.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+    const parts = val.split("T")[0].split("-");
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return val;
+}
+
+/**
  * Função principal para sincronizar a aba 'Controle EPI e Fardamento' com os dados do Supabase
  */
 function sincronizarControleEPI() {
@@ -59,11 +77,15 @@ function sincronizarControleEPI() {
 
     const funcionarios = JSON.parse(response.getContentText());
 
-    // Mapeia funcionários pelo nome em maiúsculas sem espaços extras
-    const mapaFuncionarios = {};
+    // Mapeia funcionários por CPF limpo e por Nome maiúsculo
+    const mapaPorCPF = {};
+    const mapaPorNome = {};
     funcionarios.forEach(f => {
+      if (f.cpf) {
+        mapaPorCPF[limparCPF(f.cpf)] = f;
+      }
       if (f.nome) {
-        mapaFuncionarios[f.nome.trim().toUpperCase()] = f;
+        mapaPorNome[f.nome.trim().toUpperCase()] = f;
       }
     });
 
@@ -77,48 +99,65 @@ function sincronizarControleEPI() {
       return;
     }
 
-    // Obtém a lista de nomes da Coluna B (a partir da linha 2)
-    const rangeNomes = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    // Obtém a lista completa de dados (linha 2 em diante)
+    const rangeData = sheet.getRange(2, 1, lastRow - 1, 22).getValues();
 
     let atualizados = 0;
 
-    for (let i = 0; i < rangeNomes.length; i++) {
-      const nomePlanilha = rangeNomes[i][0] ? rangeNomes[i][0].toString().trim().toUpperCase() : "";
-      if (!nomePlanilha || !mapaFuncionarios[nomePlanilha]) continue;
+    for (let i = 0; i < rangeData.length; i++) {
+      const row = rangeData[i];
+      const nomePlanilha = row[1] ? row[1].toString().trim().toUpperCase() : "";
+      const cpfPlanilha = row[2] ? limparCPF(row[2]) : "";
 
-      const dados = mapaFuncionarios[nomePlanilha];
+      const dados = (cpfPlanilha && mapaPorCPF[cpfPlanilha]) || (nomePlanilha && mapaPorNome[nomePlanilha]);
+      if (!dados) continue;
+
       const linha = i + 2;
 
-      // Preenchimento alinhado com a nova sequência de colunas:
-      // Coluna O (15): WHATSAPP
-      // Coluna Q (17): NASCIMENTO
-      // Coluna R (18): CARGA HORÁRIA
-      // Coluna S (19): SEXO
-      // Coluna T (20): TAMANHO FARDA
-      // Coluna U (21): CALÇA
-      // Coluna V (22): CALÇADO
+      // Preenchimento alinhado com todas as 22 colunas:
+      // Col 1 (A): ADMISSÃO
+      // Col 2 (B): NOME
+      // Col 3 (C): CPF
+      // Col 4 (D): FUNÇÃO
+      // Col 5 (E): SETOR
+      // Col 6 (F): UNIDADE
+      // Col 7 (G): EPI DATA
+      // Col 8 (H): EPI ITENS
+      // Col 9 (I): EPI LINK
+      // Col 10 (J): FARDAMENTO DATA
+      // Col 11 (K): FARDAMENTO ITENS
+      // Col 12 (L): FARDAMENTO LINK
+      // Col 13 (M): VALIDAÇÃO
+      // Col 14 (N): LOCAL DO REGISTRO
+      // Col 15 (O): WHATSAPP
+      // Col 17 (Q): NASCIMENTO
+      // Col 18 (R): CARGA HORÁRIA
+      // Col 19 (S): SEXO
+      // Col 20 (T): TAMANHO FARDA
+      // Col 21 (U): CALÇA
+      // Col 22 (V): CALÇADO
 
-      if (dados.whatsapp !== undefined && dados.whatsapp !== null) {
-        sheet.getRange(linha, 15).setValue("'" + dados.whatsapp);
-      }
-      if (dados.nascimento !== undefined && dados.nascimento !== null) {
-        sheet.getRange(linha, 17).setValue(dados.nascimento);
-      }
-      if (dados.carga_horaria !== undefined && dados.carga_horaria !== null) {
-        sheet.getRange(linha, 18).setValue(dados.carga_horaria);
-      }
-      if (dados.sexo !== undefined && dados.sexo !== null) {
-        sheet.getRange(linha, 19).setValue(dados.sexo);
-      }
-      if (dados.tamanho_farda !== undefined && dados.tamanho_farda !== null) {
-        sheet.getRange(linha, 20).setValue(dados.tamanho_farda);
-      }
-      if (dados.calca !== undefined && dados.calca !== null) {
-        sheet.getRange(linha, 21).setValue(dados.calca);
-      }
-      if (dados.calcado !== undefined && dados.calcado !== null) {
-        sheet.getRange(linha, 22).setValue(dados.calcado);
-      }
+      if (dados.admissao !== undefined && dados.admissao !== null) sheet.getRange(linha, 1).setValue(formatarDataParaPlanilha(dados.admissao));
+      if (dados.nome !== undefined && dados.nome !== null) sheet.getRange(linha, 2).setValue(dados.nome);
+      if (dados.cpf !== undefined && dados.cpf !== null) sheet.getRange(linha, 3).setValue("'" + limparCPF(dados.cpf));
+      if (dados.funcao !== undefined && dados.funcao !== null) sheet.getRange(linha, 4).setValue(dados.funcao);
+      if (dados.setor !== undefined && dados.setor !== null) sheet.getRange(linha, 5).setValue(dados.setor);
+      if (dados.unidade !== undefined && dados.unidade !== null) sheet.getRange(linha, 6).setValue(dados.unidade);
+      if (dados.epi_data !== undefined && dados.epi_data !== null) sheet.getRange(linha, 7).setValue(formatarDataParaPlanilha(dados.epi_data));
+      if (dados.epi_itens !== undefined && dados.epi_itens !== null) sheet.getRange(linha, 8).setValue(dados.epi_itens);
+      if (dados.epi_link !== undefined && dados.epi_link !== null) sheet.getRange(linha, 9).setValue(dados.epi_link);
+      if (dados.fardamento_data !== undefined && dados.fardamento_data !== null) sheet.getRange(linha, 10).setValue(formatarDataParaPlanilha(dados.fardamento_data));
+      if (dados.fardamento_itens !== undefined && dados.fardamento_itens !== null) sheet.getRange(linha, 11).setValue(dados.fardamento_itens);
+      if (dados.fardamento_link !== undefined && dados.fardamento_link !== null) sheet.getRange(linha, 12).setValue(dados.fardamento_link);
+      if (dados.validacao !== undefined && dados.validacao !== null) sheet.getRange(linha, 13).setValue(dados.validacao);
+      if (dados.local_registro !== undefined && dados.local_registro !== null) sheet.getRange(linha, 14).setValue(dados.local_registro);
+      if (dados.whatsapp !== undefined && dados.whatsapp !== null) sheet.getRange(linha, 15).setValue("'" + dados.whatsapp);
+      if (dados.nascimento !== undefined && dados.nascimento !== null) sheet.getRange(linha, 17).setValue(formatarDataParaPlanilha(dados.nascimento));
+      if (dados.carga_horaria !== undefined && dados.carga_horaria !== null) sheet.getRange(linha, 18).setValue(Number(dados.carga_horaria) || 220);
+      if (dados.sexo !== undefined && dados.sexo !== null) sheet.getRange(linha, 19).setValue(dados.sexo);
+      if (dados.tamanho_farda !== undefined && dados.tamanho_farda !== null) sheet.getRange(linha, 20).setValue(dados.tamanho_farda);
+      if (dados.calca !== undefined && dados.calca !== null) sheet.getRange(linha, 21).setValue(dados.calca);
+      if (dados.calcado !== undefined && dados.calcado !== null) sheet.getRange(linha, 22).setValue(dados.calcado);
 
       atualizados++;
     }
@@ -158,6 +197,20 @@ function onEdit(e) {
     if (nomeFuncionario) {
       // Mapeamento das colunas da planilha para colunas da tabela Supabase funcionarios_epi
       const mapaColunasSupabase = {
+        1: "admissao",
+        2: "nome",
+        3: "cpf",
+        4: "funcao",
+        5: "setor",
+        6: "unidade",
+        7: "epi_data",
+        8: "epi_itens",
+        9: "epi_link",
+        10: "fardamento_data",
+        11: "fardamento_itens",
+        12: "fardamento_link",
+        13: "validacao",
+        14: "local_registro",
         15: "whatsapp",      // Coluna O
         17: "nascimento",    // Coluna Q
         18: "carga_horaria", // Coluna R
