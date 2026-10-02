@@ -1204,40 +1204,40 @@
             const isLastPage = currentItemIndex + limit >= items.length || items.length === 0;
 
             const signaturesBlock = isLastPage
-              ? `
+              ? isDevolucaoPDF
+                ? `
                 <div style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
-                    <div style="display: flex; gap: 12px;">
-                        <!-- Termo de Recebimento (Entrega) -->
-                        <div style="flex: 1; border: 1px solid #a0a0a0; padding: 8px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
-                            <div>
-                                <strong style="font-size: 10px; color: #002060; display: block; margin-bottom: 4px; text-transform: uppercase;">Termo de Recebimento (Entrega)</strong>
-                                <p style="font-size: 8.5px; margin: 0; line-height: 1.25; color: #111;">
-                                    Declaro ter recebido da empresa o(s) item(ns) acima relacionado(s) em perfeitas condições de uso, comprometendo-me a zelar pela sua guarda e conservação, assumindo total responsabilidade conforme os termos desta ficha.
-                                </p>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 22px;">
-                                <div style="font-size: 8.5px; font-weight: bold;">Data: ____/____/________</div>
-                                <div style="text-align: center; width: 60%;">
-                                    <div style="border-bottom: 1px solid black; width: 100%; margin-bottom: 3px;"></div>
-                                    <span style="font-size: 8px; font-weight: bold; text-transform: uppercase;">Assinatura do Colaborador</span>
-                                </div>
+                    <div style="border: 1px solid #a0a0a0; padding: 10px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <strong style="font-size: 10px; color: #002060; display: block; margin-bottom: 4px; text-transform: uppercase;">Termo de Devolução</strong>
+                            <p style="font-size: 9px; margin: 0; line-height: 1.3; color: #111;">
+                                Declaro ter devolvido à empresa o(s) item(ns) acima relacionado(s) que possuem a data de devolução preenchida nesta ficha, no estado de conservação decorrente do seu uso regular.
+                            </p>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px;">
+                            <div style="font-size: 9px; font-weight: bold;">Data: ____/____/________</div>
+                            <div style="text-align: center; width: 50%;">
+                                <div style="border-bottom: 1px solid black; width: 100%; margin-bottom: 4px;"></div>
+                                <span style="font-size: 8.5px; font-weight: bold; text-transform: uppercase;">Assinatura do Colaborador (Devolução)</span>
                             </div>
                         </div>
-
-                        <!-- Termo de Devolução -->
-                        <div style="flex: 1; border: 1px solid #a0a0a0; padding: 8px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
-                            <div>
-                                <strong style="font-size: 10px; color: #002060; display: block; margin-bottom: 4px; text-transform: uppercase;">Termo de Devolução</strong>
-                                <p style="font-size: 8.5px; margin: 0; line-height: 1.25; color: #111;">
-                                    Declaro ter devolvido à empresa o(s) item(ns) acima relacionado(s) na(s) data(s) e pelo(s) motivo(s) especificado(s) nesta ficha.
-                                </p>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 22px;">
-                                <div style="font-size: 8.5px; font-weight: bold;">Data: ____/____/________</div>
-                                <div style="text-align: center; width: 60%;">
-                                    <div style="border-bottom: 1px solid black; width: 100%; margin-bottom: 3px;"></div>
-                                    <span style="font-size: 8px; font-weight: bold; text-transform: uppercase;">Assinatura do Colaborador / Devolução</span>
-                                </div>
+                    </div>
+                </div>
+              `
+                : `
+                <div style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
+                    <div style="border: 1px solid #a0a0a0; padding: 10px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <strong style="font-size: 10px; color: #002060; display: block; margin-bottom: 4px; text-transform: uppercase;">Termo de Recebimento (Entrega)</strong>
+                            <p style="font-size: 9px; margin: 0; line-height: 1.3; color: #111;">
+                                Declaro ter recebido da empresa o(s) item(ns) acima relacionado(s) em perfeitas condições de uso, comprometendo-me a zelar pela sua guarda e conservação, assumindo total responsabilidade conforme os termos desta ficha.
+                            </p>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px;">
+                            <div style="font-size: 9px; font-weight: bold;">Data: ____/____/________</div>
+                            <div style="text-align: center; width: 50%;">
+                                <div style="border-bottom: 1px solid black; width: 100%; margin-bottom: 4px;"></div>
+                                <span style="font-size: 8.5px; font-weight: bold; text-transform: uppercase;">Assinatura do Colaborador</span>
                             </div>
                         </div>
                     </div>
@@ -1330,13 +1330,10 @@
           generatePDF(selectedEmployee, parsedItems, dateStr, empInfo, false);
         };
 
-        const handleGenerateDevolucaoPDF = (devolucaoRecord, onlyChecked = true) => {
+        const handleGenerateDevolucaoPDF = (devolucaoRecord, onlyChecked = false) => {
           if (!devolucaoRecord) return;
 
           const recordChecked = checkedDevolucaoItems[devolucaoRecord.id] || {};
-          const hasCheckedItems = Object.values(recordChecked).some(Boolean);
-          const filterCheckedOnly = onlyChecked && hasCheckedItems;
-
           const todayIso = new Date().toISOString().split("T")[0];
 
           // Parse EPI and Fardamento items
@@ -1351,32 +1348,28 @@
 
           const itemsForPdf = [];
 
-          // Process EPI items
+          // Process EPI items (include ALL items, fill devolução data only if checked)
           epiItems.forEach((it, idx) => {
             const itemKey = `epi_${idx}_${it.nomeItem}`;
             const isChecked = !!recordChecked[itemKey];
 
-            if (!filterCheckedOnly || isChecked) {
-              itemsForPdf.push({
-                ...it,
-                dataDevolucao: (isChecked || !filterCheckedOnly) ? todayIso : "",
-                motivoDevolucao: (isChecked || !filterCheckedOnly) ? "Desligamento" : ""
-              });
-            }
+            itemsForPdf.push({
+              ...it,
+              dataDevolucao: isChecked ? todayIso : "",
+              motivoDevolucao: isChecked ? "Desligamento" : ""
+            });
           });
 
-          // Process Fardamento items
+          // Process Fardamento items (include ALL items, fill devolução data only if checked)
           fardamentoItems.forEach((it, idx) => {
             const itemKey = `fardamento_${idx}_${it.nomeItem}`;
             const isChecked = !!recordChecked[itemKey];
 
-            if (!filterCheckedOnly || isChecked) {
-              itemsForPdf.push({
-                ...it,
-                dataDevolucao: (isChecked || !filterCheckedOnly) ? todayIso : "",
-                motivoDevolucao: (isChecked || !filterCheckedOnly) ? "Desligamento" : ""
-              });
-            }
+            itemsForPdf.push({
+              ...it,
+              dataDevolucao: isChecked ? todayIso : "",
+              motivoDevolucao: isChecked ? "Desligamento" : ""
+            });
           });
 
           if (itemsForPdf.length === 0) {
