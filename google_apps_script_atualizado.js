@@ -99,8 +99,8 @@ function sincronizarControleEPI() {
       return;
     }
 
-    // Obtém a lista completa de dados (linha 2 em diante)
-    const rangeData = sheet.getRange(2, 1, lastRow - 1, 22).getValues();
+    // Obtém a lista completa de dados (linha 2 em diante, 21 colunas)
+    const rangeData = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
 
     let atualizados = 0;
 
@@ -114,28 +114,28 @@ function sincronizarControleEPI() {
 
       const linha = i + 2;
 
-      // Preenchimento alinhado com todas as 22 colunas:
+      // Preenchimento alinhado com a sequência exata das colunas da planilha:
       // Col 1 (A): ADMISSÃO
-      // Col 2 (B): NOME
+      // Col 2 (B): NOME COMPLETO DO FUNCIONÁRIO
       // Col 3 (C): CPF
       // Col 4 (D): FUNÇÃO
       // Col 5 (E): SETOR
       // Col 6 (F): UNIDADE
-      // Col 7 (G): EPI DATA
-      // Col 8 (H): EPI ITENS
-      // Col 9 (I): EPI LINK
-      // Col 10 (J): FARDAMENTO DATA
-      // Col 11 (K): FARDAMENTO ITENS
-      // Col 12 (L): FARDAMENTO LINK
-      // Col 13 (M): VALIDAÇÃO
+      // Col 7 (G): DATA ÚLTIMA ENTREGA (EPI)
+      // Col 8 (H): EPI (ENTREGUE/VERIFICADOS)
+      // Col 9 (I): LINK COMPROVANTE (EPI)
+      // Col 10 (J): DATA ÚLTIMA ENTREGA (FARDAMENTO)
+      // Col 11 (K): FARDAMENTO (ENTREGUE/VERIFICADOS)
+      // Col 12 (L): LINK COMPROVANTE (FARDAMENTO)
+      // Col 13 (M): CHECK / VALIDAÇÃO
       // Col 14 (N): LOCAL DO REGISTRO
       // Col 15 (O): WHATSAPP
-      // Col 17 (Q): NASCIMENTO
-      // Col 18 (R): CARGA HORÁRIA
-      // Col 19 (S): SEXO
-      // Col 20 (T): TAMANHO FARDA
-      // Col 21 (U): CALÇA
-      // Col 22 (V): CALÇADO
+      // Col 16 (P): NASCIMENTO
+      // Col 17 (Q): CARGA HORÁRIA
+      // Col 18 (R): SEXO
+      // Col 19 (S): TAMANHO FARDA
+      // Col 20 (T): CALÇA
+      // Col 21 (U): CALÇADO
 
       if (dados.admissao !== undefined && dados.admissao !== null) sheet.getRange(linha, 1).setValue(formatarDataParaPlanilha(dados.admissao));
       if (dados.nome !== undefined && dados.nome !== null) sheet.getRange(linha, 2).setValue(dados.nome);
@@ -152,12 +152,12 @@ function sincronizarControleEPI() {
       if (dados.validacao !== undefined && dados.validacao !== null) sheet.getRange(linha, 13).setValue(dados.validacao);
       if (dados.local_registro !== undefined && dados.local_registro !== null) sheet.getRange(linha, 14).setValue(dados.local_registro);
       if (dados.whatsapp !== undefined && dados.whatsapp !== null) sheet.getRange(linha, 15).setValue("'" + dados.whatsapp);
-      if (dados.nascimento !== undefined && dados.nascimento !== null) sheet.getRange(linha, 17).setValue(formatarDataParaPlanilha(dados.nascimento));
-      if (dados.carga_horaria !== undefined && dados.carga_horaria !== null) sheet.getRange(linha, 18).setValue(Number(dados.carga_horaria) || 220);
-      if (dados.sexo !== undefined && dados.sexo !== null) sheet.getRange(linha, 19).setValue(dados.sexo);
-      if (dados.tamanho_farda !== undefined && dados.tamanho_farda !== null) sheet.getRange(linha, 20).setValue(dados.tamanho_farda);
-      if (dados.calca !== undefined && dados.calca !== null) sheet.getRange(linha, 21).setValue(dados.calca);
-      if (dados.calcado !== undefined && dados.calcado !== null) sheet.getRange(linha, 22).setValue(dados.calcado);
+      if (dados.nascimento !== undefined && dados.nascimento !== null) sheet.getRange(linha, 16).setValue(formatarDataParaPlanilha(dados.nascimento));
+      if (dados.carga_horaria !== undefined && dados.carga_horaria !== null) sheet.getRange(linha, 17).setValue(Number(dados.carga_horaria) || 220);
+      if (dados.sexo !== undefined && dados.sexo !== null) sheet.getRange(linha, 18).setValue(dados.sexo);
+      if (dados.tamanho_farda !== undefined && dados.tamanho_farda !== null) sheet.getRange(linha, 19).setValue(dados.tamanho_farda);
+      if (dados.calca !== undefined && dados.calca !== null) sheet.getRange(linha, 20).setValue(dados.calca);
+      if (dados.calcado !== undefined && dados.calcado !== null) sheet.getRange(linha, 21).setValue(dados.calcado);
 
       atualizados++;
     }
@@ -211,13 +211,13 @@ function onEdit(e) {
         12: "fardamento_link",
         13: "validacao",
         14: "local_registro",
-        15: "whatsapp",      // Coluna O
-        17: "nascimento",    // Coluna Q
-        18: "carga_horaria", // Coluna R
-        19: "sexo",          // Coluna S
-        20: "tamanho_farda", // Coluna T
-        21: "calca",          // Coluna U
-        22: "calcado"        // Coluna V
+        15: "whatsapp",      // Coluna O (15)
+        16: "nascimento",    // Coluna P (16)
+        17: "carga_horaria", // Coluna Q (17)
+        18: "sexo",          // Coluna R (18)
+        19: "tamanho_farda", // Coluna S (19)
+        20: "calca",          // Coluna T (20)
+        21: "calcado"        // Coluna U (21)
       };
 
       if (mapaColunasSupabase[col]) {
@@ -602,12 +602,12 @@ function buildPayload(sheetName, rowData) {
       validacao: rowData[12] ? rowData[12].toString() : "",
       local_registro: rowData[13] ? rowData[13].toString() : "",
       whatsapp: rowData[14] ? rowData[14].toString() : "",
-      nascimento: formatarDataEPI(rowData[16]),
-      carga_horaria: rowData[17] && !isNaN(Number(rowData[17])) ? Number(rowData[17]) : 220,
-      sexo: rowData[18] ? rowData[18].toString() : "",
-      tamanho_farda: rowData[19] ? rowData[19].toString() : "",
-      calca: rowData[20] ? rowData[20].toString() : "",
-      calcado: rowData[21] ? rowData[21].toString() : "",
+      nascimento: formatarDataEPI(rowData[15]),
+      carga_horaria: rowData[16] && !isNaN(Number(rowData[16])) ? Number(rowData[16]) : 220,
+      sexo: rowData[17] ? rowData[17].toString() : "",
+      tamanho_farda: rowData[18] ? rowData[18].toString() : "",
+      calca: rowData[19] ? rowData[19].toString() : "",
+      calcado: rowData[20] ? rowData[20].toString() : "",
     };
   } else if (sheetName === "epi_funcao") {
     config.fields.forEach((field, index) => {
@@ -773,7 +773,7 @@ function sincronizarAtivosParaFerias() {
       if (epiSheet) {
         if (epiRowIdx === -1) {
           // [admissao, nome, cpf, funcao, setor, unidade, epi_data, epi_itens, epi_link, fardamento_data, fardamento_itens, fardamento_link, validacao, local_registro, whatsapp, nascimento, carga_horaria, sexo, tamanho_farda, calca, calcado]
-          epiSheet.appendRow([dtIniStr, nome, cpfVal, "", "", "", "", "", "", "", "", "", "☑ OK", "", "", "", "", 220, "", "", "", ""]);
+          epiSheet.appendRow([dtIniStr, nome, cpfVal, "", "", "", "", "", "", "", "", "", "☑ OK", "", "", "", 220, "", "", "", ""]);
 
           upsertRecord("funcionarios_epi", "cpf", {
             cpf: cpfVal || nome,
@@ -809,7 +809,7 @@ function sincronizarAtivosParaFerias() {
               cpf: cpfVal || limparCPF(rowData[2]) || nome,
               nome: rowData[1] ? rowData[1].toString().trim() : nome,
               admissao: dtIniStr,
-              carga_horaria: rowData[17] || 220,
+              carga_horaria: rowData[16] || 220,
               validacao: "☑ OK"
             });
             console.log(`Atualizado registro de EPI e Fardamento com informações para ${nome}`);
@@ -951,7 +951,7 @@ function syncToSupabaseOnEdit(e) {
   }
 
   const numColumns = config.fields.length;
-  const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 22 : numColumns;
+  const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 21 : numColumns;
 
   const rowData = sheet.getRange(row, 1, 1, columnsToFetch).getValues()[0];
   const payload = buildPayload(sheetName, rowData);
@@ -995,7 +995,7 @@ function syncAllToSupabase() {
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return;
 
-    const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 22 : config.fields.length;
+    const columnsToFetch = sheetName === "Controle EPI e Fardamento" ? 21 : config.fields.length;
 
     for (let i = 1; i < data.length; i++) {
       const rowData = data[i].slice(0, columnsToFetch);
