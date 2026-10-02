@@ -5,7 +5,7 @@
  */
 
 const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzc1MDcyNywiZXhwIjoyMDkzMzI2NzI3fQ.yuYxAYnllivwnR7fKzEAfgUIdLEAQZjIBAPrWfQh0IY";
 
 /**
  * Cria menu personalizado na planilha
@@ -189,7 +189,14 @@ function onEdit(e) {
  * Atualiza um único campo de um colaborador no Supabase
  */
 function atualizarCampoSupabase(nome, campo, valor) {
-  const url = SUPABASE_URL + "/rest/v1/funcionarios_epi?nome=eq." + encodeURIComponent(nome.trim());
+  if (!nome || !campo) {
+    Logger.log("atualizarCampoSupabase: Chamada ignorada pois 'nome' ou 'campo' não foram fornecidos (ex: execução manual no editor).");
+    return;
+  }
+  const nomeStr = String(nome).trim();
+  if (!nomeStr) return;
+
+  const url = SUPABASE_URL + "/rest/v1/funcionarios_epi?nome=eq." + encodeURIComponent(nomeStr);
 
   const payload = {};
   payload[campo] = valor;
