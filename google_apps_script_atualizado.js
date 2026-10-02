@@ -1,3 +1,226 @@
+/**
+ * ==============================================================================
+ * SISTEMA DE SINCRONIZAÇÃO AUTOMÁTICA DE RH - GOOGLE SHEETS & SUPABASE (RH PRIME)
+ * ==============================================================================
+ */
+
+const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
+
+/**
+ * Cria menu personalizado na planilha
+ */
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu("RH Prime Sync")
+    .addItem("🔄 Sincronizar Tudo com Banco de Dados", "sincronizarTudoSupabase")
+    .addItem("👕 Atualizar Controle de EPI e Fardamento", "sincronizarControleEPI")
+    .addToUi();
+}
+
+/**
+ * Função principal para sincronizar a aba 'Controle EPI e Fardamento' com os dados do Supabase
+ */
+function sincronizarControleEPI() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Controle EPI e Fardamento");
+
+  if (!sheet) {
+    try {
+      SpreadsheetApp.getUi().alert("Aba 'Controle EPI e Fardamento' não foi encontrada!");
+    } catch(e) {
+      console.log("Aba 'Controle EPI e Fardamento' não foi encontrada!");
+    }
+    return;
+  }
+
+  // Fetch de dados do banco Supabase
+  const url = SUPABASE_URL + "/rest/v1/funcionarios_epi?select=*";
+  const options = {
+    method: "get",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json"
+    },
+    muteHttpExceptions: true
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() !== 200) {
+      try {
+        SpreadsheetApp.getUi().alert("Erro ao conectar ao Supabase: " + response.getContentText());
+      } catch(e) {
+        console.error("Erro ao conectar ao Supabase: " + response.getContentText());
+      }
+      return;
+    }
+
+    const funcionarios = JSON.parse(response.getContentText());
+
+    // Mapeia funcionários pelo nome em maiúsculas sem espaços extras
+    const mapaFuncionarios = {};
+    funcionarios.forEach(f => {
+      if (f.nome) {
+        mapaFuncionarios[f.nome.trim().toUpperCase()] = f;
+      }
+    });
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      try {
+        SpreadsheetApp.getUi().alert("Nenhum dado encontrado na planilha.");
+      } catch(e) {
+        console.log("Nenhum dado encontrado na planilha.");
+      }
+      return;
+    }
+
+    // Obtém a lista de nomes da Coluna B (a partir da linha 2)
+    const rangeNomes = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+
+    let atualizados = 0;
+
+    for (let i = 0; i < rangeNomes.length; i++) {
+      const nomePlanilha = rangeNomes[i][0] ? rangeNomes[i][0].toString().trim().toUpperCase() : "";
+      if (!nomePlanilha || !mapaFuncionarios[nomePlanilha]) continue;
+
+      const dados = mapaFuncionarios[nomePlanilha];
+      const linha = i + 2;
+
+      // Preenchimento alinhado com a nova sequência de colunas:
+      // Coluna O (15): WHATSAPP
+      // Coluna Q (17): NASCIMENTO
+      // Coluna R (18): CARGA HORÁRIA
+      // Coluna S (19): SEXO
+      // Coluna T (20): TAMANHO FARDA
+      // Coluna U (21): CALÇA
+      // Coluna V (22): CALÇADO
+
+      if (dados.whatsapp !== undefined && dados.whatsapp !== null) {
+        sheet.getRange(linha, 15).setValue("'" + dados.whatsapp);
+      }
+      if (dados.nascimento !== undefined && dados.nascimento !== null) {
+        sheet.getRange(linha, 17).setValue(dados.nascimento);
+      }
+      if (dados.carga_horaria !== undefined && dados.carga_horaria !== null) {
+        sheet.getRange(linha, 18).setValue(dados.carga_horaria);
+      }
+      if (dados.sexo !== undefined && dados.sexo !== null) {
+        sheet.getRange(linha, 19).setValue(dados.sexo);
+      }
+      if (dados.tamanho_farda !== undefined && dados.tamanho_farda !== null) {
+        sheet.getRange(linha, 20).setValue(dados.tamanho_farda);
+      }
+      if (dados.calca !== undefined && dados.calca !== null) {
+        sheet.getRange(linha, 21).setValue(dados.calca);
+      }
+      if (dados.calcado !== undefined && dados.calcado !== null) {
+        sheet.getRange(linha, 22).setValue(dados.calcado);
+      }
+
+      atualizados++;
+    }
+
+    try {
+      SpreadsheetApp.getUi().alert("Sincronização concluída! " + atualizados + " colaboradores foram atualizados com sucesso.");
+    } catch(e) {
+      console.log("Sincronização concluída! " + atualizados + " colaboradores foram atualizados com sucesso.");
+    }
+
+  } catch (error) {
+    try {
+      SpreadsheetApp.getUi().alert("Ocorreu um erro durante a execução: " + error.toString());
+    } catch(e) {
+      console.error("Ocorreu um erro durante a execução: " + error.toString());
+    }
+  }
+}
+
+/**
+ * Função executada automaticamente ao alterar valores na planilha (Gatilho onEdit)
+ */
+function onEdit(e) {
+  if (!e) return;
+  const range = e.range;
+  const sheet = range.getSheet();
+  const sheetName = sheet.getName();
+
+  const row = range.getRow();
+  const col = range.getColumn();
+
+  // Ignora cabeçalho
+  if (row < 2) return;
+
+  if (sheetName === "Controle EPI e Fardamento") {
+    const nomeFuncionario = sheet.getRange(row, 2).getValue(); // Coluna B
+    if (nomeFuncionario) {
+      // Mapeamento das colunas da planilha para colunas da tabela Supabase funcionarios_epi
+      const mapaColunasSupabase = {
+        15: "whatsapp",      // Coluna O
+        17: "nascimento",    // Coluna Q
+        18: "carga_horaria", // Coluna R
+        19: "sexo",          // Coluna S
+        20: "tamanho_farda", // Coluna T
+        21: "calca",          // Coluna U
+        22: "calcado"        // Coluna V
+      };
+
+      if (mapaColunasSupabase[col]) {
+        const campoSupabase = mapaColunasSupabase[col];
+        let valor = range.getValue();
+
+        // Se for carga horária, converter para número inteiro
+        if (campoSupabase === "carga_horaria") {
+          valor = parseInt(valor, 10) || 220;
+        }
+
+        atualizarCampoSupabase(nomeFuncionario, campoSupabase, valor);
+      }
+    }
+  }
+
+  // Executa atualização do registro unificado para a linha alterada
+  syncToSupabaseOnEdit(e);
+}
+
+/**
+ * Atualiza um único campo de um colaborador no Supabase
+ */
+function atualizarCampoSupabase(nome, campo, valor) {
+  const url = SUPABASE_URL + "/rest/v1/funcionarios_epi?nome=eq." + encodeURIComponent(nome.trim());
+
+  const payload = {};
+  payload[campo] = valor;
+
+  const options = {
+    method: "patch",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  try {
+    UrlFetchApp.fetch(url, options);
+  } catch (err) {
+    Logger.log("Erro ao enviar patch para Supabase: " + err.toString());
+  }
+}
+
+/**
+ * Sincronização geral
+ */
+function sincronizarTudoSupabase() {
+  syncAllToSupabase();
+  sincronizarControleEPI();
+}
+
 // ==========================================
 // FUNÇÃO PARA CALCULAR HORAS ÚTEIS (ABSENTEÍSMO)
 // ==========================================
@@ -30,12 +253,6 @@ function calcularHorasUteis(dataInicio, dataFim, cargaHoraria) {
   return Math.round(totalHoras * 10) / 10;
 }
 
-// ==========================================
-// CONFIGURAÇÕES DO SUPABASE E PLANILHA
-// ==========================================
-const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzc1MDcyNywiZXhwIjoyMDkzMzI2NzI3fQ.yuYxAYnllivwnR7fKzEAfgUIdLEAQZjIBAPrWfQh0IY";
-
 // Configuração das abas e suas tabelas
 const SHEET_CONFIG = {
   "Controle EPI e Fardamento": {
@@ -57,12 +274,12 @@ const SHEET_CONFIG = {
       "validacao",
       "local_registro",
       "whatsapp",
-      "tamanho_farda",
-      "sexo",
-      "calcado",
-      "calca",
       "nascimento",
       "carga_horaria",
+      "sexo",
+      "tamanho_farda",
+      "calca",
+      "calcado",
     ],
   },
   movimentacoes: {
@@ -325,12 +542,12 @@ function buildPayload(sheetName, rowData) {
       validacao: rowData[12] ? rowData[12].toString() : "",
       local_registro: rowData[13] ? rowData[13].toString() : "",
       whatsapp: rowData[14] ? rowData[14].toString() : "",
-      tamanho_farda: rowData[16] ? rowData[16].toString() : "",
-      sexo: rowData[17] ? rowData[17].toString() : "",
-      calcado: rowData[18] ? rowData[18].toString() : "",
-      calca: rowData[19] ? rowData[19].toString() : "",
-      nascimento: formatarDataEPI(rowData[20]),
-      carga_horaria: rowData[21] && !isNaN(Number(rowData[21])) ? Number(rowData[21]) : 220,
+      nascimento: formatarDataEPI(rowData[16]),
+      carga_horaria: rowData[17] && !isNaN(Number(rowData[17])) ? Number(rowData[17]) : 220,
+      sexo: rowData[18] ? rowData[18].toString() : "",
+      tamanho_farda: rowData[19] ? rowData[19].toString() : "",
+      calca: rowData[20] ? rowData[20].toString() : "",
+      calcado: rowData[21] ? rowData[21].toString() : "",
     };
   } else if (sheetName === "epi_funcao") {
     config.fields.forEach((field, index) => {
@@ -365,7 +582,7 @@ function buildPayload(sheetName, rowData) {
                 payload[field] = valClean;
             } else if (valClean.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
                 const parts = valClean.split(" ")[0].split("/");
-                payload[field] = `${parts[1].padStart(2, '0')}/${parts[2]}`;
+                payload[field] = `${parts[1].padStart(2, "0")}/${parts[2]}`;
             } else if (valClean) {
                 payload[field] = valClean.substring(0, 7);
             }
@@ -398,19 +615,13 @@ function buildPayload(sheetName, rowData) {
             payload["mes_ref"] = `${parts[1]}/${parts[0]}`;
         }
         if (payload["data_inicio"] && payload["data_fim"]) {
-            if (payload["horas_perdidas"] === undefined || payload["horas_perdidas"] === null || payload["horas_perdidas"] === "") {
-                payload["horas_perdidas"] = calcularHorasUteis(payload["data_inicio"], payload["data_fim"], payload["carga_horaria"]);
-            }
+            payload["horas_perdidas"] = calcularHorasUteis(payload["data_inicio"], payload["data_fim"], payload["carga_horaria"] || 220);
         }
     }
   }
 
   return payload;
 }
-
-// ==========================================
-// AUTOMAÇÕES DE MOVIMENTAÇÕES E FÉRIAS
-// ==========================================
 
 // Sincroniza ativos de Movimentações -> Férias e Controle EPI e Fardamento automaticamente
 function sincronizarAtivosParaFerias() {
@@ -501,8 +712,8 @@ function sincronizarAtivosParaFerias() {
 
       if (epiSheet) {
         if (epiRowIdx === -1) {
-          // [admissao, nome, cpf, funcao, setor, unidade, epi_data, epi_itens, epi_link, fardamento_data, fardamento_itens, fardamento_link, validacao, local_registro, whatsapp, tamanho_farda, sexo, calcado, calca, nascimento, carga_horaria]
-          epiSheet.appendRow([dtIniStr, nome, cpfVal, "", "", "", "", "", "", "", "", "", "☑ OK", "", "", "", "", "", "", "", 220]);
+          // [admissao, nome, cpf, funcao, setor, unidade, epi_data, epi_itens, epi_link, fardamento_data, fardamento_itens, fardamento_link, validacao, local_registro, whatsapp, nascimento, carga_horaria, sexo, tamanho_farda, calca, calcado]
+          epiSheet.appendRow([dtIniStr, nome, cpfVal, "", "", "", "", "", "", "", "", "", "☑ OK", "", "", "", "", 220, "", "", "", ""]);
 
           upsertRecord("funcionarios_epi", "cpf", {
             cpf: cpfVal || nome,
@@ -538,7 +749,7 @@ function sincronizarAtivosParaFerias() {
               cpf: cpfVal || limparCPF(rowData[2]) || nome,
               nome: rowData[1] ? rowData[1].toString().trim() : nome,
               admissao: dtIniStr,
-              carga_horaria: rowData[20] || 220,
+              carga_horaria: rowData[17] || 220,
               validacao: "☑ OK"
             });
             console.log(`Atualizado registro de EPI e Fardamento com informações para ${nome}`);
@@ -648,7 +859,7 @@ function verificarETratarDesligamento(funcionarioNome, dataDesligamento) {
 function syncToSupabaseOnEdit(e) {
   if (!e || !e.range) return;
 
-  const sheet = e.source.getActiveSheet();
+  const sheet = e.source ? e.source.getActiveSheet() : e.range.getSheet();
   const sheetName = sheet.getName();
   const row = e.range.getRow();
 
@@ -828,7 +1039,7 @@ function doPost(e) {
               } else if (typeof dataInicioPlanilha === "string") {
                   if (dataInicioPlanilha.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
                       let p = dataInicioPlanilha.split(" ")[0].split("/");
-                      dataPlanilhaFormatada = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+                      dataPlanilhaFormatada = `${p[2]}-${p[1].padStart(2, "0")}-${p[0].padStart(2, "0")}`;
                   } else {
                       dataPlanilhaFormatada = dataInicioPlanilha.split("T")[0];
                   }
