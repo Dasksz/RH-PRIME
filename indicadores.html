@@ -38,7 +38,9 @@
     </style>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  </head>
+      <link rel="stylesheet" href="rh-responsive.css">
+    <script src="rh-core.js"></script>
+</head>
   <body>
     <div id="root"></div>
     <!-- Supabase JS -->
@@ -209,7 +211,7 @@
         const [movimentacoes, setMovimentacoes] = useState([]);
         const [absenteismo, setAbsenteismo] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
-        const [mesFiltro, setMesFiltro] = useState("");
+        const [mesFiltro, setMesFiltro] = useState("todos");
         const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
 
         // Navegação mobile
@@ -237,7 +239,7 @@
               .eq("id", session.user.id)
               .single();
 
-            if (!profile || profile.status !== "aprovado") {
+            if (!profile || !["aprovado", "admin"].includes(profile.status)) {
               window.location.href = "login.html";
               return;
             }
@@ -250,18 +252,22 @@
           }
         };
 
+        useEffect(() => {
+          if (!isAuthChecking) return RH.watch(supabase, ["rh_movimentacoes", "rh_absenteismo"], loadData);
+        }, [isAuthChecking]);
+
         const loadData = async () => {
           setIsLoading(true);
           try {
-            const { data: movData } = await supabase.from("rh_movimentacoes").select("*").order("data_admissao", { ascending: false });
-            const { data: absData } = await supabase.from("rh_absenteismo").select("*").order("mes_ref", { ascending: false });
+            const movData = await RH.fetchAll(supabase,"rh_movimentacoes","*","data_admissao");
+            const absData = await RH.fetchAll(supabase,"rh_absenteismo","*","id");
             
             setMovimentacoes(movData || []);
-            setAbsenteismo(absData || []);
+            setAbsenteismo(RH.absByMonth(absData || []));
 
             // Obter todos os meses únicos (agora da tabela de absenteísmo e das datas de admissão e demissão)
             const meses = new Set();
-            (absData || []).forEach(a => {
+            RH.absByMonth(absData || []).forEach(a => {
                 if (a.mes_ref && typeof a.mes_ref === 'string' && a.mes_ref.trim() !== '') {
                     meses.add(a.mes_ref);
                 }
@@ -295,7 +301,7 @@
             setMesesDisponiveis(mesesArray);
             
             // Set default filter to "todos" as requested
-            setMesFiltro("todos");
+
 
           } catch (error) {
             console.error("Erro ao carregar indicadores:", error);
@@ -410,10 +416,10 @@
                               
                               // Se trabalhou o mês todo (entrou antes do dia 1 e não saiu antes do fim) = assume 220 horas
                               if (dataCalculoInicio.getTime() === dataInicioMes.getTime() && dataCalculoFim.getTime() === dataFimMes.getTime()) {
-                                  totalHorasPrevistasMes += 220;
+                                  totalHorasPrevistasMes += Number(m.carga_horaria) || 220;
                               } else {
                                   // Trabalhou parcialmente, calcular exato
-                                  totalHorasPrevistasMes += calcularHorasUteis(dataCalculoInicio, dataCalculoFim);
+                                  totalHorasPrevistasMes += calcularHorasUteis(dataCalculoInicio, dataCalculoFim) * (Number(m.carga_horaria) || 220) / 220;
                               }
                           }
                       }
@@ -476,9 +482,9 @@
                                   const cFim = (des && des < dtFim) ? des : dtFim;
                                   
                                   if (cIni.getTime() === dtIni.getTime() && cFim.getTime() === dtFim.getTime()) {
-                                      prevMes += 220;
+                                      prevMes += Number(m.carga_horaria) || 220;
                                   } else {
-                                      prevMes += calcularHorasUteis(cIni, cFim);
+                                      prevMes += calcularHorasUteis(cIni, cFim) * (Number(m.carga_horaria) || 220) / 220;
                                   }
                               }
                           }
@@ -721,3 +727,4 @@
     </script>
   </body>
 </html>
+

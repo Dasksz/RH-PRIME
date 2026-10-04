@@ -38,7 +38,9 @@
     </style>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  </head>
+      <link rel="stylesheet" href="rh-responsive.css">
+    <script src="rh-core.js"></script>
+</head>
   <body>
     <div id="root"></div>
     <!-- Supabase JS -->
@@ -186,34 +188,7 @@
           checkSession();
         }, []);
 
-        const handleVerifyAdminPassword = async () => {
-          setAdminPasswordError("");
-          try {
-            const { data, error } = await supabase
-              .from("configuracoes_admin")
-              .select("valor")
-              .eq("chave", "admin_password")
-              .single();
-
-            const correctPass = data ? data.valor : "admin123";
-            if (adminPasswordInput === correctPass) {
-              setIsAdminModalOpen(false);
-              setAdminPasswordInput("");
-              window.location.href = "admin.html";
-            } else {
-              setAdminPasswordError("Senha incorreta. Tente novamente.");
-            }
-          } catch (err) {
-            console.error("Erro ao verificar senha de admin:", err);
-            if (adminPasswordInput === "admin123") {
-              setIsAdminModalOpen(false);
-              setAdminPasswordInput("");
-              window.location.href = "admin.html";
-            } else {
-              setAdminPasswordError("Erro ao verificar senha ou senha incorreta.");
-            }
-          }
-        };
+        const handleVerifyAdminPassword = async () => { await RH.openAdmin(supabase); };
 
         const checkSession = async () => {
           try {
@@ -236,7 +211,7 @@
               .eq("id", session.user.id)
               .single();
 
-            if (!profile || profile.status !== "aprovado") {
+            if (!profile || !["aprovado", "admin"].includes(profile.status)) {
               window.location.href = "login.html";
               return;
             }
@@ -298,67 +273,21 @@
           };
         };
 
+        useEffect(() => {
+          if (!isAuthChecking) return RH.watch(supabase, ["rh_ferias", "rh_absenteismo", "rh_movimentacoes"], loadData);
+        }, [isAuthChecking]);
+
         const loadData = async () => {
           setIsLoading(true);
           try {
             // Ordenar por data_vencimento ASC (data de vencimento mais próxima)
-            const { data: feriasData } = await supabase
-              .from("rh_ferias")
-              .select("*")
-              .order("data_vencimento", { ascending: true });
-
-            let finalFerias = feriasData || [];
-            let needsReload = false;
-            const hojeStr = new Date().toISOString().split("T")[0];
-
-            if (feriasData && feriasData.length > 0) {
-              for (const f of feriasData) {
-                const gozoProg = f.dias_programados || 0;
-                const isProg = f.status === "programadas" || f.data_fim_programada;
-                const isFinalizada = isProg && f.data_fim_programada && f.data_fim_programada < hojeStr;
-
-                const direito = f.dias_direito || 30;
-                const gozadosAtual = (f.dias_gozados || 0) + (isFinalizada ? gozoProg : 0);
-                const abonadosAtual = f.dias_abonados || 0;
-                const saldoAtual = direito - gozadosAtual - abonadosAtual;
-
-                if (isFinalizada || f.status === "concluidas" || saldoAtual <= 0) {
-                  needsReload = true;
-                  if (saldoAtual <= 0 || f.status === "concluidas") {
-                    const prox = calcularProximoPeriodoAquisitivo(f);
-                    await supabase.from("rh_ferias").update(prox).eq("id", f.id);
-                  } else {
-                    await supabase.from("rh_ferias").update({
-                      status: "pendente",
-                      dias_gozados: gozadosAtual,
-                      dias_programados: null,
-                      data_inicio_programada: null,
-                      data_fim_programada: null,
-                      data_retorno: null,
-                    }).eq("id", f.id);
-                  }
-                }
-              }
-
-              if (needsReload) {
-                const { data: updatedFerias } = await supabase
-                  .from("rh_ferias")
-                  .select("*")
-                  .order("data_vencimento", { ascending: true });
-                finalFerias = updatedFerias || [];
-              }
-            }
-
+            const finalFerias = await RH.fetchAll(supabase,"rh_ferias","*","data_vencimento");
             setFerias(finalFerias);
 
-            const { data: absData } = await supabase
-              .from("rh_absenteismo")
-              .select("*");
+            const absData = await RH.fetchAll(supabase,"rh_absenteismo");
             setAbsenteismo(absData || []);
 
-            const { data: movData } = await supabase
-              .from("rh_movimentacoes")
-              .select("*");
+            const movData = await RH.fetchAll(supabase,"rh_movimentacoes");
             setMovimentacoes(movData || []);
           } catch (error) {
             console.error("Erro ao carregar dados:", error);
@@ -659,6 +588,7 @@
 
             if (editLaunchData.status === "concluidas" || saldoCalc <= 0) {
               const prox = calcularProximoPeriodoAquisitivo(editLaunchData);
+              prox.historico_periodos = RH.archivePeriod(editLaunchData, { dias_gozados: gozoNum, dias_abonados: abonoNum, status: "concluidas" });
               payload = {
                 ...payload,
                 ...prox,
@@ -698,7 +628,7 @@
 
           setIsSaving(true);
           try {
-            const hojeStr = new Date().toISOString().split("T")[0];
+            const hojeStr = RH.today();
             const isRetroativa = gozoNum > 0 ? (dataFimProg < hojeStr) : true;
 
             const payload = {
@@ -718,6 +648,7 @@
               const saldoRemanescente = (feriasSelecionada.dias_direito || 30) - novosDiasGozados - novosDiasAbonados;
               if (saldoRemanescente <= 0) {
                 const prox = calcularProximoPeriodoAquisitivo(feriasSelecionada);
+                prox.historico_periodos = RH.archivePeriod(feriasSelecionada, { dias_gozados: novosDiasGozados, dias_abonados: novosDiasAbonados, status: "concluidas", data_inicio_programada: dataInicioProg || null, data_fim_programada: dataFimProg || null, data_retorno: dataRetornoCalc || null });
                 Object.assign(payload, prox);
               } else {
                 payload.status = "pendente";
@@ -818,7 +749,7 @@
           <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
             <header className="bg-[#002060] text-white shadow-md sticky top-0 z-50">
               <div className="px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Clique para abrir Área Restrita do Administrador">
+                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => RH.openAdmin(supabase)} title="Clique para abrir Área Restrita do Administrador">
                   <Shield size={28} className="text-[#E30613] group-hover:scale-110 transition-transform" />
                   <div>
                     <h1 className="text-xl font-extrabold tracking-tight leading-none group-hover:text-red-200 transition-colors">
@@ -1635,7 +1566,7 @@
                             Venda de Férias (Abono): <strong>{diasAbonados} dias</strong>
                           </p>
                         )}
-                        {((dataFimProg && dataFimProg < new Date().toISOString().split("T")[0]) || (!diasProg && parseInt(diasAbonados) > 0)) && (
+                        {((dataFimProg && dataFimProg < RH.today()) || (!diasProg && parseInt(diasAbonados) > 0)) && (
                           <div className="mt-2 pt-2 border-t border-blue-200 text-xs text-amber-800 bg-amber-50/80 p-2 rounded-lg flex items-start gap-2 font-medium">
                             <CheckCheck size={16} className="text-amber-600 shrink-0 mt-0.5" />
                             <span>
@@ -1686,3 +1617,4 @@
     </script>
   </body>
 </html>
+

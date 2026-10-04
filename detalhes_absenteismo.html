@@ -44,7 +44,9 @@
         background: #94a3b8;
       }
     </style>
-  </head>
+      <link rel="stylesheet" href="rh-responsive.css">
+    <script src="rh-core.js"></script>
+</head>
   <body>
     <div id="root"></div>
 
@@ -126,8 +128,8 @@
         const [selectedColabCpf, setSelectedColabCpf] = useState("");
         const [modalColabSearch, setModalColabSearch] = useState("");
         const [faltaForm, setFaltaForm] = useState({
-          data_inicio: new Date().toISOString().split("T")[0],
-          data_fim: new Date().toISOString().split("T")[0],
+          data_inicio: RH.today(),
+          data_fim: RH.today(),
           motivo_tipo: "Com Atestado Médico",
           observacao: "",
           horas_perdidas_custom: "",
@@ -169,15 +171,20 @@
         }, []);
 
         const checkSession = async () => {
-          setIsAuthChecking(true);
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            window.location.href = "login.html";
-          } else {
+          try {
+            setIsAuthChecking(true);
+            await RH.profile(supabase);
+            const { data: { session } } = await supabase.auth.getSession();
             setSession(session);
-            fetchData();
+            await fetchData();
+          } catch (error) {
+            window.location.href = "login.html";
           }
         };
+
+        useEffect(() => {
+          if (!isAuthChecking) return RH.watch(supabase, ["rh_absenteismo", "funcionarios_epi"], fetchData);
+        }, [isAuthChecking]);
 
         const fetchData = async () => {
           try {
@@ -201,7 +208,7 @@
             setColaboradores(colabData || []);
 
             const meses = new Set();
-            (absData || []).forEach((item) => {
+            RH.absByMonth(absData || []).forEach((item) => {
               if (item.mes_ref) meses.add(item.mes_ref);
             });
 
@@ -230,7 +237,7 @@
 
         // Dados Filtrados
         const dadosFiltrados = useMemo(() => {
-          return absenteismo.filter((item) => {
+          return (mesFiltro === "todos" ? absenteismo : RH.absByMonth(absenteismo)).filter((item) => {
             if (mesFiltro !== "todos" && item.mes_ref !== mesFiltro) return false;
             if (funcFiltro !== "todos") {
               const cpfClean = (item.cpf || "").replace(/\D/g, "");
@@ -287,12 +294,13 @@
         }, [faltaForm.data_inicio, faltaForm.data_fim, colabSelecionadoObj]);
 
         const handleOpenEdit = (item) => {
+          item = absenteismo.find(original => original.id === item.id) || item;
           setEditItem({
             id: item.id,
             funcionario_nome: item.funcionario_nome,
             data_inicio: item.data_inicio || "",
             data_fim: item.data_fim || "",
-            horas_perdidas: item.horas_perdidas || "",
+            horas_perdidas: item.horas_perdidas ?? "",
             motivo: item.motivo || "",
             carga_horaria: item.carga_horaria || 220,
           });
@@ -380,8 +388,8 @@
             alert("Falta/Afastamento cadastrado com sucesso!");
             setIsModalOpen(false);
             setFaltaForm({
-              data_inicio: new Date().toISOString().split("T")[0],
-              data_fim: new Date().toISOString().split("T")[0],
+              data_inicio: RH.today(),
+              data_fim: RH.today(),
               motivo_tipo: "Com Atestado Médico",
               observacao: "",
               horas_perdidas_custom: "",
@@ -445,7 +453,7 @@
                     <th style="padding: 12px 16px; font-size: 10px; color: #475569; text-transform: uppercase; text-align: center;">Data Fim</th>
                     <th style="padding: 12px 16px; font-size: 10px; color: #475569; text-transform: uppercase; text-align: center;">Mês Ref</th>
                     <th style="padding: 12px 16px; font-size: 10px; color: #475569; text-transform: uppercase; text-align: center;">Carga Horária</th>
-                    <th style="padding: 12px 16px; font-size: 10px; color: #475569; text-transform: uppercase; text-align: center;">Horas Perdidas</th>
+                    <th style="padding: 12px 16px; font-size: 10px; color: #475569; text-transform: uppercase; text-align: center;">{mesFiltro === "todos" ? "Horas Perdidas" : "Horas Perdidas no Mês"}</th>
                     <th style="padding: 12px 16px; font-size: 10px; color: #475569; text-transform: uppercase;">Motivo</th>
                   </tr>
                 </thead>
@@ -629,7 +637,7 @@
                         <th className="px-6 py-4 text-center font-bold text-slate-500 uppercase">Data Fim</th>
                         <th className="px-6 py-4 text-center font-bold text-slate-500 uppercase">Mês Ref</th>
                         <th className="px-6 py-4 text-center font-bold text-slate-500 uppercase">Carga Horária</th>
-                        <th className="px-6 py-4 text-center font-bold text-slate-500 uppercase">Horas Perdidas</th>
+                        <th className="px-6 py-4 text-center font-bold text-slate-500 uppercase">{mesFiltro === "todos" ? "Horas Perdidas" : "Horas Perdidas no Mês"}</th>
                         <th className="px-6 py-4 text-left font-bold text-slate-500 uppercase">Motivo / Observação</th>
                         <th className="px-6 py-4 text-center font-bold text-slate-500 uppercase">Ações</th>
                       </tr>
@@ -946,3 +954,4 @@
     </script>
   </body>
 </html>
+

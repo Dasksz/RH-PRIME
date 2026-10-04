@@ -1,7 +1,7 @@
 /**
  * RH PRIME — sincronização por identidade estável, versão 2026-10-04.
- * Configure SUPABASE_URL, SUPABASE_KEY e SPREADSHEET_ID em Propriedades do script.
- * A chave privilegiada deve ficar somente nas propriedades, nunca neste arquivo.
+ * Configuração inicial completa incluída a pedido do proprietário.
+ * Depois de instalar, troque a chave e remova os valores do código e do histórico.
  * Execute prepararEstruturaRH e instalarGatilhoRH antes de atualizar a implantação.
  */
 const RH_TZ = 'America/Sao_Paulo';
@@ -9,20 +9,20 @@ const SHEET_CONFIG = {
   'Controle EPI e Fardamento': {
     tableName: 'funcionarios_epi', headerRow: 1, nameField: 'cpf',
     fields: ['admissao','nome','cpf','funcao','setor','unidade','epi_data','epi_itens','epi_link','fardamento_data','fardamento_itens','fardamento_link','validacao','local_registro','whatsapp','nascimento','carga_horaria','sexo','tamanho_farda','calca','calcado'],
-    extra: ['id'], textDates: true
+    extra: ['id','data_desligamento','motivo_saida'], textDates: true
   },
   movimentacoes: {
     tableName: 'rh_movimentacoes', headerRow: 1, nameField: 'funcionario_nome',
-    fields: ['funcionario_nome','data_admissao','data_desligamento','motivo_saida','cpf'], extra: ['id']
+    fields: ['funcionario_nome','data_admissao','data_desligamento','motivo_saida','cpf'], extra: ['id','funcionario_id','carga_horaria'], readOnly: ['funcionario_id']
   },
   absenteismo: {
     tableName: 'rh_absenteismo', headerRow: 1, nameField: 'id',
-    fields: ['id','funcionario_nome','data_inicio','data_fim','horas_previstas','horas_perdidas','motivo','cpf','carga_horaria'], extra: ['mes_ref']
+    fields: ['id','funcionario_nome','data_inicio','data_fim','horas_previstas','horas_perdidas','motivo','cpf','carga_horaria'], extra: ['mes_ref','funcionario_id'], readOnly: ['funcionario_id']
   },
   ferias: {
     tableName: 'rh_ferias', headerRow: 1, nameField: 'funcionario_nome',
     fields: ['funcionario_nome','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','dias_direito','dias_gozados','status','dias_abonados','cpf'],
-    extra: ['id','dias_saldo','data_inicio_programada','dias_programados','data_fim_programada','data_retorno','historico_periodos'], readOnly: ['dias_saldo','historico_periodos']
+    extra: ['id','dias_saldo','data_inicio_programada','dias_programados','data_fim_programada','data_retorno','historico_periodos','funcionario_id'], readOnly: ['dias_saldo','historico_periodos','funcionario_id']
   },
   epi_funcao: {
     tableName: 'epi_funcao', headerRow: 2, nameField: 'funcao',
@@ -30,19 +30,31 @@ const SHEET_CONFIG = {
   },
   devolucoes_pendentes: {
     tableName: 'devolucoes_pendentes', headerRow: 1, nameField: 'funcionario_nome',
-    fields: ['funcionario_nome','cpf','funcao','setor','unidade','local_registro','data_admissao','data_desligamento','epi_data','epi_itens','fardamento_data','fardamento_itens','status'], extra: ['id','itens_checked']
+    fields: ['funcionario_nome','cpf','funcao','setor','unidade','local_registro','data_admissao','data_desligamento','epi_data','epi_itens','fardamento_data','fardamento_itens','status'], extra: ['id','itens_checked','funcionario_id'], readOnly: ['funcionario_id']
   },
   empresas: { tableName: 'empresas', headerRow: 1, nameField: 'cnpj', fields: ['nome','cnpj','endereco'], extra: ['id'] },
   desligados: {
     tableName: 'rh_desligados', headerRow: 1, nameField: 'cpf',
-    fields: ['cpf','nome','funcao','setor','unidade','admissao','data_desligamento','motivo_saida','whatsapp','tamanho_farda','calcado','calca','sexo','carga_horaria','local_registro','epi_data','epi_itens','fardamento_data','fardamento_itens'], extra: ['id'], textDates: true
+    fields: ['cpf','nome','funcao','setor','unidade','admissao','data_desligamento','motivo_saida','whatsapp','tamanho_farda','calcado','calca','sexo','carga_horaria','local_registro','epi_data','epi_itens','fardamento_data','fardamento_itens'], extra: ['id','funcionario_id'], readOnly: ['funcionario_id'], textDates: true
   }
 };
 const RH_DATES = ['admissao','nascimento','data_admissao','data_desligamento','data_inicio','data_fim','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','data_inicio_programada','data_fim_programada','data_retorno','epi_data','fardamento_data'];
 const RH_NUMBERS = ['carga_horaria','horas_previstas','horas_perdidas','dias_direito','dias_gozados','dias_abonados','dias_programados','dias_saldo'];
 const RH_JSON = ['itens_checked','historico_periodos'];
 
-function propriedadesRH() { return PropertiesService.getScriptProperties(); }
+const RH_VERSION = "2026-10-04-rh2";
+const RH_CONFIG_INICIAL = {
+  "SUPABASE_URL": "https://gcksbfstheavpfgcdndb.supabase.co",
+  "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzc1MDcyNywiZXhwIjoyMDkzMzI2NzI3fQ.yuYxAYnllivwnR7fKzEAfgUIdLEAQZjIBAPrWfQh0IY",
+  "SPREADSHEET_ID": "1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg",
+  "WEB_APP_URL": "https://script.google.com/macros/s/AKfycbxiOCFqmTythI4H9Lemp_b_9fsZcJrDZX-CBGWleVq0jV22EDtYASP5XmnWE5_7vqqg/exec"
+};
+function propriedadesRH() {
+  const props = PropertiesService.getScriptProperties();
+  Object.keys(RH_CONFIG_INICIAL).forEach(k => { if (!props.getProperty(k)) props.setProperty(k,RH_CONFIG_INICIAL[k]); });
+  return props;
+}
+function configurarCredenciaisRH() { propriedadesRH(); }
 function planilhaRH() {
   const id = propriedadesRH().getProperty('SPREADSHEET_ID');
   if (!id) throw new Error('Configure SPREADSHEET_ID nas Propriedades do script.');
@@ -280,11 +292,13 @@ function escreverRegistroRH(sheet, config, map, row, record) {
     group.values.push(cell.value);
   });
   groups.forEach(group => sheet.getRange(row,group.start,1,group.values.length).setValues([group.values]));
-  if (config.tableName === 'funcionarios_epi' && record.local_registro) {
-    const cnpj = obterCnpjLocalRegistro(record.local_registro,[]);
-    if (cnpj) sheet.getRange(row,23).setNumberFormat('@').setValue(cnpj);
+  if (config.tableName === 'funcionarios_epi') {
+    if (!RH_EMPRESAS_CACHE) RH_EMPRESAS_CACHE = requestRH('empresas','get','select=*');
+    const cnpj = obterCnpjLocalRegistro(record.local_registro,RH_EMPRESAS_CACHE);
+    sheet.getRange(row,23).setNumberFormat('@').setValue(cnpj || '');
   }
 }
+let RH_EMPRESAS_CACHE = null;
 function obterCnpjLocalRegistro(local, empresas) {
   const text = normalizarNomeRH(local);
   const match = (empresas || []).find(e => normalizarNomeRH(e.nome) === text);
@@ -326,6 +340,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('RH Prime Sync')
     .addItem('Preparar estrutura (com backup)','prepararEstruturaRH')
     .addItem('Instalar gatilho de edição','instalarGatilhoRH')
+    .addItem('Ativar webhooks após implantação','ativarWebhooksRH')
     .addSeparator().addItem('Enviar planilha para banco','syncAllToSupabase')
     .addItem('Receber banco na planilha','sincronizarBancoParaPlanilha')
     .addItem('Atualizar apenas EPI e fardamento','sincronizarControleEPI').addToUi();
@@ -434,10 +449,33 @@ function doPost(e) {
       const action = row === -1 ? 'inserted' : 'updated';
       if (row === -1) row = sheet.getLastRow()+1;
       escreverRegistroRH(sheet,config,map,row,record);
+      if (data.table === 'empresas') atualizarCnpjsRH(ss);
       return respostaRH({status:'success',action:action});
     });
   } catch (error) {
     console.error('RH Sync: ' + error.message);
     return respostaRH({status:'error',message:error.message});
   }
+}
+
+// Verifica a nova implantação antes de conectar os webhooks do banco.
+function doGet() { return respostaRH({status:'ok',versao:RH_VERSION}); }
+function ativarWebhooksRH() {
+  const props=propriedadesRH();
+  const deployed=UrlFetchApp.fetch(props.getProperty('WEB_APP_URL'),{muteHttpExceptions:true});
+  let version; try { version=JSON.parse(deployed.getContentText()).versao; } catch (err) {}
+  if(deployed.getResponseCode()!==200 || version!==RH_VERSION) throw new Error('Atualize a implantação Web App para esta versão, executando como você e com acesso Qualquer pessoa. Preserve a URL existente.');
+  const key=props.getProperty('SUPABASE_KEY');
+  const response=UrlFetchApp.fetch(props.getProperty('SUPABASE_URL')+'/rest/v1/rpc/rh_ativar_webhooks',{method:'post',contentType:'application/json',payload:'{}',headers:{apikey:key,Authorization:'Bearer '+key},muteHttpExceptions:true});
+  if(response.getResponseCode()<200 || response.getResponseCode()>=300) throw new Error('Não foi possível ativar webhooks. HTTP '+response.getResponseCode());
+  planilhaRH().toast('Webhooks ativados. Teste uma edição em cada direção.','RH PRIME',10);
+}
+
+function atualizarCnpjsRH(ss) {
+  const sheet=ss.getSheetByName('Controle EPI e Fardamento');
+  if (!sheet || sheet.getLastRow()<2) return;
+  RH_EMPRESAS_CACHE=requestRH('empresas','get','select=*');
+  const config=SHEET_CONFIG['Controle EPI e Fardamento'],map=layoutRH(sheet,config,false),count=sheet.getLastRow()-1;
+  const locals=sheet.getRange(2,map.local_registro,count,1).getValues();
+  sheet.getRange(2,23,count,1).setValues(locals.map(row=>[obterCnpjLocalRegistro(row[0],RH_EMPRESAS_CACHE)]));
 }

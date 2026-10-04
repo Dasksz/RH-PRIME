@@ -21,7 +21,9 @@
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       }
     </style>
-  </head>
+      <link rel="stylesheet" href="rh-responsive.css">
+    <script src="rh-core.js"></script>
+</head>
   <body class="bg-[#F8FAFC]">
     <div id="root"></div>
 
@@ -359,7 +361,7 @@
 
         // Desligamento State
         const [desligamentoData, setDesligamentoData] = useState({
-          data_desligamento: new Date().toISOString().split("T")[0],
+          data_desligamento: RH.today(),
           motivo_saida: "voluntario",
         });
 
@@ -396,7 +398,7 @@
               .eq("id", session.user.id)
               .single();
 
-            if (!profile || profile.status !== "aprovado") {
+            if (!profile || !["aprovado", "admin"].includes(profile.status)) {
               window.location.href = "login.html";
               return;
             }
@@ -413,6 +415,10 @@
           await supabase.auth.signOut();
           window.location.href = "login.html";
         };
+
+        useEffect(() => {
+          if (!isAuthChecking) return RH.watch(supabase, ["funcionarios_epi", "rh_movimentacoes", "empresas", "epi_funcao"], fetchData);
+        }, [isAuthChecking]);
 
         const fetchData = async () => {
           setIsLoading(true);
@@ -467,14 +473,14 @@
             const nomeUpper = (c.nome || "").trim().toUpperCase();
 
             const mov = movMapByCpf[cpfClean] || movMapByName[nomeUpper];
-            const isDesligado = mov && mov.data_desligamento ? true : false;
+            const isDesligado = Boolean(c.data_desligamento || (mov && mov.data_desligamento));
 
             return {
               ...c,
               matricula: cpfClean,
               isDesligado,
-              data_desligamento: mov ? mov.data_desligamento : null,
-              motivo_saida: mov ? mov.motivo_saida : null,
+              data_desligamento: c.data_desligamento || (mov ? mov.data_desligamento : null),
+              motivo_saida: c.motivo_saida || (mov ? mov.motivo_saida : null),
               idade: calcularIdade(c.nascimento),
             };
           });
@@ -504,7 +510,7 @@
           setEditFormData({
             nome: "",
             cpf: "",
-            admissao: new Date().toISOString().split("T")[0],
+            admissao: RH.today(),
             nascimento: "",
             sexo: "M",
             tamanho_farda: "M",
@@ -614,53 +620,7 @@
               validacao: "☑ OK",
             };
 
-            const { error: epiErr } = await supabase.from("funcionarios_epi").insert([payloadEpi]);
-            if (epiErr) throw epiErr;
-
-            // 2. Inserir em rh_movimentacoes (admissão)
-            const payloadMov = {
-              funcionario_nome: formData.nome.trim().toUpperCase(),
-              cpf: cpfClean,
-              data_admissao: formData.admissao,
-            };
-            await supabase.from("rh_movimentacoes").insert([payloadMov]);
-
-            // 3. Criar entrada em rh_ferias automaticamente
-            if (formData.admissao) {
-              const dtAdmissao = new Date(formData.admissao + "T00:00:00");
-              if (!isNaN(dtAdmissao.getTime())) {
-                const dtFimAquisitivo = new Date(dtAdmissao);
-                dtFimAquisitivo.setFullYear(dtFimAquisitivo.getFullYear() + 1);
-                dtFimAquisitivo.setDate(dtFimAquisitivo.getDate() - 1);
-
-                const dtVencimento = new Date(dtFimAquisitivo);
-                dtVencimento.setMonth(dtVencimento.getMonth() + 11);
-
-                await supabase.from("rh_ferias").insert([
-                  {
-                    funcionario_nome: formData.nome.trim().toUpperCase(),
-                    cpf: cpfClean,
-                    data_inicio_aquisitivo: formData.admissao,
-                    data_fim_aquisitivo: dtFimAquisitivo.toISOString().split("T")[0],
-                    data_vencimento: dtVencimento.toISOString().split("T")[0],
-                    dias_direito: 30,
-                    dias_gozados: 0,
-                    status: "pendente",
-                    dias_abonados: 0,
-                  },
-                ]);
-              }
-            }
-
-            // Log
-            await supabase.from("sistema_logs").insert([
-              {
-                tabela_afetada: "funcionarios_epi",
-                tipo_operacao: "INSERT",
-                descricao: `Novo colaborador cadastrado: ${formData.nome.trim().toUpperCase()} (CPF: ${cpfClean})`,
-                dados_novos: payloadEpi,
-              },
-            ]);
+            await RH.result(supabase.from("funcionarios_epi").insert([payloadEpi]).select(), true);
 
             alert("Colaborador cadastrado com sucesso e sincronizado no sistema!");
             setIsCadastrarModalOpen(false);
@@ -683,6 +643,9 @@
             return;
           }
 
+          if (colaboradores.some(c => c.id !== selectedColaborador.id && RH.cleanCpf(c.cpf) === cpfClean)) {
+            setFormErro("Este CPF já pertence a outro colaborador."); return;
+          }
           setIsSaving(true);
           try {
             let admDisplay = formData.admissao;
@@ -698,6 +661,9 @@
             }
 
             const updatePayload = {
+              cpf: cpfClean,
+              data_desligamento: formData.data_desligamento || null,
+              motivo_saida: formData.data_desligamento ? formData.motivo_saida : null,
               nome: formData.nome.trim().toUpperCase(),
               admissao: admDisplay,
               nascimento: nascDisplay,
@@ -713,87 +679,8 @@
               carga_horaria: Number(formData.carga_horaria) || 220,
             };
 
-            const { error: editErr } = await supabase
-              .from("funcionarios_epi")
-              .update(updatePayload)
-              .eq("id", selectedColaborador.id);
-
-            if (editErr) throw editErr;
-
-            if (formData.data_desligamento) {
-              const { data: existingMov } = await supabase
-                .from("rh_movimentacoes")
-                .select("id")
-                .or(`cpf.eq.${cpfClean},funcionario_nome.eq.${formData.nome.trim().toUpperCase()}`)
-                .maybeSingle();
-
-              if (existingMov) {
-                await supabase
-                  .from("rh_movimentacoes")
-                  .update({
-                    data_desligamento: formData.data_desligamento,
-                    motivo_saida: formData.motivo_saida,
-                  })
-                  .eq("id", existingMov.id);
-              } else {
-                await supabase.from("rh_movimentacoes").insert([
-                  {
-                    funcionario_nome: formData.nome.trim().toUpperCase(),
-                    cpf: cpfClean,
-                    data_admissao: formData.admissao,
-                    data_desligamento: formData.data_desligamento,
-                    motivo_saida: formData.motivo_saida,
-                  },
-                ]);
-              }
-
-              const desligadoPayload = {
-                cpf: cpfClean,
-                nome: formData.nome.trim().toUpperCase(),
-                funcao: formData.funcao.trim().toUpperCase(),
-                setor: formData.setor.trim().toUpperCase(),
-                unidade: formData.unidade,
-                admissao: admDisplay,
-                data_desligamento: formData.data_desligamento,
-                motivo_saida: formData.motivo_saida,
-                whatsapp: formData.whatsapp.trim(),
-                tamanho_farda: formData.tamanho_farda,
-                calcado: formData.calcado,
-                calca: formData.calca,
-                sexo: formData.sexo,
-                carga_horaria: Number(formData.carga_horaria) || 220,
-                local_registro: formData.local_registro,
-                updated_at: new Date().toISOString()
-              };
-
-              const { data: existingDesligado } = await supabase
-                .from("rh_desligados")
-                .select("id")
-                .or(`cpf.eq.${cpfClean},nome.eq.${formData.nome.trim().toUpperCase()}`)
-                .maybeSingle();
-
-              if (existingDesligado) {
-                await supabase
-                  .from("rh_desligados")
-                  .update(desligadoPayload)
-                  .eq("id", existingDesligado.id);
-              } else {
-                await supabase
-                  .from("rh_desligados")
-                  .insert([desligadoPayload]);
-              }
-            }
-
-            // Log
-            await supabase.from("sistema_logs").insert([
-              {
-                tabela_afetada: "funcionarios_epi",
-                tipo_operacao: "UPDATE",
-                descricao: `Dados atualizados para ${formData.nome.trim().toUpperCase()} (CPF: ${cpfClean})`,
-                dados_anteriores: selectedColaborador,
-                dados_novos: updatePayload,
-              },
-            ]);
+            await RH.result(supabase.from("funcionarios_epi")
+              .update(updatePayload).eq("id", selectedColaborador.id).select(), true);
 
             alert("Cadastro atualizado com sucesso!");
             setIsEditarModalOpen(false);
@@ -814,112 +701,10 @@
           setIsSaving(true);
           try {
             const nomeColab = selectedColaborador.nome;
-            const cpfClean = (selectedColaborador.cpf || "").replace(/\D/g, "");
-
-            // 1. Atualizar ou inserir em rh_movimentacoes com data_desligamento
-            const { data: existingMov } = await supabase
-              .from("rh_movimentacoes")
-              .select("id")
-              .or(`cpf.eq.${cpfClean},funcionario_nome.eq.${nomeColab}`)
-              .maybeSingle();
-
-            if (existingMov) {
-              await supabase
-                .from("rh_movimentacoes")
-                .update({
-                  data_desligamento: desligamentoData.data_desligamento,
-                  motivo_saida: desligamentoData.motivo_saida,
-                })
-                .eq("id", existingMov.id);
-            } else {
-              await supabase.from("rh_movimentacoes").insert([
-                {
-                  funcionario_nome: nomeColab,
-                  cpf: cpfClean,
-                  data_admissao: selectedColaborador.admissao ? selectedColaborador.admissao.split("/").reverse().join("-") : null,
-                  data_desligamento: desligamentoData.data_desligamento,
-                  motivo_saida: desligamentoData.motivo_saida,
-                },
-              ]);
-            }
-
-            // 2. Se possuir EPIs/Fardamentos pendentes de entrega, criar pendência em devolucoes_pendentes
-            const epiItens = selectedColaborador.epi_itens || "";
-            const fardItens = selectedColaborador.fardamento_itens || "";
-
-            if (epiItens.trim() !== "" || fardItens.trim() !== "") {
-              await supabase.from("devolucoes_pendentes").insert([
-                {
-                  funcionario_nome: nomeColab,
-                  cpf: cpfClean,
-                  funcao: selectedColaborador.funcao,
-                  setor: selectedColaborador.setor,
-                  unidade: selectedColaborador.unidade,
-                  local_registro: selectedColaborador.local_registro,
-                  data_admissao: selectedColaborador.admissao,
-                  data_desligamento: desligamentoData.data_desligamento,
-                  epi_data: selectedColaborador.epi_data,
-                  epi_itens: epiItens,
-                  fardamento_data: selectedColaborador.fardamento_data,
-                  fardamento_itens: fardItens,
-                  status: "pendente",
-                },
-              ]);
-            }
-
-            // 3. Salvar histórico na tabela rh_desligados
-            const desligadoPayload = {
-              cpf: cpfClean,
-              nome: nomeColab,
-              funcao: selectedColaborador.funcao || "",
-              setor: selectedColaborador.setor || "",
-              unidade: selectedColaborador.unidade || "",
-              admissao: selectedColaborador.admissao || "",
+            await RH.result(supabase.from("funcionarios_epi").update({
               data_desligamento: desligamentoData.data_desligamento,
               motivo_saida: desligamentoData.motivo_saida,
-              whatsapp: selectedColaborador.whatsapp || "",
-              tamanho_farda: selectedColaborador.tamanho_farda || "",
-              calcado: selectedColaborador.calcado || "",
-              calca: selectedColaborador.calca || "",
-              sexo: selectedColaborador.sexo || "",
-              carga_horaria: selectedColaborador.carga_horaria || 220,
-              local_registro: selectedColaborador.local_registro || "",
-              epi_data: selectedColaborador.epi_data || "",
-              epi_itens: selectedColaborador.epi_itens || "",
-              fardamento_data: selectedColaborador.fardamento_data || "",
-              fardamento_itens: selectedColaborador.fardamento_itens || "",
-              updated_at: new Date().toISOString()
-            };
-
-            const { data: existingDesligado } = await supabase
-              .from("rh_desligados")
-              .select("id")
-              .or(`cpf.eq.${cpfClean},nome.eq.${nomeColab}`)
-              .maybeSingle();
-
-            if (existingDesligado) {
-              await supabase
-                .from("rh_desligados")
-                .update(desligadoPayload)
-                .eq("id", existingDesligado.id);
-            } else {
-              await supabase
-                .from("rh_desligados")
-                .insert([desligadoPayload]);
-            }
-
-            // 4. Remover de férias e absenteísmo do funcionário ativo
-            await supabase.from("rh_ferias").delete().or(`cpf.eq.${cpfClean},funcionario_nome.eq.${nomeColab}`);
-
-            // Log
-            await supabase.from("sistema_logs").insert([
-              {
-                tabela_afetada: "rh_movimentacoes",
-                tipo_operacao: "UPDATE",
-                descricao: `Desligamento efetuado para ${nomeColab} em ${formatarDataDisplay(desligamentoData.data_desligamento)}`,
-                dados_novos: desligamentoData,
-              },
-            ]);
+            }).eq("id", selectedColaborador.id).select(), true);
 
             alert(`Desligamento de ${nomeColab} registrado com sucesso!`);
             setIsDesligarModalOpen(false);
@@ -1205,7 +990,7 @@
                                         if (window.confirm(`Deseja realmente solicitar o desligamento de ${item.nome}?`)) {
                                           setSelectedColaborador(item);
                                           setDesligamentoData({
-                                            data_desligamento: new Date().toISOString().split("T")[0],
+                                            data_desligamento: RH.today(),
                                             motivo_saida: "voluntario",
                                           });
                                           setIsDesligarModalOpen(true);
@@ -1344,7 +1129,7 @@
                               if (window.confirm(`Deseja realmente solicitar o desligamento de ${selectedColaborador.nome}?`)) {
                                 setIsDetalhesModalOpen(false);
                                 setDesligamentoData({
-                                  data_desligamento: new Date().toISOString().split("T")[0],
+                                  data_desligamento: RH.today(),
                                   motivo_saida: "voluntario",
                                 });
                                 setIsDesligarModalOpen(true);
@@ -1919,3 +1704,4 @@
     </script>
   </body>
 </html>
+
