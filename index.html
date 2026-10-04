@@ -38,7 +38,9 @@
     </style>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  </head>
+      <link rel="stylesheet" href="rh-responsive.css">
+    <script src="rh-core.js"></script>
+</head>
   <body>
     <div id="root"></div>
     <!-- Supabase JS -->
@@ -244,7 +246,7 @@
               .eq("id", session.user.id)
               .single();
 
-            if (!profile || profile.status !== "aprovado") {
+            if (!profile || !["aprovado", "admin"].includes(profile.status)) {
               window.location.href = "login.html";
               return;
             }
@@ -651,40 +653,14 @@
           }
         };
 
-        const handleVerifyAdminPassword = async () => {
-          setAdminPasswordError("");
-          try {
-            const { data, error } = await supabase
-              .from("configuracoes_admin")
-              .select("valor")
-              .eq("chave", "admin_password")
-              .single();
-
-            const correctPass = data ? data.valor : "admin123";
-            if (adminPasswordInput === correctPass) {
-              setIsAdminModalOpen(false);
-              setAdminPasswordInput("");
-              window.location.href = "admin.html";
-            } else {
-              setAdminPasswordError("Senha incorreta. Tente novamente.");
-            }
-          } catch (err) {
-            console.error("Erro ao verificar senha de admin:", err);
-            if (adminPasswordInput === "admin123") {
-              setIsAdminModalOpen(false);
-              setAdminPasswordInput("");
-              window.location.href = "admin.html";
-            } else {
-              setAdminPasswordError("Erro ao verificar senha ou senha incorreta.");
-            }
-          }
-        };
+        const handleVerifyAdminPassword = async () => { await RH.openAdmin(supabase); };
 
         const fetchEmployees = async () => {
           try {
             const { data, error } = await supabase
               .from("funcionarios_epi")
               .select("*")
+              .is("data_desligamento", null)
               .order("nome", { ascending: true });
 
             if (error) throw error;
@@ -706,25 +682,9 @@
             fetchEpiFuncaoRules();
             fetchDevolucoes();
 
-            // Set up Realtime subscription
-            const channel = supabase
-              .channel("schema-db-changes")
-              .on(
-                "postgres_changes",
-                { event: "*", schema: "public", table: "funcionarios_epi" },
-                (payload) => {
-                  console.log("Realtime change received!", payload);
-                  // For simplicity and accuracy, re-fetch all data on change.
-                  // For huge datasets, we'd update state based on payload.
-                  fetchEmployees();
-                  fetchEpiFuncaoRules();
-                },
-              )
-              .subscribe();
-
-            return () => {
-              supabase.removeChannel(channel);
-            };
+            return RH.watch(supabase, ["funcionarios_epi", "empresas", "epi_funcao", "devolucoes_pendentes"], () => {
+              fetchEmployees(); fetchEmpresas(); fetchEpiFuncaoRules(); fetchDevolucoes();
+            });
           }
         }, [isAuthChecking]);
 
@@ -839,7 +799,7 @@
                     ? match[4].includes("/")
                       ? match[4].split("/").reverse().join("-")
                       : match[4]
-                    : defaultDate) || new Date().toISOString().split("T")[0],
+                    : defaultDate) || RH.today(),
                 linkComprovante: defaultLink || "",
               };
             } else {
@@ -849,7 +809,7 @@
                 ca: "",
                 qtd: "1",
                 dataEntrega:
-                  defaultDate || new Date().toISOString().split("T")[0],
+                  defaultDate || RH.today(),
                 linkComprovante: defaultLink || "",
               };
             }
@@ -867,7 +827,7 @@
               ? (itemData.ultimaEntrega.includes("/")
                   ? itemData.ultimaEntrega.split("/").reverse().join("-")
                   : itemData.ultimaEntrega)
-              : new Date().toISOString().split("T")[0];
+              : RH.today();
 
             const parsedItems = parseItemString(
               itemData.itens,
@@ -1314,7 +1274,7 @@
 
           const parsedItems = parseItemString(
             itemData.itens,
-            itemData.ultimaEntrega || new Date().toISOString().split("T")[0],
+            itemData.ultimaEntrega || RH.today(),
             itemData.link
           );
 
@@ -1337,7 +1297,7 @@
           if (!devolucaoRecord) return;
 
           const recordChecked = checkedDevolucaoItems[devolucaoRecord.id] || {};
-          const todayIso = new Date().toISOString().split("T")[0];
+          const todayIso = RH.today();
 
           // Parse EPI and Fardamento items
           const epiItems = parseItemString(
@@ -1410,7 +1370,7 @@
           const sortedDates = [...stagedItems.map((i) => i.dataEntrega)].sort(
             (a, b) => new Date(b) - new Date(a),
           );
-          const finalDateToUse = sortedDates[0] || new Date().toISOString().split("T")[0];
+          const finalDateToUse = sortedDates[0] || RH.today();
 
           if (!isNewVerification) {
             pdfItems = [...finalItemsForSupabase];
@@ -1526,7 +1486,7 @@
           return (
             <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
               <header className="bg-[#002060] text-white px-5 py-4 flex items-center justify-between shadow-md sticky top-0 z-50">
-                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Clique para abrir Área Restrita do Administrador">
+                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => RH.openAdmin(supabase)} title="Clique para abrir Área Restrita do Administrador">
                   <Shield size={28} className="text-[#E30613] group-hover:scale-110 transition-transform" />
                   <div>
                     <h1 className="text-xl font-extrabold tracking-tight leading-none group-hover:text-red-200 transition-colors">
@@ -1928,7 +1888,7 @@
               className={`w-full md:w-[380px] bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 md:h-screen ${(selectedEmpId !== null || (statusFilter === "devolucoes" && selectedDevolucaoId !== null)) ? "hidden md:flex" : "flex"}`}
             >
               <div className="p-5 bg-[#002060] text-white flex justify-between items-center sticky top-0 z-30">
-                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => { setIsAdminModalOpen(true); setAdminPasswordError(""); setAdminPasswordInput(""); }} title="Clique para abrir Área Restrita do Administrador">
+                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => RH.openAdmin(supabase)} title="Clique para abrir Área Restrita do Administrador">
                   <Shield size={24} className="text-[#E30613] group-hover:scale-110 transition-transform" />
                   <h2 className="text-lg font-bold tracking-wide group-hover:text-red-200 transition-colors">
                     Controle de Entregas
@@ -2995,3 +2955,4 @@
     </script>
   </body>
 </html>
+

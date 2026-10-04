@@ -20,7 +20,9 @@
     <!-- SheetJS (XLSX) CDN -->
     <!-- XLSX with Cell Styles support (xlsx-js-style) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-  </head>
+      <link rel="stylesheet" href="rh-responsive.css">
+    <script src="rh-core.js"></script>
+</head>
   <body class="bg-slate-100 text-slate-800 antialiased font-sans min-h-screen">
     <div id="root"></div>
 
@@ -253,7 +255,7 @@
               .eq("id", session.user.id)
               .single();
 
-            if (!profile || (profile.status !== "aprovado" && profile.status !== "admin")) {
+            if (!profile || profile.status !== "admin") {
               window.location.href = "login.html";
               return;
             }
@@ -701,21 +703,6 @@
                   continue;
                 }
 
-                // 2. Insert rh_movimentacoes if not exists
-                let admIso = item.admissao;
-                if (item.admissao.includes("/")) {
-                  const p = item.admissao.split("/");
-                  if (p.length === 3) admIso = `${p[2]}-${p[1]}-${p[0]}`;
-                }
-
-                await supabase.from("rh_movimentacoes").insert([
-                  {
-                    funcionario_nome: item.nome,
-                    cpf: item.cpf,
-                    data_admissao: admIso,
-                  },
-                ]);
-
                 insertedCount++;
               }
 
@@ -770,18 +757,7 @@
           }
         };
 
-        async function fetchAdminPassword() {
-          try {
-            const { data, error } = await supabase
-              .from("configuracoes_admin")
-              .select("valor")
-              .eq("chave", "admin_password")
-              .single();
-            if (data) setCurrentPassword(data.valor);
-          } catch (e) {
-            console.error("Erro ao buscar senha:", e);
-          }
-        }
+        async function fetchAdminPassword() { setCurrentPassword(""); }
 
         async function fetchLogs() {
           setLogsLoading(true);
@@ -833,8 +809,8 @@
           e.preventDefault();
           setPasswordMsg({ type: "", text: "" });
 
-          if (!newPassword || newPassword.length < 4) {
-            setPasswordMsg({ type: "error", text: "A nova senha deve ter pelo menos 4 caracteres." });
+          if (!newPassword || newPassword.length < 8) {
+            setPasswordMsg({ type: "error", text: "A nova senha deve ter pelo menos 8 caracteres." });
             return;
           }
 
@@ -845,12 +821,11 @@
 
           try {
             const { error } = await supabase
-              .from("configuracoes_admin")
-              .upsert({ chave: "admin_password", valor: newPassword, updated_at: new Date() }, { onConflict: "chave" });
+              .auth.updateUser({ password: newPassword });
 
             if (error) throw error;
 
-            setCurrentPassword(newPassword);
+            setCurrentPassword("");
             setNewPassword("");
             setConfirmNewPassword("");
             setPasswordMsg({ type: "success", text: "Senha alterada com sucesso!" });
@@ -872,20 +847,20 @@
 
             try {
               const { tabela_afetada, tipo_operacao, dados_anteriores, dados_novos } = targetLog;
+              const anterior = { ...dados_anteriores };
+              delete anterior.dias_saldo;
 
-              if (tipo_operacao === "DELETE" && dados_anteriores) {
-                // Re-insert record
-                await supabase.from(tabela_afetada).insert([dados_anteriores]);
-                revertedCount++;
-              } else if (tipo_operacao === "UPDATE" && dados_anteriores && targetLog.dados_anteriores.id) {
-                // Restore previous row state
-                await supabase.from(tabela_afetada).update(dados_anteriores).eq("id", dados_anteriores.id);
-                revertedCount++;
-              } else if (tipo_operacao === "INSERT" && dados_novos && dados_novos.id) {
-                // Delete inserted row
-                await supabase.from(tabela_afetada).delete().eq("id", dados_novos.id);
-                revertedCount++;
+              const pkField = tabela_afetada === "epi_funcao" ? "funcao" : "id";
+              if (tipo_operacao === "DELETE" && dados_anteriores && dados_anteriores[pkField] != null) {
+                await RH.result(supabase.from(tabela_afetada).insert([anterior]).select(), true);
+              } else if (tipo_operacao === "UPDATE" && dados_anteriores && dados_novos && dados_novos[pkField] != null) {
+                await RH.result(supabase.from(tabela_afetada).update(anterior).eq(pkField, dados_novos[pkField]).select(), true);
+              } else if (tipo_operacao === "INSERT" && dados_novos && dados_novos[pkField] != null) {
+                await RH.result(supabase.from(tabela_afetada).delete().eq(pkField, dados_novos[pkField]).select(), true);
+              } else {
+                throw new Error("Este log não contém a identidade e os dados necessários para reverter.");
               }
+              revertedCount++;
 
               // Log the reversion itself
               await supabase.from("sistema_logs").insert([
@@ -1641,26 +1616,11 @@
                       </div>
                       <div>
                         <h2 className="text-xl font-black text-white">Segurança do Administrador</h2>
-                        <p className="text-slate-400 text-xs">Visualize e altere a senha de acesso à área restrita</p>
+                        <p className="text-slate-400 text-xs">Altere a senha da sua conta de administrador</p>
                       </div>
                     </div>
 
-                    {/* Current password preview card */}
-                    <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Senha Atual Registrada</span>
-                        <span className="text-lg font-mono font-bold text-slate-100 mt-1 block">
-                          {showPassword ? currentPassword : "•".repeat(currentPassword.length || 8)}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="p-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors flex items-center gap-1.5 text-xs font-bold"
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        {showPassword ? "Ocultar" : "Visualizar"}
-                      </button>
-                    </div>
+                    <p className="text-sm text-slate-300">Altere a senha da sua conta. O acesso administrativo é definido pela aprovação do perfil.</p>
 
                     {/* Change password form */}
                     <form onSubmit={handleUpdatePassword} className="space-y-4 pt-2">
@@ -1864,3 +1824,4 @@
     </script>
   </body>
 </html>
+
