@@ -21,7 +21,7 @@
     <!-- XLSX with Cell Styles support (xlsx-js-style) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
       <link rel="stylesheet" href="rh-responsive.css">
-    <script src="rh-core.js"></script>
+    <script src="rh-core.js"></script><script src="rh-folder-choice.js?v=20261005"></script>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#102c38">
 <link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
 </head>
@@ -35,6 +35,7 @@
       const SUPABASE_URL = "https://gcksbfstheavpfgcdndb.supabase.co";
       const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      RHFolderChoice.start(supabase);
 
       // Icon Components (SVG Helper)
       const Icon = ({ children, size = 20, className = "" }) => (

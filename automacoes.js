@@ -1,13 +1,14 @@
 'use strict';
 const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU');
 const el=id=>document.getElementById(id);let employees=[],links=[],settings;
-const labels={waiting:'Aguardando',processing:'Processando',done:'Concluído',failed:'Falha',prepared:'Preparado',sent_manual:'Envio manual',signed_manual:'Assinatura manual'};
+RHFolderChoice.start(client);
+const labels={awaiting_choice:'Aguardando escolha da pasta',waiting:'Aguardando',processing:'Processando',done:'Concluído',failed:'Falha',prepared:'Preparado',sent_manual:'Envio manual',signed_manual:'Assinatura manual'};
 const name=id=>(employees.find(e=>e.id===id)||{}).nome||'Cadastro indisponível';
 function notify(text,error=false){el('message').textContent=text;el('message').classList.toggle('error',error);}
 async function action(fn){document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){notify(e.message||String(e),true);}finally{document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
 function cell(row,text){const td=document.createElement('td');td.textContent=text||'—';row.append(td);return td;}
 function renderRows(id,data,render){el(id).replaceChildren();if(!data.length){const tr=document.createElement('tr');cell(tr,'Nenhum registro.');el(id).append(tr);}data.forEach(d=>{const row=document.createElement('tr');render(row,d);el(id).append(row);});}
-function selected(){const e=employees.find(e=>e.id===el('employee').value);if(!e)return;el('folder').value=(links.find(l=>l.funcionario_id===e.id)||{}).folder_id||'';el('destination').textContent=e.nome+' → '+(e.data_desligamento?'Ex-funcionários (desligado)':'Funcionários ativos')+'. A tarefa procura uma pasta existente antes de criar.';}
+function selected(){const e=employees.find(e=>e.id===el('employee').value);if(!e)return;el('folder').value=(links.find(l=>l.funcionario_id===e.id)||{}).folder_id||'';el('destination').textContent=e.nome+' → '+(e.data_desligamento?'Ex-funcionários (desligado)':'Funcionários ativos')+'. A tarefa procura uma pasta existente e pede sua confirmação antes de reutilizar.';}
 function renderMessage(){let text=el('messageTemplate').value;const fields={nome:name(el('docEmployee').value),tipo:el('type').value,competencia:el('period').value,link:el('url').value};if(/\{([^{}]+)\}/g.test(text)){text=text.replace(/\{([^{}]+)\}/g,(_,k)=>{if(!(k in fields))throw Error('Variável desconhecida: '+k);return fields[k];});}el('preview').textContent=text;return text;}
 async function refresh(){
  [links]=await Promise.all([RH.fetchAll(client,'rh_drive_links','*','funcionario_id')]);
