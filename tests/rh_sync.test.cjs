@@ -22,7 +22,9 @@ function environment() {
         getValues:()=>Array.from({length:n},(_,i)=>Array.from({length:m},(_,j)=>self.rows[row+i-1]?.[col+j-1] ?? '')),
         setValue(value){self.rows[row-1] ??=[]; self.rows[row-1][col-1]=value; return this;},
         setValues(values){values.forEach((items,i)=>items.forEach((v,j)=>{self.rows[row+i-1] ??=[];self.rows[row+i-1][col+j-1]=v;}));return this;},
-        setNumberFormat(){return this;}
+        setNumberFormat(){return this;},
+        clearDataValidations(){return this;},
+        getDataValidation(){return null;}
       };
     }
     deleteRow(row){this.rows.splice(row-1,1);}
@@ -136,5 +138,28 @@ test('colunas auxiliares permanecem intactas',()=>{
 });
 test('erros HTTP não viram sucesso silencioso',()=>{
   const env=environment();env.ctx.UrlFetchApp.fetch=()=>({getResponseCode:()=>403,getContentText:()=>'{"message":"permission denied"}'});assert.throws(()=>env.ctx.requestRH('empresas','get',''),/HTTP 403/);
+});
+test('nomes com acentos correspondem sem misturar pessoas diferentes',()=>{
+  const {ctx}=environment();assert.equal(ctx.normalizarNomeRH(' KARINA RIBEIRO MENDONÇA '),ctx.normalizarNomeRH('KARINA RIBEIRO MENDONCA'));assert.equal(ctx.normalizarNomeRH('TIAGO DA PAIXÃO DOS SANTOS'),ctx.normalizarNomeRH('TIAGO DA PAIXAO DOS SANTOS'));assert.notEqual(ctx.normalizarNomeRH('TIAGO SANTOS QUEIROZ'),ctx.normalizarNomeRH('TIAGO DA PAIXÃO DOS SANTOS'));
+});
+test('datas antigas Date.toString mantêm dia e rejeitam data inexistente',()=>{
+  const {ctx}=environment();assert.equal(ctx.formatarData('Mon Jun 15 2026 04:00:00 GMT-0300 (Brasilia Standard Time)'),'2026-06-15');assert.throws(()=>ctx.formatarData('Mon Feb 30 2026 04:00:00 GMT-0300 (Brasilia Standard Time)'),/inexistente/);
+});
+test('recebimento aceita entrada e remove validação herdada somente de coluna técnica',()=>{
+  const env=environment(), config=env.config.movimentacoes;
+  const sheet=new env.Sheet('movimentacoes',[config.fields.concat(config.extra),['TESTE','','','','12345678901',7]]);
+  const original=sheet.getRange.bind(sheet),cleared=[],expanded=[];
+  env.ctx.SpreadsheetApp.DataValidationCriteria={VALUE_IN_LIST:'list'};
+  const rule={getCriteriaType:()=> 'list',getCriteriaValues:()=>[['involuntario','voluntario'],true],copy:()=>({requireValueInList(options){expanded.push(options);return {build:()=>rule};}})};
+  sheet.getRange=(row,col,n,m)=>{const range=original(row,col,n,m);range.clearDataValidations=()=>{cleared.push(col);return range;};range.getDataValidation=()=>col===4?rule:null;range.setDataValidation=()=>range;return range;};
+  env.ctx.escreverRegistroRH(sheet,config,env.ctx.layoutRH(sheet,config,false),2,{id:7,motivo_saida:'entrada'});
+  assert.deepEqual(cleared,[6]);assert.deepEqual(expanded[0],['involuntario','voluntario','entrada']);assert.equal(sheet.rows[1][3],'entrada');
+});
+test('férias excluem Karina desligada apesar do acento e preservam CPF divergente',()=>{
+  const path=require('node:path');const html=fs.readFileSync(path.join(path.dirname(process.argv[2]||'google_apps_script_atualizado.js'),'ferias.html'),'utf8');
+  const helper=html.match(/const isDesligado = \(f\) => \{[\s\S]*?\n        \};/)[0];
+  const ctx={movimentacoes:[{funcionario_nome:'KARINA RIBEIRO MENDONCA',data_desligamento:'2026-07-27',cpf:null}]};vm.createContext(ctx);vm.runInContext(helper+'; this.check=isDesligado;',ctx);
+  assert.equal(ctx.check({funcionario_nome:'KARINA RIBEIRO MENDONÇA'}),true);
+  ctx.movimentacoes[0].cpf='12345678901';assert.equal(ctx.check({funcionario_nome:'KARINA RIBEIRO MENDONÇA',cpf:'98765432109'}),false);
 });
 console.log(checks + ' verificações concluídas.');

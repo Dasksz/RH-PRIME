@@ -309,12 +309,14 @@
         const isDesligado = (f) => {
           if (!f) return false;
           const cpfClean = f.cpf ? f.cpf.replace(/\D/g, "") : "";
-          const nomeClean = f.funcionario_nome ? f.funcionario_nome.trim().toUpperCase() : "";
+          const nomeClean = f.funcionario_nome ? f.funcionario_nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toUpperCase() : "";
           return movimentacoes.some((m) => {
             if (!m.data_desligamento) return false;
             const mCpfClean = m.cpf ? m.cpf.replace(/\D/g, "") : "";
-            const mNomeClean = m.funcionario_nome ? m.funcionario_nome.trim().toUpperCase() : "";
+            const mNomeClean = m.funcionario_nome ? m.funcionario_nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toUpperCase() : "";
+            if (f.funcionario_id && m.funcionario_id && f.funcionario_id === m.funcionario_id) return true;
             if (cpfClean && mCpfClean && cpfClean === mCpfClean) return true;
+            if (cpfClean && mCpfClean && cpfClean !== mCpfClean) return false;
             if (nomeClean && mNomeClean && nomeClean === mNomeClean) return true;
             return false;
           });
@@ -360,7 +362,7 @@
           }
 
           const nomeUpper = item.funcionario_nome
-            ? item.funcionario_nome.trim().toUpperCase()
+            ? item.funcionario_nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toUpperCase()
             : "";
           const absFunc = absenteismo.filter(
             (a) =>
