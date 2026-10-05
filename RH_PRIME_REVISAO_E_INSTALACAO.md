@@ -73,3 +73,16 @@ A verificação de segurança do Supabase ficou com um aviso: a proteção contr
 ## Credencial incluída a pedido do proprietário
 
 A chave `service_role` está no arquivo completo por instrução expressa do proprietário, que aceitou a exposição temporária no repositório público. Ela deve ser **trocada após a instalação**. Apagar o arquivo não remove a chave do histórico Git nem de cópias externas. Após a troca, atualize `SUPABASE_KEY` nas Propriedades do script, retire o valor de `RH_CONFIG_INICIAL` e remova o segredo do histórico. Nunca copie esse arquivo para o front-end, PWA, APK ou instalador.
+
+
+## Correção do recebimento parcial e férias — 04/10/2026
+
+Versão do Apps Script: `2026-10-04-rh3`. Substitua o código completo pelo arquivo atualizado, salve e execute novamente **RH PRIME Sync → Receber banco na planilha**. Atualize também a versão da implantação Web App existente, mantendo a URL.
+
+- Removidas as validações de CNPJ herdadas incorretamente pelas colunas técnicas X:Z. A validação real de CNPJ em W foi preservada.
+- A lista de movimentações agora aceita `entrada`. O motivo de afastamento já existente no banco foi acrescentado à lista de absenteísmo. O recebimento amplia apenas listas de motivos com valores confirmados no banco.
+- Datas antigas no formato `Date.toString()` são aceitas preservando seu dia civil e rejeitando datas inexistentes.
+- Tiago da Paixão dos Santos: CPF e vínculo recuperados do cadastro único e gravados em férias no banco e na planilha.
+- Karina Ribeiro Mendonça: desligamento em 27/07/2026 reconhecido pela tela apesar da diferença de acento no nome. Registro de férias preservado como histórico, com nota na planilha. CPF permanece pendente porque também falta no histórico de desligamento.
+
+As verificações locais cobrem as regressões de validação, data antiga, comparação de nomes e filtro de desligados. A execução final do Apps Script depende da atualização manual na extensão da planilha.

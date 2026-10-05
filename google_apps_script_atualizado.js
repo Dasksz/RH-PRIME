@@ -42,7 +42,7 @@ const RH_DATES = ['admissao','nascimento','data_admissao','data_desligamento','d
 const RH_NUMBERS = ['carga_horaria','horas_previstas','horas_perdidas','dias_direito','dias_gozados','dias_abonados','dias_programados','dias_saldo'];
 const RH_JSON = ['itens_checked','historico_periodos'];
 
-const RH_VERSION = "2026-10-04-rh2";
+const RH_VERSION = "2026-10-04-rh3";
 const RH_CONFIG_INICIAL = {
   "SUPABASE_URL": "https://gcksbfstheavpfgcdndb.supabase.co",
   "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzc1MDcyNywiZXhwIjoyMDkzMzI2NzI3fQ.yuYxAYnllivwnR7fKzEAfgUIdLEAQZjIBAPrWfQh0IY",
@@ -66,7 +66,7 @@ function configPorTabelaRH(table) {
   return { name: name, config: SHEET_CONFIG[name] };
 }
 function camposRH(config) { return config.fields.concat(config.extra || []); }
-function normalizarNomeRH(value) { return String(value || '').trim().toUpperCase(); }
+function normalizarNomeRH(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toUpperCase(); }
 function limparCPF(value) {
   if (value === null || value === undefined || value === '') return '';
   const digits = String(value).replace(/\D/g, '');
@@ -84,7 +84,10 @@ function formatarData(value) {
     if (isNaN(value.getTime())) throw new Error('Data inválida.');
     return Utilities.formatDate(value, RH_TZ, 'yyyy-MM-dd');
   }
-  const s = String(value).trim();
+  let s = String(value).trim();
+  // Datas antigas foram gravadas como Date.toString(); preserva o dia civil explícito.
+  const legacy = s.match(/^(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}) (\d{4}) \d{2}:\d{2}:\d{2} GMT[+-]\d{4}(?: \(.*\))?$/);
+  if (legacy) s = legacy[3] + '-' + String(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(legacy[1])+1).padStart(2,'0') + '-' + legacy[2].padStart(2,'0');
   let match = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   const iso = match ? match[3] + '-' + match[2].padStart(2,'0') + '-' + match[1].padStart(2,'0') : s;
   match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -201,7 +204,7 @@ function buildPayload(sheetName, rowData) {
   });
   const name = config.tableName === 'funcionarios_epi' || config.tableName === 'rh_desligados' ? 'nome' : 'funcionario_nome';
   if (name in payload && !payload[name]) throw new Error('Nome obrigatório.');
-  if (config.tableName === 'epi_funcao' && (!payload.funcao || normalizarNomeRH(payload.funcao) === 'FUNÇÃO')) throw new Error('Linha de cabeçalho não é uma função.');
+  if (config.tableName === 'epi_funcao' && (!payload.funcao || normalizarNomeRH(payload.funcao) === 'FUNCAO')) throw new Error('Linha de cabeçalho não é uma função.');
   if (config.tableName === 'funcionarios_epi' && !payload.cpf) throw new Error('CPF obrigatório no cadastro de EPI.');
   if (payload.data_inicio && payload.data_fim && payload.data_inicio > payload.data_fim) throw new Error('Data final anterior à inicial.');
   if (payload.data_admissao && payload.data_desligamento && payload.data_admissao > payload.data_desligamento) throw new Error('Desligamento anterior à admissão.');
@@ -284,7 +287,19 @@ function valorCelulaRH(field, value) {
 function escreverRegistroRH(sheet, config, map, row, record) {
   // Grava somente campos mapeados. Preserva colunas auxiliares, fórmulas e formatação.
   const cells = Object.keys(map).filter(field => Object.prototype.hasOwnProperty.call(record,field))
-    .map(field => ({col:map[field],value:valorCelulaRH(field,record[field])})).sort((a,b)=>a.col-b.col);
+    .map(field => ({field:field,col:map[field],value:valorCelulaRH(field,record[field])})).sort((a,b)=>a.col-b.col);
+  cells.forEach(cell => {
+    const range = sheet.getRange(row,cell.col);
+    if ((config.extra || []).includes(cell.field)) range.clearDataValidations();
+    // Valores confirmados no banco ampliam somente listas de motivos; demais regras permanecem.
+    if (['motivo','motivo_saida'].includes(cell.field) && cell.value !== '') {
+      const rule = range.getDataValidation();
+      if (rule && rule.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST) {
+        const args = rule.getCriteriaValues(), options = args[0].slice();
+        if (!options.includes(String(cell.value))) range.setDataValidation(rule.copy().requireValueInList(options.concat(String(cell.value)),args[1] !== false).build());
+      }
+    }
+  });
   const groups = [];
   cells.forEach(cell => {
     let group = groups[groups.length-1];
@@ -355,6 +370,7 @@ function prepararEstruturaRH() {
       if (!sheet) { sheet = ss.insertSheet(name); if (config.headerRow === 2) sheet.getRange(1,1).setValue('Regras de EPI por função'); }
       const map = layoutRH(sheet,config,true);
       ['cpf','id','cnpj','whatsapp'].concat(RH_DATES).filter(f => map[f]).forEach(f => sheet.getRange(config.headerRow+1,map[f],Math.max(1,sheet.getMaxRows()-config.headerRow),1).setNumberFormat('@'));
+      (config.extra || []).filter(f => map[f]).forEach(f => sheet.getRange(config.headerRow+1,map[f],Math.max(1,sheet.getMaxRows()-config.headerRow),1).clearDataValidations());
       sheet.setFrozenRows(config.headerRow);
     });
     ss.setSpreadsheetTimeZone(RH_TZ);
@@ -392,7 +408,7 @@ function receberTabelaRH(ss, name) {
   const map = layoutRH(sheet,config,false), records = lerTabelaRH(config.tableName);
   const errors = [];
   records.forEach(record => {
-    if (config.tableName === 'epi_funcao' && normalizarNomeRH(record.funcao) === 'FUNÇÃO') return;
+    if (config.tableName === 'epi_funcao' && normalizarNomeRH(record.funcao) === 'FUNCAO') return;
     try {
       let row = acharLinhaRH(sheet,config,map,record,null);
       if (row === -1) row = sheet.getLastRow()+1;
