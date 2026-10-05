@@ -56,7 +56,8 @@ function documentSituation(d){
  if(d.status==='failed'&&detail==='Processe primeiro a pasta do colaborador no painel de automações.'){
   detail=linked?'Pasta já vinculada. Retome o upload deste PDF ou use Retomar uploads com falha no lote.':'Pasta pendente de vínculo. Use Vincular pastas existentes do lote e acompanhe a fila em Automações.';
  }
- return labels[d.status]+(detail?'\n'+detail:'');
+ const access=d.drive_file_id?(d.drive_access_error?'\nAcesso ao PDF: '+d.drive_access_error:d.drive_public_reader_at?'\nAcesso ao PDF: leitor por link confirmado':'\nAcesso ao PDF: verificação pendente'):'';
+ return labels[d.status]+(detail?'\n'+detail:'')+access;
 }
 function preserveDocumentChoices(documents,previous){
  const choices=new Map(previous.map(d=>[d.id,d]));
