@@ -59,3 +59,5 @@ input[type=file]{width:100%;min-width:0}
 [data-rh-theme=dark] [class~="bg-purple-100"]{background:#312644!important}
 [data-rh-theme=dark] [class~="text-purple-700"]{color:#d8b4fe!important}
 [data-rh-theme=dark] [class~="text-emerald-900"]{color:#86efac!important}
+[data-rh-theme=dark] table tbody tr{border-color:var(--rh-border)!important}
+[data-rh-theme=dark] [class~="from-white"]{--tw-gradient-from:var(--rh-panel) var(--tw-gradient-from-position)!important;--tw-gradient-to:rgba(20,38,48,0) var(--tw-gradient-to-position)!important;--tw-gradient-stops:var(--tw-gradient-from),rgba(20,38,48,.45),var(--tw-gradient-to)!important}
