@@ -51,7 +51,9 @@ function limparCopiasConfirmadasRH(deadline){
 function permissoesDocumentoDriveRH(fileId){
  let permissions=[],token;
  do{
-  const page=apiDriveRH('files/'+fileId+'/permissions','get',undefined,{fields:'nextPageToken,permissions(id,type,role,allowFileDiscovery)',pageSize:100,pageToken:token||''});
+  const params={fields:'nextPageToken,permissions(id,type,role,allowFileDiscovery)',pageSize:100};
+  if(token)params.pageToken=token;
+  const page=apiDriveRH('files/'+fileId+'/permissions','get',undefined,params);
   permissions=permissions.concat(page.permissions||[]);token=page.nextPageToken;
  }while(token);
  return permissions;
