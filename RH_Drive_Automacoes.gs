@@ -19,7 +19,7 @@ function apiDriveRH(path,method,body,params) {
   const options={method:method||'get',muteHttpExceptions:true,headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken(),'Content-Type':'application/json'}};
   if(body!==undefined) options.payload=JSON.stringify(body);
   const r=UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/'+path+'?'+q,options);
-  if(r.getResponseCode()<200 || r.getResponseCode()>=300) throw Error('Drive: HTTP '+r.getResponseCode()+'. Confira permissões, pastas e cotas.');
+  if(r.getResponseCode()<200 || r.getResponseCode()>=300) throw Error(erroDriveRH(r));
   return r.getContentText()?JSON.parse(r.getContentText()):{};
 }
 function idDriveRH(id) { if(!/^[A-Za-z0-9_-]{10,200}$/.test(id||'')) throw Error('ID de pasta inválido'); return id; }
@@ -138,4 +138,29 @@ function instalarAutomacaoDriveRH() {
  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='processarFilaDriveRH').forEach(t=>ScriptApp.deleteTrigger(t));
  ScriptApp.newTrigger('processarFilaDriveRH').timeBased().everyMinutes(5).create();
  bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString()});
+}
+
+// Diagnóstico sem criar, mover ou apagar arquivos.
+function erroDriveRH(response) {
+ let error={};try{error=JSON.parse(response.getContentText()).error||{};}catch(_){}
+ const reasons=(error.errors||[]).map(e=>e.reason).concat((error.details||[]).map(e=>e.reason)).filter(Boolean);
+ const reason=reasons.join(', ')||error.status||'motivo não informado';
+ let hint='Confira a execução no Apps Script e o acesso da conta às pastas.';
+ if(/accessNotConfigured|SERVICE_DISABLED/.test(reason))hint='Ative a Google Drive API no projeto Google Cloud vinculado ao Apps Script.';
+ else if(/insufficientPermissions|ACCESS_TOKEN_SCOPE_INSUFFICIENT/.test(reason))hint='Execute instalarAutomacaoDriveRH novamente e autorize o acesso ao Drive. Confira os escopos explícitos do manifesto, se houver.';
+ else if(/insufficientFilePermissions|teamDriveMembershipRequired/.test(reason))hint='A conta que criou o gatilho precisa de acesso às pastas e permissão para criar/copiar/mover os arquivos.';
+ else if(/quota|limit|storage/i.test(reason))hint='Confira armazenamento e cotas do Google Drive antes de reprocessar.';
+ return 'Drive: HTTP '+response.getResponseCode()+' ['+reason+']. '+hint;
+}
+function diagnosticarAutomacaoDriveRH() {
+ DriveApp.getRootFolder().getId();
+ const settings=bancoDriveRH('rh_automation_settings','get','id=eq.true')[0];
+ if(!settings)throw Error('Configuração de pastas não encontrada.');
+ validarRaizesDriveRH(settings);
+ const result={};
+ ['active_folder_id','former_folder_id','template_folder_id'].forEach(key=>{
+  const folder=apiDriveRH('files/'+idDriveRH(settings[key]),'get',undefined,{fields:'id,name,capabilities(canAddChildren,canCopy,canEdit,canMoveChildrenWithinDrive)'});
+  result[key]={nome:folder.name,permissoes:folder.capabilities||{}};
+ });
+ console.log(JSON.stringify(result));return result;
 }

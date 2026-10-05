@@ -1,0 +1,14 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),core=require('../rh-documentos-core');
+const people=[{id:'a',nome:'ANA MARIA SILVA',cpf:'52998224725',whatsapp:'11999999999'},{id:'b',nome:'BRUNO JOSE SANTOS',cpf:'11144477735',whatsapp:'21999999999'}];
+test('identifica CPF com pontuacao',()=>assert.equal(core.identify('CPF 529.982.247-25',people).id,'a'));
+test('nome sem CPF e unico',()=>assert.equal(core.identify('Ana Maria Silva',people).id,'a'));
+test('CPF desconhecido nao usa nome como fallback',()=>assert.throws(()=>core.identify('ANA MARIA SILVA 123.456.789-09',people)));
+test('bloqueia documento com dois CPFs',()=>assert.throws(()=>core.identify('52998224725 11144477735',people)));
+test('bloqueia desligado',()=>assert.throws(()=>core.identify('ANA MARIA SILVA',[{...people[0],data_desligamento:'2026-01-01'}])));
+test('bloqueia nomes duplicados',()=>assert.throws(()=>core.identify('ANA MARIA SILVA',[people[0],{...people[0],id:'c'}])));
+test('telefone nao inventa digitos',()=>assert.equal(core.phone('11 99999-9999'),'5511999999999'));
+test('telefone invalido bloqueado',()=>assert.throws(()=>core.phone('123')));
+test('modelo nao executa campos desconhecidos',()=>assert.throws(()=>core.message('Olá {senha}',{})));
+const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('system/RH_Documentos_N8N.gs','utf8'),ctx);
+test('intervalo normal 15 a 25 segundos',()=>{assert.equal(ctx.intervaloMensagemRH(1,()=>0),15);assert.equal(ctx.intervaloMensagemRH(4,()=>.999),25);});
+test('pausa apos cinco mensagens 45 a 90 segundos',()=>{assert.equal(ctx.intervaloMensagemRH(5,()=>0),45);assert.equal(ctx.intervaloMensagemRH(10,()=>.999),90);});

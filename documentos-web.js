@@ -1,0 +1,52 @@
+'use strict';
+const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU');
+const el=id=>document.getElementById(id);let employees=[],settings,localDocs=[],queueDocs=[],busy=false;
+const labels={prepared:'Aguardando upload',uploading:'Enviando ao Drive',ready:'Pronto para aprovação',queued:'Aprovado, aguardando envio',sending:'Chamando n8n',accepted:'Aceito pelo n8n',uncertain:'Resultado incerto — confira n8n',failed:'Falha — revisão necessária',cancelled:'Cancelado'};
+const workerUrl='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+function notice(text,error=false){el('notice').textContent=text;el('notice').classList.toggle('error',error);}
+async function action(fn){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){notice(e.message||String(e),true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
+const employee=id=>employees.find(e=>e.id===id);
+function td(row,text){const c=document.createElement('td');c.textContent=text||'—';row.append(c);return c;}
+function resetLocal(){localDocs.forEach(d=>d.objectUrl&&URL.revokeObjectURL(d.objectUrl));localDocs=[];el('preview').replaceChildren();}
+function renderLocal(){el('preview').replaceChildren();localDocs.forEach(d=>{const r=document.createElement('tr'),c=td(r,''),check=document.createElement('input');check.type='checkbox';check.disabled=!!d.error||d.imported;check.checked=d.selected;check.onchange=()=>d.selected=check.checked;c.replaceChildren(check);td(r,d.employee?.nome);td(r,d.source+' · '+d.first+'–'+d.last);td(r,d.imported?'Importado':d.error||'Pronto');const a=document.createElement('a');a.href=d.objectUrl;a.download=d.filename;a.textContent='Conferir PDF';td(r,'').replaceChildren(a);el('preview').append(r);});}
+el('analyze').onclick=()=>action(async()=>{
+ const files=[...(el('pdfFiles').files.length?el('pdfFiles').files:el('pdfFolder').files)].filter(f=>/\.pdf$/i.test(f.name));const count=Number(el('pages').value);
+ if(!files.length||!Number.isInteger(count)||count<1||count>100)throw Error('Escolha PDFs e uma quantidade válida de páginas.');
+ if(!/^(0[1-9]|1[0-2])\/\d{4}$/.test(el('competence').value))throw Error('Informe a competência em MM/AAAA.');
+ resetLocal();const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs');pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
+ for(const file of files){
+  if(file.size>30*1024*1024)throw Error(file.name+': origem maior que 30 MB. Divida o lote.');
+  notice('Analisando '+file.name+'…');const bytes=new Uint8Array(await file.arrayBuffer());let readable,source;
+  try{readable=await pdfjs.getDocument({data:bytes.slice(),isEvalSupported:false}).promise;source=await PDFLib.PDFDocument.load(bytes,{updateMetadata:false});}catch(e){throw Error(file.name+': PDF protegido ou inválido. Desbloqueie antes de importar.');}
+  if(readable.numPages>1000||readable.numPages%count)throw Error(file.name+': total de páginas incompatível com o agrupamento.');
+  for(let first=0;first<readable.numPages;first+=count){
+   let identified=null,error='';
+   try{const identities=[];for(let i=first;i<first+count;i++){const page=await readable.getPage(i+1),text=(await page.getTextContent()).items.map(v=>v.str).join(' ');identities.push(RHDocuments.identify(text,employees));}if(new Set(identities.map(e=>e.id)).size!==1)throw Error('Grupo contém colaboradores diferentes.');identified=identities[0];RHDocuments.phone(identified.whatsapp);}catch(e){error=e.message;}
+   const out=await PDFLib.PDFDocument.create();const pages=await out.copyPages(source,Array.from({length:count},(_,i)=>first+i));pages.forEach(p=>out.addPage(p));out.setCreationDate(new Date('2000-01-01T00:00:00Z'));out.setModificationDate(new Date('2000-01-01T00:00:00Z'));const result=await out.save();
+   const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',result))].map(b=>b.toString(16).padStart(2,'0')).join('');const id=crypto.randomUUID();const filename=(identified?.nome||'REVISAR').replace(/[^\p{L}\p{N} ._-]/gu,'_').slice(0,100)+'_'+el('kind').value+'_'+el('competence').value.replace('/','-')+'.pdf';
+   localDocs.push({id,employee:identified,error:error||(result.byteLength>10485760?'PDF separado excede 10 MB':''),source:file.name,first:first+1,last:first+count,bytes:result,sha256:hash,filename,kind:el('kind').value,period:el('competence').value,objectUrl:URL.createObjectURL(new Blob([result],{type:'application/pdf'})),selected:false,imported:false});
+  }
+  await readable.destroy();
+ }
+ renderLocal();notice(localDocs.length+' documentos preparados localmente. Confira os PDFs e selecione quem deseja importar.');
+});
+el('all').onclick=()=>{localDocs.forEach(d=>d.selected=!d.error&&!d.imported);renderLocal();};el('none').onclick=()=>{localDocs.forEach(d=>d.selected=false);renderLocal();};
+el('upload').onclick=()=>action(async()=>{
+ const selected=localDocs.filter(d=>d.selected&&!d.error&&!d.imported);if(!selected.length)throw Error('Selecione documentos prontos.');
+ if(!confirm('Importar '+selected.length+' PDFs selecionados para armazenamento privado e fila de upload do Drive? Nenhuma mensagem será enviada nesta etapa.'))return;
+ for(const d of selected){
+  const duplicate=await RH.result(client.from('rh_delivery_documents').select('id,status').eq('funcionario_id',d.employee.id).eq('document_type',d.kind).eq('period',d.period).eq('sha256',d.sha256));
+  if(duplicate.length){d.imported=true;d.selected=false;continue;}
+  const path=d.id+'.pdf';const {error}=await client.storage.from('rh-documentos').upload(path,new Blob([d.bytes],{type:'application/pdf'}),{contentType:'application/pdf',upsert:false});if(error)throw error;
+  try{await RH.result(client.from('rh_delivery_documents').insert({id:d.id,funcionario_id:d.employee.id,document_type:d.kind,period:d.period,filename:d.filename,sha256:d.sha256,storage_path:path}).select(),true);}catch(e){await client.storage.from('rh-documentos').remove([path]);throw e;}
+  d.imported=true;d.selected=false;renderLocal();
+ }
+ await refresh();notice('Documentos importados. Ative o processamento de uploads e acompanhe. O envio ao n8n requer aprovação posterior.');
+});
+function renderQueue(){el('queue').replaceChildren();queueDocs.forEach(d=>{const r=document.createElement('tr'),e=employee(d.funcionario_id),c=td(r,''),check=document.createElement('input');check.type='checkbox';check.disabled=d.status!=='ready';check.checked=!!d.selected;check.onchange=()=>d.selected=check.checked;c.replaceChildren(check);let phone;try{phone=RHDocuments.phone(e?.whatsapp);}catch(_){phone='WhatsApp inválido';}td(r,(e?.nome||'Cadastro indisponível')+'\n'+phone);td(r,d.document_type+' · '+d.period);td(r,labels[d.status]+(d.error?'\n'+d.error:''));const box=td(r,''),input=document.createElement('input');input.type='url';input.value=d.editLink||d.link||'';input.placeholder='Link acessível ao colaborador';input.disabled=d.status!=='ready';const preview=document.createElement('pre');preview.style.whiteSpace='pre-wrap';const draw=()=>{try{d.preview=RHDocuments.message(el('template').value,{nome:e?.nome,tipo:d.document_type,competencia:d.period,link:input.value});preview.textContent=d.preview;}catch(error){preview.textContent=error.message;}};input.oninput=()=>{d.editLink=input.value;draw();};box.replaceChildren(input,preview);draw();if(['prepared','ready','queued','failed'].includes(d.status)){const b=document.createElement('button');b.textContent='Cancelar';b.onclick=()=>action(async()=>{if(confirm('Cancelar este documento da fila? O arquivo existente no Drive será preservado.')){await RH.result(client.rpc('rh_cancel_delivery',{p_id:d.id}));await refresh();}});td(r,'').replaceChildren(b);}else td(r,'—');el('queue').append(r);});}
+async function refresh(){settings=await RH.result(client.from('rh_automation_settings').select('*').eq('id',true).single(),true);queueDocs=await RH.result(client.from('rh_delivery_documents').select('*').order('created_at',{ascending:false}).limit(100));el('worker').textContent=settings.last_documents_worker_at?'Último contato: '+new Date(settings.last_documents_worker_at).toLocaleString('pt-BR'):'Processador ainda não instalado. Siga as instruções.';el('documentsEnabled').checked=settings.documents_enabled;el('sendEnabled').checked=settings.n8n_enabled;renderQueue();}
+el('save').onclick=()=>action(async()=>{await RH.result(client.from('rh_automation_settings').update({documents_enabled:el('documentsEnabled').checked,n8n_enabled:el('sendEnabled').checked}).eq('id',true).select(),true);await refresh();notice('Ativação salva. Somente mensagens aprovadas podem entrar no envio.');});
+el('refresh').onclick=()=>action(refresh);el('template').oninput=renderQueue;
+el('selectReady').onclick=()=>{queueDocs.forEach(d=>d.selected=d.status==='ready');renderQueue();};
+el('approve').onclick=()=>action(async()=>{const selected=queueDocs.filter(d=>d.selected&&d.status==='ready');if(!selected.length)throw Error('Selecione documentos prontos para aprovação.');if(!confirm('Autorizar '+selected.length+' mensagens? Confirme que conferiu os destinatários, PDFs, texto e acesso dos colaboradores aos links.'))return;for(const d of selected){const link=d.editLink||d.link;const u=new URL(link);if(u.protocol!=='https:')throw Error('Use link HTTPS');await RH.result(client.rpc('rh_approve_delivery',{p_id:d.id,p_link:link,p_message:d.preview}));}await refresh();notice('Mensagens autorizadas e colocadas na fila. Acompanhe a confirmação do n8n.');});
+action(async()=>{const p=await RH.profile(client);if(p.status!=='admin')throw Error('Acesso restrito ao administrador');employees=await RH.fetchAll(client,'funcionarios_epi','id,nome,cpf,whatsapp,data_desligamento');settings=await RH.result(client.from('rh_automation_settings').select('*').eq('id',true).single(),true);el('template').value=settings.message_template;await refresh();el('app').hidden=false;notice('Pronto para importar PDFs. Nenhuma mensagem será enviada sem sua aprovação.');});

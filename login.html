@@ -27,6 +27,7 @@
     </style>
     <link rel="stylesheet" href="rh-responsive.css">
     <script src="rh-core.js"></script>
+<link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div id="root"></div>
@@ -152,7 +153,7 @@
             return (
                 <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
                     <div className="text-center mb-8">
-                        <h2 className="text-2xl font-bold text-gray-800">
+                        <div data-rh-theme-host className="flex justify-end mb-4"></div><h2 className="text-2xl font-bold text-gray-800">
                             PRIME RH
                         </h2>
                         <p className="text-gray-500 mt-2">
