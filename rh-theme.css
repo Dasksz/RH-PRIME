@@ -27,3 +27,35 @@ body.rh-admin header nav [class~="bg-slate-900/80"]{background:transparent!impor
 [data-rh-theme-host] .rh-theme-toggle{color:var(--rh-ink)!important;border-color:var(--rh-border)!important}
 body.rh-admin header[class]{background:var(--rh-header)!important}
 input[type=file]{width:100%;min-width:0}
+/* Superfícies e estados: manter contraste também nas variantes semitransparentes. */
+[data-rh-theme=dark] [class~="bg-slate-50/50"],[data-rh-theme=dark] [class~="bg-slate-50/80"],[data-rh-theme=dark] [class~="bg-gray-50/50"]{background:var(--rh-page)!important}
+[data-rh-theme=dark] [class~="bg-slate-200/60"],[data-rh-theme=dark] [class~="bg-slate-200"],[data-rh-theme=dark] [class~="bg-slate-300"],[data-rh-theme=dark] [class~="bg-gray-200"],[data-rh-theme=dark] [class~="bg-gray-300"]{background:var(--rh-soft)!important}
+[data-rh-theme=dark] [class~="bg-green-50"],[data-rh-theme=dark] [class~="bg-green-100"],[data-rh-theme=dark] [class~="bg-emerald-50"],[data-rh-theme=dark] [class~="bg-emerald-100"]{background:#12372e!important}
+[data-rh-theme=dark] [class~="text-green-900"],[data-rh-theme=dark] [class~="text-green-800"],[data-rh-theme=dark] [class~="text-green-700"],[data-rh-theme=dark] [class~="text-green-600"],[data-rh-theme=dark] [class~="text-emerald-800"],[data-rh-theme=dark] [class~="text-emerald-700"],[data-rh-theme=dark] [class~="text-emerald-600"]{color:#86efac!important}
+[data-rh-theme=dark] [class~="bg-red-50"],[data-rh-theme=dark] [class~="bg-red-100"],[data-rh-theme=dark] [class~="bg-rose-50"],[data-rh-theme=dark] [class~="bg-rose-100"]{background:#40262f!important}
+[data-rh-theme=dark] [class~="text-red-900"],[data-rh-theme=dark] [class~="text-red-800"],[data-rh-theme=dark] [class~="text-red-700"],[data-rh-theme=dark] [class~="text-red-600"],[data-rh-theme=dark] [class~="text-red-500"],[data-rh-theme=dark] [class~="text-rose-700"]{color:#fda4af!important}
+[data-rh-theme=dark] [class~="bg-amber-50"],[data-rh-theme=dark] [class~="bg-amber-100"],[data-rh-theme=dark] [class~="bg-yellow-50"],[data-rh-theme=dark] [class~="bg-yellow-100"]{background:#3b321e!important}
+[data-rh-theme=dark] [class~="text-amber-900"],[data-rh-theme=dark] [class~="text-amber-800"],[data-rh-theme=dark] [class~="text-amber-700"],[data-rh-theme=dark] [class~="text-amber-600"],[data-rh-theme=dark] [class~="text-yellow-800"],[data-rh-theme=dark] [class~="text-yellow-700"]{color:#fcd34d!important}
+[data-rh-theme=dark] [class~="text-blue-900"],[data-rh-theme=dark] [class~="text-blue-600"]{color:#93c5fd!important}
+[data-rh-theme=dark] [class~="hover:bg-green-50"]:hover{background:#1a493c!important}
+[data-rh-theme=dark] [class~="hover:bg-blue-50"]:hover,[data-rh-theme=dark] [class~="bg-blue-50/70"]{background:#173344!important}
+[data-rh-theme=dark] [class~="hover:bg-slate-200"]:hover,[data-rh-theme=dark] [class~="hover:bg-gray-100"]:hover{background:var(--rh-soft)!important}
+[data-rh-theme=light] body.rh-admin header nav[class]{background:#163b47!important;border-color:#40606b!important}
+[data-rh-theme=light] body.rh-admin header nav[class] a,[data-rh-theme=light] body.rh-admin header nav[class] button,[data-rh-theme=light] body.rh-admin header nav[class] [class*="text-slate-"]{color:#f1f8fa!important}
+[data-rh-theme=light] body.rh-admin [class~="text-blue-300"]{color:#1858a0!important}
+[data-rh-theme=light] body.rh-admin [class~="text-amber-300"]{color:#875400!important}
+[data-rh-theme=light] body.rh-admin [class~="text-emerald-300"]{color:#087855!important}
+[data-rh-theme=light] body.rh-admin [class~="text-red-300"]{color:#ac2433!important}
+[data-rh-theme=light] body.rh-admin [class~="bg-slate-700/40"],[data-rh-theme=light] body.rh-admin [class~="bg-slate-700/30"],[data-rh-theme=light] body.rh-admin [class~="bg-slate-800/30"],[data-rh-theme=light] body.rh-admin [class~="bg-slate-900/50"]{background:#eaf1f3!important}
+[data-rh-theme=light] body.rh-admin tr[class~="hover:bg-slate-700/40"]:hover,[data-rh-theme=light] body.rh-admin tr[class~="hover:bg-slate-700/30"]:hover,[data-rh-theme=light] body.rh-admin tr[class~="hover:bg-slate-800/50"]:hover{background:#edf5f5!important}
+[data-rh-theme=light] body.rh-admin button:disabled{background:#e2e8ec!important;color:#526775!important;opacity:1!important;box-shadow:none!important}
+[data-rh-theme=dark] button:disabled{color:#a6bac6;opacity:.65}
+.rh-delivery-toolbar{background:var(--rh-header)!important;color:#f1f8fa!important}
+.rh-delivery-toolbar .rh-theme-toggle{color:#f1f8fa!important;border-color:#587783!important}
+[data-rh-theme=dark] [class~="bg-blue-100"],[data-rh-theme=dark] [class~="bg-blue-50/50"]{background:#173344!important}
+[data-rh-theme=dark] [class~="bg-red-50/40"]{background:#35232b!important}
+[data-rh-theme=dark] [class~="bg-amber-50/80"],[data-rh-theme=dark] [class~="bg-orange-50"]{background:#3b321f!important}
+[data-rh-theme=dark] [class~="text-orange-700"],[data-rh-theme=dark] [class~="text-orange-600"]{color:#fdba74!important}
+[data-rh-theme=dark] [class~="bg-purple-100"]{background:#312644!important}
+[data-rh-theme=dark] [class~="text-purple-700"]{color:#d8b4fe!important}
+[data-rh-theme=dark] [class~="text-emerald-900"]{color:#86efac!important}
