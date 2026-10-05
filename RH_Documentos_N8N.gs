@@ -19,6 +19,35 @@ function subpastaDocumentoRH(parent,name){
  if(matches.length>1)throw Error('Subpastas duplicadas: '+name);
  return matches[0]||apiDriveRH('files','post',{name:name,mimeType:'application/vnd.google-apps.folder',parents:[parent]},{fields:'id'});
 }
+function hashDocumentoRH(bytes){
+ return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes).map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');
+}
+function limparCopiaTemporariaDocumentoRH(d){
+ if(d.source!=='upload'||d.storage_deleted_at)return;
+ if(!d.drive_file_id||!d.storage_path||d.storage_path!==d.id+'.pdf'||!/^[a-f0-9]{64}$/.test(d.sha256||''))throw Error('Identificação insuficiente para limpar cópia temporária');
+ const fileId=idDriveRH(d.drive_file_id);
+ const metadata=apiDriveRH('files/'+fileId,'get',undefined,{fields:'id,mimeType,size,trashed,appProperties'});
+ if(metadata.id!==fileId||metadata.trashed||metadata.mimeType!=='application/pdf'||metadata.appProperties?.rh_delivery_id!==d.id||!(Number(metadata.size)>0&&Number(metadata.size)<=10485760))throw Error('Arquivo do Drive não confirmado para limpeza');
+ const drive=UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&supportsAllDrives=true',{headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken()},muteHttpExceptions:true});
+ if(drive.getResponseCode()!==200)throw Error('Não foi possível verificar o PDF no Drive');
+ const bytes=drive.getBlob().getBytes();
+ if(bytes.length!==Number(metadata.size)||hashDocumentoRH(bytes)!==d.sha256)throw Error('Conteúdo do Drive difere do PDF importado; cópia temporária preservada');
+ const verified=new Date().toISOString();
+ atualizarDocumentoRH(d,{drive_verified_at:verified,storage_cleanup_error:null});
+ const props=PropertiesService.getScriptProperties(),base=props.getProperty('SUPABASE_URL'),key=props.getProperty('SUPABASE_KEY');
+ if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(base||'')||!key)throw Error('Configuração de armazenamento ausente');
+ const removed=UrlFetchApp.fetch(base.replace(/\/$/,'')+'/storage/v1/object/rh-documentos',{method:'delete',contentType:'application/json',headers:{apikey:key,Authorization:'Bearer '+key},payload:JSON.stringify({prefixes:[d.storage_path]}),muteHttpExceptions:true});
+ if(removed.getResponseCode()<200||removed.getResponseCode()>=300||!Array.isArray(JSON.parse(removed.getContentText())))throw Error('Storage API não confirmou remoção da cópia temporária');
+ atualizarDocumentoRH(d,{storage_deleted_at:new Date().toISOString(),storage_cleanup_error:null});
+}
+function tentarLimparCopiaDocumentoRH(d){
+ try{limparCopiaTemporariaDocumentoRH(d);}
+ catch(e){atualizarDocumentoRH(d,{storage_cleanup_error:String(e.message).slice(0,500)});}
+}
+function limparCopiasConfirmadasRH(deadline){
+ const docs=bancoDocumentosRH('rh_delivery_documents','get','source=eq.upload&drive_file_id=not.is.null&storage_deleted_at=is.null&status=in.(ready,queued,accepted,uncertain,cancelled,failed)&order=updated_at.asc&limit=5');
+ for(const d of docs){if(Date.now()>deadline-45000)break;tentarLimparCopiaDocumentoRH(d);}
+}
 function importarDocumentoDriveRH(d,s){
  const employee=bancoDocumentosRH('funcionarios_epi','get','id=eq.'+d.funcionario_id)[0];
  if(!employee||employee.data_desligamento)throw Error('Cadastro indisponível ou colaborador desligado');
@@ -54,6 +83,7 @@ function importarDocumentoDriveRH(d,s){
  }
  // Arquivo privado: a aprovação precisa de um link cujo acesso ao destinatário foi conferido.
  atualizarDocumentoRH(d,{status:'ready',drive_file_id:file.id,link:'https://drive.google.com/file/d/'+file.id+'/view',error:null});
+ tentarLimparCopiaDocumentoRH(Object.assign({},d,{drive_file_id:file.id,status:'ready'}));
 }
 function telefoneDocumentoRH(value){let p=String(value||'').replace(/\D/g,'');if(p.length===10||p.length===11)p='55'+p;if(!/^55[1-9]\d\d{8,9}$/.test(p))throw Error('WhatsApp inválido');return p;}
 function enviarDocumentoN8NRH(d){
@@ -81,6 +111,7 @@ function processarDocumentosWebRH(){
   bancoDocumentosRH('rh_automation_settings','patch','id=eq.true',{last_documents_worker_at:new Date().toISOString()});
   if(!s.documents_enabled)return;
   validarRaizesDriveRH(s);
+  limparCopiasConfirmadasRH(deadline);
   while(Date.now()<deadline-45000){
    const docs=bancoDocumentosRH('rpc/rh_claim_document','post','',{p_send:false});if(!docs.length)break;
    const d=docs[0];try{importarDocumentoDriveRH(d,s);}catch(e){atualizarDocumentoRH(d,{status:'failed',error:String(e.message).slice(0,500)});}
