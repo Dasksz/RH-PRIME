@@ -75,3 +75,7 @@ Esse erro significa que o token daquela execução não tinha o escopo necessár
 A autorização deve ser concedida pela conta que instala o gatilho. Uma chave do Supabase ou token do n8n não corrige esse escopo Google. Não é necessário apagar pastas, gatilhos de sincronização ou documentos existentes.
 
 Referência: [Google — escopos de autorização](https://developers.google.com/apps-script/concepts/scopes).
+
+## Vincular pastas existentes em lote
+
+O botão **Vincular pastas existentes do lote**, na página de documentos, usa uma tarefa de reconciliação que apenas encontra uma correspondência única e salva `rh_drive_links`. Não cria pastas novas nem renomeia, copia ou move conteúdo. Pastas com apenas o nome são aceitas; homônimos, múltiplos CPFs ou nomes não encontrados exigem revisão manual. Atualize `RH_Drive_Automacoes.gs` e execute a instalação antes desse recurso: o banco exige a identificação de versão `existing-link-v1` publicada pelo novo processador. A rotina de cadastro/desligamento usa tarefas normais, com criação/movimentação conforme já autorizado no fluxo.

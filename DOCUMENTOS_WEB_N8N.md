@@ -45,3 +45,21 @@ Não cria assinaturas ZapSign/Facilita Ponto. A integração oficial Facilita Po
 ## Tema
 
 O controle Claro/Escuro está dentro da navegação das páginas e no cartão de login. Preferência salva localmente por navegador. Não altera permissões, dados ou configurações dos demais usuários.
+
+## Lotes, PDFs e pastas de colaboradores já existentes
+
+As novas importações guardam um lote com nome, tipo, competência, data/hora e criador. Abra o lote para conferir os PDFs, mensagens e situações. A lista permanece após recarregar a página; a análise local anterior à importação continua temporária. **Conferir / baixar PDF** gera acesso temporário ao PDF privado importado, inclusive quando seu upload para o Drive falhou. Esse link temporário não deve ser usado na mensagem ao colaborador: confira o link definitivo do Drive/portal.
+
+Os 43 registros anteriores foram preservados em um agrupamento legado por tipo, competência e data da importação. O sistema anterior não armazenava um ID de lote; esse agrupamento não pretende reconstruir a divisão original com certeza. Não houve nova importação, envio de WhatsApp ou alteração das pastas para criar esse histórico.
+
+### Resolver os 42 uploads com pasta não vinculada
+
+1. Atualize **RH_Drive_Automacoes.gs** no mesmo Apps Script e execute **instalarAutomacaoDriveRH**. A versão nova informa ao banco que suporta vínculo sem mutação; a página bloqueia a ação coletiva enquanto um processador antigo estiver registrado. Não precisa alterar credenciais nem reinstalar o processador de documentos.
+2. Confira que a automação de pastas está ativa em Automações. Na página de documentos, abra o lote e clique em **Vincular pastas existentes do lote**. Confirme a solicitação.
+3. O processador procura nas raízes configuradas, aceita pastas com nome sem CPF, normaliza acentos e salva o ID quando há uma correspondência única. Nesse modo não cria, move, copia ou renomeia pastas. Nomes divergentes ou ambíguos ficam para vínculo manual; nenhum ID é adivinhado. Aguarde o gatilho de até cinco minutos ou execute **processarFilaDriveRH** para processar as tarefas aguardando (inclusive outras tarefas já solicitadas).
+4. Atualize o acompanhamento. Clique em **Retomar uploads com falha**. Essa ação utiliza os PDFs já armazenados, conserva o lote e o ID do documento, e somente retoma falhas de upload sem aprovação, de colaboradores ativos com pasta vinculada e modelo concluído. Não retoma envios incertos nem autoriza mensagens.
+5. Aguarde os documentos ficarem **Pronto para aprovação**, confira os PDFs/telefone/link/texto, selecione os prontos **do lote aberto** e autorize o envio. Confira também a execução do n8n e o recebimento real.
+
+O botão **Selecionar todos os prontos para envio** seleciona somente `ready` no lote aberto e informa a quantidade. PDFs com falha ficam desabilitados; falta de CPF no nome da pasta não é motivo para desabilitar. O cadastro/desligamento futuro continua com seu fluxo normal de criação/movimentação e vínculo persistente.
+
+Validação: transações SQL com rollback para lotes, autorização, proteção contra processador antigo e retomada sem autorização de mensagem; testes de pastas existentes sem CPF, ausência de correspondência e homônimos sem nenhuma mutação no Drive; navegador simulado para lotes após recarga, seleção/autorização restrita ao lote, PDF privado e layouts claro/escuro em celular, tablet e PC.

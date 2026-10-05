@@ -3,7 +3,7 @@
  * Execute instalarAutomacaoDriveRH uma vez e autorize o Google Drive.
  */
 function bancoDriveRH(resource,method,query,body) {
-  const allowed=['rh_automation_settings','rh_drive_links','funcionarios_epi','rpc/rh_claim_drive','rpc/rh_finish_drive'];
+  const allowed=['rh_automation_settings','rh_drive_links','funcionarios_epi','rpc/rh_claim_drive','rpc/rh_claim_existing_drive','rpc/rh_finish_drive'];
   if(!allowed.includes(resource)) throw Error('Recurso não permitido');
   const props=PropertiesService.getScriptProperties();
   const url=props.getProperty('SUPABASE_URL'), key=props.getProperty('SUPABASE_KEY');
@@ -92,6 +92,7 @@ function executarTarefaDriveRH(job,s,deadline) {
  let link=links[0], folder=escolherPastaRH(folders,e,link&&link.folder_id);
  const target=e.data_desligamento?s.former_folder_id:s.active_folder_id;
  if(!folder){
+  if(job.link_only)throw Error('Pasta existente não identificada com segurança. Vincule o ID manualmente; nenhuma pasta foi criada.');
   if(e.data_desligamento)throw Error('Desligado sem pasta existente: vincule a pasta correta; nenhuma pasta vazia será criada.');
   folder=apiDriveRH('files','post',{name:e.nome,mimeType:'application/vnd.google-apps.folder',parents:[target],appProperties:{rh_employee_id:e.id,rh_new_template:'yes'}},{fields:'id,name,parents,appProperties'});
  }
@@ -101,6 +102,7 @@ function executarTarefaDriveRH(job,s,deadline) {
   link={funcionario_id:e.id,folder_id:folder.id,template_pending:(folder.appProperties||{}).rh_new_template==='yes'};
   bancoDriveRH('rh_drive_links','post','',link);
  }
+ if(job.link_only)return; // Apenas vínculo; preserva nome, documentos e localização.
  if(link.template_pending){
   copiarModeloDriveRH(s.template_folder_id,folder.id,deadline);
   bancoDriveRH('rh_drive_links','patch','funcionario_id=eq.'+e.id,{template_pending:false,updated_at:new Date().toISOString()});
@@ -121,10 +123,11 @@ function processarFilaDriveRH() {
   const settings=bancoDriveRH('rh_automation_settings','get','id=eq.true')[0];
   if(!settings)throw Error('Configuração indisponível');
   // Heartbeat inclusive quando pausado.
-  bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString()});
+  bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString(),drive_worker_version:'existing-link-v1'});
   if(!settings.drive_enabled)return;
   while(Date.now()<deadline-30000){
-   const jobs=bancoDriveRH('rpc/rh_claim_drive','post','',{});if(!jobs.length)break;
+   let jobs=bancoDriveRH('rpc/rh_claim_existing_drive','post','',{});
+   if(!jobs.length)jobs=bancoDriveRH('rpc/rh_claim_drive','post','',{});if(!jobs.length)break;
    const job=jobs[0];let error=null;
    try{validarRaizesDriveRH(settings);executarTarefaDriveRH(job,settings,deadline);}catch(e){error=String(e.message).slice(0,500);}
    bancoDriveRH('rpc/rh_finish_drive','post','',{p_id:job.id,p_revision:job.claimed_revision,p_error:error});
@@ -139,7 +142,7 @@ function instalarAutomacaoDriveRH() {
  const s=bancoDriveRH('rh_automation_settings','get','id=eq.true')[0];validarRaizesDriveRH(s);
  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='processarFilaDriveRH').forEach(t=>ScriptApp.deleteTrigger(t));
  ScriptApp.newTrigger('processarFilaDriveRH').timeBased().everyMinutes(5).create();
- bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString()});
+ bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString(),drive_worker_version:'existing-link-v1'});
 }
 
 // Diagnóstico sem criar, mover ou apagar arquivos.
