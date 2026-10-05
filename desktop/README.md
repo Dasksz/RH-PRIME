@@ -43,3 +43,7 @@ py -m unittest discover -s tests -v
 ```
 
 Testes não acessam contas reais nem enviam documentos. O executável Windows precisa ser compilado e testado no Windows antes de ser tratado como versão final. A migração `../rh_automacoes.sql` é um rascunho separado e não é necessária para esta prévia; não aplicá-la para executar o preparador.
+
+## Instalação da prévia compilada
+
+No GitHub Actions, abra a execução concluída de **RH PRIME Windows preview**, baixe o artefato **RHPrime-Windows-preview** e extraia todo o ZIP. Execute `Instalar.cmd`. Ele copia os arquivos para `%LOCALAPPDATA%\Programs\RHPrime` e cria um atalho na área de trabalho, sem instalar Node ou Python globalmente. Não inicia serviços nem altera Docker/n8n. Feche o aplicativo antes de atualizar. O envio ao Facilita Ponto continua bloqueado nesta prévia.

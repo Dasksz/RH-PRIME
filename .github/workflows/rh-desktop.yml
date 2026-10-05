@@ -19,7 +19,16 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt "pyinstaller>=6,<7"
       - run: python -m unittest discover -s tests -v
+      - run: python -c "import tkinter as tk; from rhprime.app import Application; r=tk.Tk(); Application(r); r.update(); r.destroy()"
       - run: python -m PyInstaller --noconfirm --clean --windowed --onedir --name RHPrime --collect-all keyring run.py
+      - name: Smoke test executable
+        shell: pwsh
+        run: |
+          $rhProcess = Start-Process -FilePath dist/RHPrime/RHPrime.exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($rhProcess.HasExited) { throw 'O aplicativo encerrou durante a inicializacao.' }
+          Stop-Process -Id $rhProcess.Id
+      - run: Copy-Item Install.ps1,Instalar.cmd dist/RHPrime/
       - uses: actions/upload-artifact@v4
         with:
           name: RHPrime-Windows-preview
