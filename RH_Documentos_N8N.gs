@@ -1,6 +1,6 @@
 /* Novo arquivo NO MESMO Apps Script dos sincronizadores e de RH_Drive_Automacoes.
  * Propriedades necessárias: N8N_RH_WEBHOOK_URL (HTTPS público), N8N_RH_TOKEN (Header Auth X-RH-Token).
- * Não usa endpoint MCP; não publica PDFs no Drive. Execução depende de confirmação no painel.
+ * Não usa endpoint MCP; libera PDFs individuais para leitura por link antes do envio. Execução depende de confirmação no painel.
  */
 function bancoDocumentosRH(resource,method,query,body) {
  const allowed=['rh_delivery_documents','rh_automation_settings','rh_drive_links','funcionarios_epi','rpc/rh_claim_document'];
@@ -48,6 +48,44 @@ function limparCopiasConfirmadasRH(deadline){
  const docs=bancoDocumentosRH('rh_delivery_documents','get','source=eq.upload&drive_file_id=not.is.null&storage_deleted_at=is.null&status=in.(ready,queued,accepted,uncertain,cancelled,failed)&order=updated_at.asc&limit=5');
  for(const d of docs){if(Date.now()>deadline-45000)break;tentarLimparCopiaDocumentoRH(d);}
 }
+function permissoesDocumentoDriveRH(fileId){
+ let permissions=[],token;
+ do{
+  const page=apiDriveRH('files/'+fileId+'/permissions','get',undefined,{fields:'nextPageToken,permissions(id,type,role,allowFileDiscovery)',pageSize:100,pageToken:token||''});
+  permissions=permissions.concat(page.permissions||[]);token=page.nextPageToken;
+ }while(token);
+ return permissions;
+}
+function garantirLeituraPublicaDocumentoRH(d){
+ if(d.source!=='upload')return;
+ const fileId=idDriveRH(d.drive_file_id);
+ const file=apiDriveRH('files/'+fileId,'get',undefined,{fields:'id,mimeType,trashed,appProperties'});
+ if(file.id!==fileId||file.trashed||file.mimeType!=='application/pdf'||file.appProperties?.rh_delivery_id!==d.id)throw Error('PDF não identificado como documento deste lote');
+ const anyone=permissoesDocumentoDriveRH(fileId).find(p=>p.type==='anyone');
+ if(!anyone)apiDriveRH('files/'+fileId+'/permissions','post',{type:'anyone',role:'reader',allowFileDiscovery:false},{fields:'id,type,role,allowFileDiscovery'});
+ else if(anyone.role!=='reader'||anyone.allowFileDiscovery===true)apiDriveRH('files/'+fileId+'/permissions/'+anyone.id,'patch',{role:'reader',allowFileDiscovery:false},{fields:'id,type,role,allowFileDiscovery'});
+ const verified=permissoesDocumentoDriveRH(fileId).some(p=>p.type==='anyone'&&p.role==='reader'&&p.allowFileDiscovery!==true);
+ if(!verified)throw Error('Drive não confirmou Qualquer pessoa com o link — Leitor');
+ atualizarDocumentoRH(d,{drive_public_reader_at:new Date().toISOString(),drive_access_error:null});
+}
+function liberarLeituraDocumentosPendentesRH(deadline,limit){
+ const docs=bancoDocumentosRH('rh_delivery_documents','get','source=eq.upload&drive_file_id=not.is.null&drive_public_reader_at=is.null&status=in.(ready,queued,sending,accepted,uncertain,failed)&order=updated_at.asc&limit='+(limit||5));
+ const result={verificados:0,falhas:0};
+ for(const d of docs){
+  if(Date.now()>deadline-20000)break;
+  try{garantirLeituraPublicaDocumentoRH(d);result.verificados++;}
+  catch(e){atualizarDocumentoRH(d,{drive_access_error:String(e.message).slice(0,500)});result.falhas++;}
+ }
+ return result;
+}
+// Somente permissões de arquivos já importados; não envia nem reenvia mensagens.
+function liberarLeituraDocumentosExistentesRH(){
+ const lock=LockService.getScriptLock();if(!lock.tryLock(1000))throw Error('Processador em execução. Aguarde e tente novamente.');
+ try{
+  const result=liberarLeituraDocumentosPendentesRH(Date.now()+240000,100);
+  console.log(JSON.stringify(result));return result;
+ }finally{lock.releaseLock();}
+}
 function importarDocumentoDriveRH(d,s){
  const employee=bancoDocumentosRH('funcionarios_epi','get','id=eq.'+d.funcionario_id)[0];
  if(!employee||employee.data_desligamento)throw Error('Cadastro indisponível ou colaborador desligado');
@@ -82,6 +120,8 @@ function importarDocumentoDriveRH(d,s){
   file=JSON.parse(result.getContentText());
  }
  // Arquivo privado: a aprovação precisa de um link cujo acesso ao destinatário foi conferido.
+ atualizarDocumentoRH(d,{drive_file_id:file.id,link:'https://drive.google.com/file/d/'+file.id+'/view'});
+ garantirLeituraPublicaDocumentoRH(Object.assign({},d,{drive_file_id:file.id}));
  atualizarDocumentoRH(d,{status:'ready',drive_file_id:file.id,link:'https://drive.google.com/file/d/'+file.id+'/view',error:null});
  tentarLimparCopiaDocumentoRH(Object.assign({},d,{drive_file_id:file.id,status:'ready'}));
 }
@@ -95,6 +135,10 @@ function enviarDocumentoN8NRH(d){
  if(!/^https:\/\/[^/?#]+\/webhook\/[A-Za-z0-9_-]+$/.test(url||'')||!token||!token.trim()){
   const error=Error('N8N_CONFIG_MISSING: Configure webhook HTTPS e token de autenticação nas propriedades do Apps Script');
   error.code='N8N_CONFIG_MISSING';throw error;
+ }
+ if(d.source==='upload'){
+  try{garantirLeituraPublicaDocumentoRH(d);}
+  catch(e){const error=Error('DRIVE_LINK_PERMISSION: '+e.message);error.code='DRIVE_LINK_PERMISSION';throw error;}
  }
  let result;
  try{result=UrlFetchApp.fetch(url,{method:'post',contentType:'application/json',headers:{'X-RH-Token':token,'X-Idempotency-Key':d.id},payload:JSON.stringify({documentId:d.id,chatId:d.phone+'@c.us',caption:d.message_text,session:'default'}),muteHttpExceptions:true,followRedirects:false});}
@@ -114,6 +158,7 @@ function processarDocumentosWebRH(){
   bancoDocumentosRH('rh_automation_settings','patch','id=eq.true',{last_documents_worker_at:new Date().toISOString()});
   if(!s.documents_enabled)return;
   validarRaizesDriveRH(s);
+  liberarLeituraDocumentosPendentesRH(deadline,5);
   limparCopiasConfirmadasRH(deadline);
   while(Date.now()<deadline-45000){
    const docs=bancoDocumentosRH('rpc/rh_claim_document','post','',{p_send:false});if(!docs.length)break;
@@ -127,8 +172,8 @@ function processarDocumentosWebRH(){
    const docs=bancoDocumentosRH('rpc/rh_claim_document','post','',{p_send:true});if(!docs.length)break;
    const d=docs[0];let accepted=false;
    try{accepted=enviarDocumentoN8NRH(d);}catch(e){
-    const configuration=e.code==='N8N_CONFIG_MISSING';
-    atualizarDocumentoRH(d,{status:configuration?'failed':'uncertain',error:String(e.message).slice(0,500)});
+    const configuration=e.code==='N8N_CONFIG_MISSING',access=e.code==='DRIVE_LINK_PERMISSION';
+    atualizarDocumentoRH(d,{status:(configuration||access)?'failed':'uncertain',error:String(e.message).slice(0,500)});
     if(configuration){bancoDocumentosRH('rh_automation_settings','patch','id=eq.true',{n8n_enabled:false});break;}
    }
    const count=current.messages_count+(accepted?1:0),seconds=intervaloMensagemRH(Math.max(count,1));
