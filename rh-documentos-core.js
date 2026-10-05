@@ -14,5 +14,7 @@ function identify(text,employees){
 }
 function phone(s){let p=digits(s);if([10,11].includes(p.length))p='55'+p;if(!/^55[1-9]\d\d{8,9}$/.test(p))throw Error('WhatsApp inválido no cadastro.');return p;}
 function message(template,values){return template.replace(/\{([^{}]+)\}/g,(_,key)=>{if(!['nome','tipo','competencia','link'].includes(key))throw Error('Variável desconhecida: '+key);return values[key]||'';});}
-const api={normalize,digits,validCpf,identify,phone,message};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHDocuments=api;
+const configurationError='Configure webhook HTTPS e token de autenticação nas propriedades do Apps Script';
+function retryableDelivery(d){return ['uncertain','failed'].includes(d.status)&&[configurationError,'N8N_CONFIG_MISSING: '+configurationError].includes(d.error);}
+const api={normalize,digits,validCpf,identify,phone,message,retryableDelivery};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHDocuments=api;
 })(typeof window==='undefined'?globalThis:window);

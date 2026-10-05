@@ -92,7 +92,10 @@ function enviarDocumentoN8NRH(d){
  if(telefoneDocumentoRH(e.whatsapp)!==d.phone)throw Error('WhatsApp mudou após aprovação. Cancele e revise antes de enviar.');
  if(!d.approved_at||!d.message_text||!d.link)throw Error('Aprovação incompleta');
  const props=PropertiesService.getScriptProperties(),url=props.getProperty('N8N_RH_WEBHOOK_URL'),token=props.getProperty('N8N_RH_TOKEN');
- if(!/^https:\/\/[^/?#]+\/webhook\/[A-Za-z0-9_-]+$/.test(url||'')||!token)throw Error('Configure webhook HTTPS e token de autenticação nas propriedades do Apps Script');
+ if(!/^https:\/\/[^/?#]+\/webhook\/[A-Za-z0-9_-]+$/.test(url||'')||!token||!token.trim()){
+  const error=Error('N8N_CONFIG_MISSING: Configure webhook HTTPS e token de autenticação nas propriedades do Apps Script');
+  error.code='N8N_CONFIG_MISSING';throw error;
+ }
  let result;
  try{result=UrlFetchApp.fetch(url,{method:'post',contentType:'application/json',headers:{'X-RH-Token':token,'X-Idempotency-Key':d.id},payload:JSON.stringify({documentId:d.id,chatId:d.phone+'@c.us',caption:d.message_text,session:'default'}),muteHttpExceptions:true,followRedirects:false});}
  catch(e){atualizarDocumentoRH(d,{status:'uncertain',error:'Sem confirmação do n8n. Confira a execução antes de reenviar.'});return false;}
@@ -123,7 +126,11 @@ function processarDocumentosWebRH(){
    const delay=next-Date.now();if(delay>0){if(delay>deadline-Date.now()-45000)break;Utilities.sleep(delay);}
    const docs=bancoDocumentosRH('rpc/rh_claim_document','post','',{p_send:true});if(!docs.length)break;
    const d=docs[0];let accepted=false;
-   try{accepted=enviarDocumentoN8NRH(d);}catch(e){atualizarDocumentoRH(d,{status:'uncertain',error:String(e.message).slice(0,500)});}
+   try{accepted=enviarDocumentoN8NRH(d);}catch(e){
+    const configuration=e.code==='N8N_CONFIG_MISSING';
+    atualizarDocumentoRH(d,{status:configuration?'failed':'uncertain',error:String(e.message).slice(0,500)});
+    if(configuration){bancoDocumentosRH('rh_automation_settings','patch','id=eq.true',{n8n_enabled:false});break;}
+   }
    const count=current.messages_count+(accepted?1:0),seconds=intervaloMensagemRH(Math.max(count,1));
    bancoDocumentosRH('rh_automation_settings','patch','id=eq.true',{messages_count:count,next_message_at:new Date(Date.now()+seconds*1000).toISOString()});
   }
