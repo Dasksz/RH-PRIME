@@ -1,0 +1,10 @@
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('system/RH_Drive_Automacoes.gs','utf8'),ctx);
+const employee={id:'e1',nome:'José da Silva',cpf:'12345678901'};
+test('encontra pasta antiga sem CPF e preserva nome',()=>assert.equal(ctx.escolherPastaRH([{id:'a',name:'JOSE DA SILVA'}],employee).id,'a'));
+test('encontra pasta com CPF no nome',()=>assert.equal(ctx.escolherPastaRH([{id:'a',name:'José da Silva - 123.456.789-01'}],employee).id,'a'));
+test('recusa CPF divergente',()=>assert.equal(ctx.escolherPastaRH([{id:'a',name:'José da Silva - 999.999.999-99'}],employee),null));
+test('bloqueia homonimos',()=>assert.throws(()=>ctx.escolherPastaRH([{id:'a',name:'José da Silva'},{id:'b',name:'JOSE DA SILVA'}],employee),/duplicadas/));
+test('nao usa pasta vinculada a outra pessoa',()=>assert.equal(ctx.escolherPastaRH([{id:'a',name:'José da Silva',appProperties:{rh_employee_id:'other'}}],employee),null));
+test('vinculo manual precisa estar nas raizes',()=>assert.throws(()=>ctx.escolherPastaRH([],employee,'outside'),/fora/));
+test('vinculo resolve homonimos explicitamente',()=>assert.equal(ctx.escolherPastaRH([{id:'a',name:'Jose da Silva'},{id:'b',name:'Jose da Silva'}],employee,'b').id,'b'));
