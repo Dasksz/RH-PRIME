@@ -3,7 +3,7 @@
  * Execute instalarAutomacaoDriveRH uma vez e autorize o Google Drive.
  */
 function bancoDriveRH(resource,method,query,body) {
-  const allowed=['rh_automation_settings','rh_drive_links','funcionarios_epi','rpc/rh_claim_drive','rpc/rh_claim_existing_drive','rpc/rh_finish_drive'];
+  const allowed=['rh_automation_settings','rh_drive_links','funcionarios_epi','rpc/rh_claim_drive_with_choice','rpc/rh_request_folder_choice','rpc/rh_claim_existing_drive','rpc/rh_finish_drive'];
   if(!allowed.includes(resource)) throw Error('Recurso não permitido');
   const props=PropertiesService.getScriptProperties();
   const url=props.getProperty('SUPABASE_URL'), key=props.getProperty('SUPABASE_KEY');
@@ -36,8 +36,13 @@ function pastaDriveRH(id) {
 function nomeDriveRH(name) {return String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();}
 function escolherPastaRH(folders,employee,linked) {
  if(linked) {const matches=folders.filter(f=>f.id===linked); if(matches.length!==1)throw Error('Pasta vinculada fora das raízes autorizadas.');return matches[0];}
+ const matches=candidatasPastaRH(folders,employee);
+ if(matches.length>1)throw Error('Pastas duplicadas/homônimas. Informe o ID correto no painel.');
+ return matches[0]||null;
+}
+function candidatasPastaRH(folders,employee){
  const cpf=String(employee.cpf||'').replace(/\D/g,'');
- const matches=folders.filter(f=>{
+ return folders.filter(f=>{
   const owner=(f.appProperties||{}).rh_employee_id;
   if(owner)return owner===employee.id;
   const ids=f.name.match(/(?<!\d)\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?!\d)/g)||[];
@@ -47,8 +52,6 @@ function escolherPastaRH(folders,employee,linked) {
   const name=ids.reduce((name,id)=>name.replace(id,''),f.name);
   return (cpf && cpf===folderCpf) || nomeDriveRH(name)===nomeDriveRH(employee.nome);
  });
- if(matches.length>1)throw Error('Pastas duplicadas/homônimas. Informe o ID correto no painel.');
- return matches[0]||null;
 }
 function validarRaizesDriveRH(s) {
  const ids=[s.active_folder_id,s.former_folder_id,s.template_folder_id];
@@ -89,12 +92,37 @@ function executarTarefaDriveRH(job,s,deadline) {
  if(employees.length!==1)throw Error('Colaborador indisponível');
  const e=employees[0], links=bancoDriveRH('rh_drive_links','get','funcionario_id=eq.'+e.id);
  const folders=filhosDriveRH(s.active_folder_id).concat(filhosDriveRH(s.former_folder_id)).filter(f=>f.mimeType==='application/vnd.google-apps.folder');
- let link=links[0], folder=escolherPastaRH(folders,e,link&&link.folder_id);
+ let link=links[0],folder;
+ const hasChoice=job.folder_choice&&job.choice_revision===job.revision;
+ if(!link&&!job.link_only&&!e.data_desligamento){
+  const candidates=candidatasPastaRH(folders,e);
+  if(hasChoice){
+   if(!job.folder_employee||job.folder_employee.nome!==e.nome||job.folder_employee.cpf!==e.cpf)throw Error('Nome ou CPF mudou após a escolha. Solicite nova busca.');
+   if(job.folder_choice==='new'){
+    const created=folders.filter(f=>(f.appProperties||{}).rh_choice_job===job.id&&(f.appProperties||{}).rh_choice_revision===String(job.revision));
+    if(created.length>1)throw Error('Mais de uma pasta criada para esta escolha. Revise.');folder=created[0]||null;
+   }else{
+    folder=candidates.find(f=>f.id===job.folder_choice);
+    if(!folder)throw Error('Pasta escolhida mudou ou saiu das raízes. Solicite nova busca.');
+   }
+  }else{
+   const owned=candidates.filter(f=>(f.appProperties||{}).rh_employee_id===e.id);
+   if(owned.length>1)throw Error('Mais de uma pasta vinculada a este colaborador. Revise.');
+   if(owned.length)folder=owned[0];
+   else if(candidates.length){
+    if(candidates.length>100)throw Error('Muitas pastas compatíveis. Revise os vínculos manualmente.');
+    const options=candidates.map(f=>({id:f.id,name:f.name,location:(f.parents||[]).includes(s.active_folder_id)?'Funcionários ativos':'Ex-funcionários'}));
+    const paused=bancoDriveRH('rpc/rh_request_folder_choice','post','',{p_id:job.id,p_revision:job.claimed_revision,p_candidates:options,p_employee:{nome:e.nome,cpf:e.cpf}});
+    if(!paused)throw Error('Cadastro mudou durante a busca. Solicite nova busca.');
+    return;
+   }else folder=null;
+  }
+ }else folder=escolherPastaRH(folders,e,link&&link.folder_id);
  const target=e.data_desligamento?s.former_folder_id:s.active_folder_id;
  if(!folder){
   if(job.link_only)throw Error('Pasta existente não identificada com segurança. Vincule o ID manualmente; nenhuma pasta foi criada.');
   if(e.data_desligamento)throw Error('Desligado sem pasta existente: vincule a pasta correta; nenhuma pasta vazia será criada.');
-  folder=apiDriveRH('files','post',{name:e.nome,mimeType:'application/vnd.google-apps.folder',parents:[target],appProperties:{rh_employee_id:e.id,rh_new_template:'yes'}},{fields:'id,name,parents,appProperties'});
+  folder=apiDriveRH('files','post',{name:e.nome,mimeType:'application/vnd.google-apps.folder',parents:[target],appProperties:{rh_employee_id:e.id,rh_new_template:'yes',rh_choice_job:job.id,rh_choice_revision:String(job.revision)}},{fields:'id,name,parents,appProperties'});
  }
  const owner=(folder.appProperties||{}).rh_employee_id;
  if(owner && owner!==e.id)throw Error('Pasta vinculada a outro colaborador.');
@@ -123,11 +151,11 @@ function processarFilaDriveRH() {
   const settings=bancoDriveRH('rh_automation_settings','get','id=eq.true')[0];
   if(!settings)throw Error('Configuração indisponível');
   // Heartbeat inclusive quando pausado.
-  bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString(),drive_worker_version:'existing-link-v1'});
+  bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString(),drive_worker_version:'folder-choice-v1'});
   if(!settings.drive_enabled)return;
   while(Date.now()<deadline-30000){
    let jobs=bancoDriveRH('rpc/rh_claim_existing_drive','post','',{});
-   if(!jobs.length)jobs=bancoDriveRH('rpc/rh_claim_drive','post','',{});if(!jobs.length)break;
+   if(!jobs.length)jobs=bancoDriveRH('rpc/rh_claim_drive_with_choice','post','',{});if(!jobs.length)break;
    const job=jobs[0];let error=null;
    try{validarRaizesDriveRH(settings);executarTarefaDriveRH(job,settings,deadline);}catch(e){error=String(e.message).slice(0,500);}
    bancoDriveRH('rpc/rh_finish_drive','post','',{p_id:job.id,p_revision:job.claimed_revision,p_error:error});
@@ -142,7 +170,7 @@ function instalarAutomacaoDriveRH() {
  const s=bancoDriveRH('rh_automation_settings','get','id=eq.true')[0];validarRaizesDriveRH(s);
  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='processarFilaDriveRH').forEach(t=>ScriptApp.deleteTrigger(t));
  ScriptApp.newTrigger('processarFilaDriveRH').timeBased().everyMinutes(5).create();
- bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString(),drive_worker_version:'existing-link-v1'});
+ bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString(),drive_worker_version:'folder-choice-v1'});
 }
 
 // Diagnóstico sem criar, mover ou apagar arquivos.
