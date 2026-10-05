@@ -1,0 +1,195 @@
+{
+  "name": "RH PRIME — Envio Web",
+  "nodes": [
+    {
+      "id": "561219d8-97c7-462e-8047-3d01893e6180",
+      "name": "Receber do RH Web",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rh-prime-web",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "60ae55f9-2067-4afe-8e73-af2dabeb24ba",
+      "name": "Validar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const b=$json.body || {};\nif (!/^[a-f0-9-]{36}$/.test(b.documentId || '') || !/^55[1-9]\\d\\d{8,9}@c\\.us$/.test(b.chatId || '') || typeof b.caption !== 'string' || !b.caption.trim() || b.caption.length>8000 || !b.caption.includes('https://')) throw new Error('Documento, telefone ou mensagem inválida');\nconst state=$getWorkflowStaticData('global'); state.rhAccepted=state.rhAccepted || {};\nfor (const [key,date] of Object.entries(state.rhAccepted)) if (Date.now()-date>60*86400000) delete state.rhAccepted[key];\nreturn [{json:{documentId:b.documentId,chatId:b.chatId,caption:b.caption,duplicate:!!state.rhAccepted[b.documentId]}}];"
+      },
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "id": "72ab2fe8-95b7-4c85-bd48-d6b49caf08aa",
+      "name": "Já aceito",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.duplicate ? 'yes' : '' }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "position": [
+        460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "default",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.caption }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        680,
+        120
+      ],
+      "id": "f5b630ae-2cfa-4732-8d6e-477743fe99a5",
+      "name": "Enviar mensagem WAHA"
+    },
+    {
+      "id": "337d68b4-cba6-41b5-b5ae-24d152bdfd4b",
+      "name": "Confirmar aceite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if ($json.error || $json.data?.error) throw new Error('WAHA retornou erro');\nconst d=$('Validar').item.json;\nconst state=$getWorkflowStaticData('global'); state.rhAccepted=state.rhAccepted || {}; state.rhAccepted[d.documentId]=Date.now();\nreturn [{json:{accepted:true,documentId:d.documentId,status:'accepted'}}];"
+      },
+      "position": [
+        900,
+        120
+      ]
+    },
+    {
+      "id": "8b6eed54-4692-4727-9da9-65211e62d67b",
+      "name": "Aceite anterior",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{accepted:true,documentId:$json.documentId,status:'accepted',duplicate:true}}];"
+      },
+      "position": [
+        680,
+        -120
+      ]
+    },
+    {
+      "id": "c218fd81-55cd-47ec-8a3d-d28d02216151",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "position": [
+        1120,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Receber do RH Web": {
+      "main": [
+        [
+          {
+            "node": "Validar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar": {
+      "main": [
+        [
+          {
+            "node": "Já aceito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Já aceito": {
+      "main": [
+        [
+          {
+            "node": "Aceite anterior",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar mensagem WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensagem WAHA": {
+      "main": [
+        [
+          {
+            "node": "Confirmar aceite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar aceite": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aceite anterior": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

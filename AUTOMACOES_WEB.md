@@ -44,3 +44,9 @@ A versão web possui manifesto e ícones e pode ser instalada nos navegadores co
 ## Validação realizada
 
 Testes simulados de identificação de pastas (com/sem CPF, divergências, homônimos e vínculo), fila transacional com revisão concorrente e conclusão, bloqueio de leitura para não administradores/anon e bloqueio de execução do processador pelo cliente autenticado. Os testes no banco foram revertidos. Nenhuma pasta real foi criada/movida para testar. Instalação e autorização do Apps Script precisam ser realizadas pelo administrador Google.
+
+## Diagnóstico do erro Drive HTTP 403
+
+Substitua o conteúdo de RH_Drive_Automacoes pelo arquivo atualizado. Execute `diagnosticarAutomacaoDriveRH` manualmente: apenas consulta as raízes e permissões, sem alterar documentos. A função apresenta o motivo técnico da API e uma orientação específica.
+
+Se indicar API desativada, habilite Google Drive API no projeto Cloud vinculado ao Apps Script. Se indicar escopo insuficiente, execute `instalarAutomacaoDriveRH` novamente e autorize o Drive; havendo `oauthScopes` explícitos no manifesto, preserve os atuais e inclua `https://www.googleapis.com/auth/drive`. Se indicar permissão de arquivo, confira a conta que criou o gatilho e seu acesso às três pastas. Depois selecione Adriano no painel e solicite novo processamento.
