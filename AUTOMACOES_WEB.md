@@ -79,3 +79,13 @@ Referência: [Google — escopos de autorização](https://developers.google.com
 ## Vincular pastas existentes em lote
 
 O botão **Vincular pastas existentes do lote**, na página de documentos, usa uma tarefa de reconciliação que apenas encontra uma correspondência única e salva `rh_drive_links`. Não cria pastas novas nem renomeia, copia ou move conteúdo. Pastas com apenas o nome são aceitas; homônimos, múltiplos CPFs ou nomes não encontrados exigem revisão manual. Atualize `RH_Drive_Automacoes.gs` e execute a instalação antes desse recurso: o banco exige a identificação de versão `existing-link-v1` publicada pelo novo processador. A rotina de cadastro/desligamento usa tarefas normais, com criação/movimentação conforme já autorizado no fluxo.
+
+
+## Confirmação de pasta existente
+Aplique rh_drive_confirmacao.sql no Supabase antes de substituir RH_Drive_Automacoes.gs no Apps Script. A migração bloqueia a fila normal para processadores antigos; os cadastros e a sincronização com planilhas continuam. Atualize o arquivo completo e salve. O gatilho existente processarFilaDriveRH não precisa ser recriado.
+
+Na Administração e em Automações, a janela aparece depois da busca do processador (até cinco minutos), com nome, localização, ID e link das pastas compatíveis. Escolha Usar pasta selecionada, Criar uma nova pasta ou Decidir depois. Fechar ou adiar conserva a pendência, acessível pelo aviso Conferir pastas. A escolha só é aceita para a revisão atual do cadastro e administradores autenticados.
+
+Usar uma pasta existente preserva seu nome e conteúdo, sem copiar o modelo; se estiver em ex-funcionários, o processador a move para ativos. Criar outra preserva a antiga, cria uma pasta com o nome completo e copia o modelo; o Drive permite pastas com nomes iguais. Sem correspondências, a criação continua automática. Pastas já vinculadas e desligamentos continuam pelo fluxo anterior. O modo Vincular pastas existentes do lote preserva seu comportamento de vínculo sem mutação.
+
+Nenhuma escolha é feita automaticamente pelo modal. Nome/CPF alterados, pasta removida, mudança de dono ou de raiz exigem nova conferência. Solicite nova busca pelo seletor em Automações.
