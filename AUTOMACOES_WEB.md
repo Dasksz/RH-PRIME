@@ -12,7 +12,7 @@ A fila é persistida no Supabase. Cadastro e alteração da data de desligamento
 2. Crie um **novo arquivo de script** chamado `RH_Drive_Automacoes`.
 3. Cole todo o conteúdo de `RH_Drive_Automacoes.gs` e salve. **Mantenha o código de sincronização existente.**
 4. Nas configurações do projeto, confira que as Propriedades do script contêm `SUPABASE_URL` e `SUPABASE_KEY`, usadas pelo sincronizador. A chave deve ser a chave de servidor já configurada; não coloque a chave no HTML nem em campos do painel.
-5. Se o projeto possui escopos explícitos em `appsscript.json`, preserve os atuais e inclua `https://www.googleapis.com/auth/drive`, `https://www.googleapis.com/auth/script.external_request` e `https://www.googleapis.com/auth/script.scriptapp`.
+5. Habilite a exibição do manifesto nas Configurações do projeto. Em `appsscript.json`, declare os escopos explicitamente: preserve os atuais e inclua `https://www.googleapis.com/auth/drive`, `https://www.googleapis.com/auth/script.external_request` e `https://www.googleapis.com/auth/script.scriptapp`.
 6. Selecione **instalarAutomacaoDriveRH** e clique em Executar. Autorize sua conta Google com acesso às três pastas. A instalação valida as raízes e cria somente o gatilho `processarFilaDriveRH`, a cada cinco minutos; não remove gatilhos de sincronização.
 7. Abra a página de automações e atualize o acompanhamento. Confira o último contato do processador. Marque **Ativar automação** e salve quando quiser habilitar a execução.
 8. Para a primeira verificação real, selecione um colaborador conhecido, confira o vínculo/destino e coloque na fila. Depois confirme a pasta e o histórico.
@@ -50,3 +50,28 @@ Testes simulados de identificação de pastas (com/sem CPF, divergências, homô
 Substitua o conteúdo de RH_Drive_Automacoes pelo arquivo atualizado. Execute `diagnosticarAutomacaoDriveRH` manualmente: apenas consulta as raízes e permissões, sem alterar documentos. A função apresenta o motivo técnico da API e uma orientação específica.
 
 Se indicar API desativada, habilite Google Drive API no projeto Cloud vinculado ao Apps Script. Se indicar escopo insuficiente, execute `instalarAutomacaoDriveRH` novamente e autorize o Drive; havendo `oauthScopes` explícitos no manifesto, preserve os atuais e inclua `https://www.googleapis.com/auth/drive`. Se indicar permissão de arquivo, confira a conta que criou o gatilho e seu acesso às três pastas. Depois selecione Adriano no painel e solicite novo processamento.
+
+## Correção de ACCESS_TOKEN_SCOPE_INSUFFICIENT
+
+Esse erro significa que o token daquela execução não tinha o escopo necessário. Ler pastas e capacidades com sucesso não comprova autorização para criar/copiar/mover por REST. A instalação e o diagnóstico atualizados exigem o consentimento do escopo completo `https://www.googleapis.com/auth/drive` antes de continuar, usando `ScriptApp.requireScopes`. O escopo deve estar declarado no manifesto; a chamada não adiciona escopos ao manifesto.
+
+1. Substitua o conteúdo do arquivo `RH_Drive_Automacoes` pelo arquivo atualizado deste repositório.
+2. No Apps Script, Configurações do projeto → marque **Mostrar arquivo de manifesto appsscript.json no editor**.
+3. Abra `appsscript.json` e inclua os escopos abaixo em `oauthScopes`, mantendo outros escopos e as demais configurações existentes. Não substitua o manifesto inteiro por esse trecho.
+
+```json
+"oauthScopes": [
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/script.external_request",
+  "https://www.googleapis.com/auth/script.scriptapp"
+]
+```
+
+4. Salve e execute **instalarAutomacaoDriveRH** pela sua conta com acesso às pastas; conceda os escopos solicitados. Se a execução solicitar consentimento e parar, conclua a autorização e execute a função novamente.
+5. Execute **diagnosticarAutomacaoDriveRH** para conferir acesso às três pastas. O diagnóstico não cria, move ou apaga arquivos.
+6. Na página Automações, selecione o colaborador, confira a pasta/destino e clique no botão para colocar na fila/solicitar novo processamento. A tarefa antiga em Falha não é retomada automaticamente. O gatilho roda a cada cinco minutos; atualize o acompanhamento e verifique a data e a situação novas. Para processar imediatamente, execute **processarFilaDriveRH**, que processará tarefas aguardando na fila quando a automação estiver ativa.
+
+A autorização deve ser concedida pela conta que instala o gatilho. Uma chave do Supabase ou token do n8n não corrige esse escopo Google. Não é necessário apagar pastas, gatilhos de sincronização ou documentos existentes.
+
+Referência: [Google — escopos de autorização](https://developers.google.com/apps-script/concepts/scopes).

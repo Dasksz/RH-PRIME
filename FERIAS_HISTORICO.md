@@ -27,3 +27,9 @@ A tabela antiga `rh_ferias` continua como resumo legado. Quando um período dess
 27 testes de identidade, Drive e cálculo de férias; transações SQL com rollback para criação histórica, saldo, estorno, permissões e preparação de documento; navegador com serviços simulados em 390, 820 e 1240 px, claro/escuro, seletor com preenchimento automático e sem rolagem horizontal. Dados de teste e mensagens não foram persistidos/enviados. RLS habilitado nas quatro tabelas, gravações diretas pelo navegador bloqueadas e RPCs sem acesso anônimo.
 
 Referências para conferência do DP: [CLT](https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452.htm), especialmente arts. 130, 134, 135, 143 e 145; [TST — Férias](https://www.tst.jus.br/en/ferias1). A rotina não substitui avaliação de afastamentos, regras coletivas ou particularidades do contrato.
+
+## Alertas de vencimento
+
+Na tabela principal, **Prazo / situação** mostra férias vencidas, vencendo em até 30 dias, entre 31 e 90 dias ou dentro do prazo. A data é o prazo concessivo do período adquirido com saldo pendente confirmado. Hoje entra em “até 30 dias”, e somente datas anteriores a hoje são vencidas. A lista ordena os prazos confirmados mais antigos primeiro; o filtro permite consultar vencidas e a vencer. Os dois novos indicadores contam colaboradores ativos, não a quantidade de períodos; o mesmo colaborador pode ter um período vencido e outro a vencer.
+
+Períodos sem cadastro, resumos legados ainda não conferidos e datas divergentes aparecem como **Histórico para conferência**, com data de referência quando disponível, sem gerar alertas de vencimento confirmados. Registre o gozo antigo ou revise/confirme o resumo para que o saldo represente a situação real. Um período confirmado pode gerar alerta mesmo que outro período do colaborador ainda precise de revisão; a pendência continua visível. Programações reservam dias mas não eliminam o alerta antes da confirmação de gozo.

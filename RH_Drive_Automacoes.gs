@@ -132,7 +132,9 @@ function processarFilaDriveRH() {
  }finally{lock.releaseLock();}
 }
 function instalarAutomacaoDriveRH() {
- // A referência explícita solicita o escopo do Drive durante a autorização inicial.
+ // Chamadas REST de escrita não são inferidas pelo detector de escopos.
+ // Declare auth/drive no oauthScopes do manifesto, preservando os demais.
+ ScriptApp.requireScopes(ScriptApp.AuthMode.FULL,['https://www.googleapis.com/auth/drive']);
  DriveApp.getRootFolder().getId();
  const s=bancoDriveRH('rh_automation_settings','get','id=eq.true')[0];validarRaizesDriveRH(s);
  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='processarFilaDriveRH').forEach(t=>ScriptApp.deleteTrigger(t));
@@ -147,12 +149,13 @@ function erroDriveRH(response) {
  const reason=reasons.join(', ')||error.status||'motivo não informado';
  let hint='Confira a execução no Apps Script e o acesso da conta às pastas.';
  if(/accessNotConfigured|SERVICE_DISABLED/.test(reason))hint='Ative a Google Drive API no projeto Google Cloud vinculado ao Apps Script.';
- else if(/insufficientPermissions|ACCESS_TOKEN_SCOPE_INSUFFICIENT/.test(reason))hint='Execute instalarAutomacaoDriveRH novamente e autorize o acesso ao Drive. Confira os escopos explícitos do manifesto, se houver.';
+ else if(/insufficientPermissions|ACCESS_TOKEN_SCOPE_INSUFFICIENT/.test(reason))hint='Inclua https://www.googleapis.com/auth/drive em oauthScopes do appsscript.json, preservando os demais escopos. Salve, execute instalarAutomacaoDriveRH e autorize esse acesso. Depois solicite novo processamento; a falha antiga não é reexecutada automaticamente.';
  else if(/insufficientFilePermissions|teamDriveMembershipRequired/.test(reason))hint='A conta que criou o gatilho precisa de acesso às pastas e permissão para criar/copiar/mover os arquivos.';
  else if(/quota|limit|storage/i.test(reason))hint='Confira armazenamento e cotas do Google Drive antes de reprocessar.';
  return 'Drive: HTTP '+response.getResponseCode()+' ['+reason+']. '+hint;
 }
 function diagnosticarAutomacaoDriveRH() {
+ ScriptApp.requireScopes(ScriptApp.AuthMode.FULL,['https://www.googleapis.com/auth/drive']);
  DriveApp.getRootFolder().getId();
  const settings=bancoDriveRH('rh_automation_settings','get','id=eq.true')[0];
  if(!settings)throw Error('Configuração de pastas não encontrada.');
