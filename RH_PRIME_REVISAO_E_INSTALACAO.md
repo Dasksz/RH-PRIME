@@ -54,7 +54,7 @@ Nem todos os registros históricos permitem recuperar CPF com segurança: após 
 
 23 verificações simuladas do Apps Script e 6 verificações das utilidades passaram. Os sete blocos React/JSX compilam. Migrações incluíram testes transacionais de admissão, renomeação, desligamento, vínculo e histórico; pessoas fictícias foram revertidas. Testes de RLS confirmaram leitura dos aprovados, bloqueio dos pendentes e impedimento de autoelevação para administrador.
 
-`tests/layout_preview.html` oferece uma prévia com **dados fictícios**, nas larguras 390, 820 e 1440 pixels. Não deve ser usado como sistema de produção. A validação visual e a sincronização na implantação real são etapas distintas; esta última exige instalar o Apps Script acima.
+As sete telas foram renderizadas e conferidas no navegador nas larguras 390, 820 e 1440 pixels (21 verificações), com dados fictícios. O formulário de cadastro também foi aberto no celular para conferir campos, rolagem e acesso ao rodapé. `tests/layout_preview.html` oferece essa prévia com **dados fictícios**. Não deve ser usado como sistema de produção. A validação visual e a sincronização na implantação real são etapas distintas; esta última exige instalar o Apps Script acima.
 
 ## Aplicativo e envio de documentos
 
@@ -65,6 +65,10 @@ A integração de documentos deve usar uma tarefa no servidor: escolher colabora
 O arquivo `AUTOMACAO_ENVIO_DE_DOCUMENTOS/1_Preparar_Holerites.py` contém JSON de fluxo n8n, igual a `RH PRIME.json`: não é um programa Python executável. O empacotamento precisa primeiro distinguir o fluxo n8n, o lançador local e o Apps Script de assinatura. Não foi gerado APK/EXE nem realizado envio de documentos nesta revisão.
 
 Referências: [instalação de PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable), [Capacitor](https://capacitorjs.com/docs), [instaladores Windows/Tauri](https://v2.tauri.app/distribute/windows-installer/).
+
+## Pendência de segurança no serviço de autenticação
+
+A verificação de segurança do Supabase ficou com um aviso: a proteção contra senhas já vazadas está desativada. Essa opção ainda deve ser conferida no painel de Auth; não foi alterada nesta revisão. [Orientação oficial](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 
 ## Credencial incluída a pedido do proprietário
 
