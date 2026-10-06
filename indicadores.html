@@ -348,7 +348,7 @@
                       saidasTotal++;
                       const motivo = m.motivo_saida?.trim().toLowerCase();
                       if (motivo === 'voluntario') saidasVol++;
-                      else if (motivo === 'involuntario') saidasInvol++;
+                      else if ((motivo === 'involuntario' || motivo === 'involuntario_justa_causa')) saidasInvol++;
                   }
               });
           } else {
@@ -374,7 +374,7 @@
                           saidasTotal++;
                           const motivo = m.motivo_saida?.trim().toLowerCase();
                           if (motivo === 'voluntario') saidasVol++;
-                          else if (motivo === 'involuntario') saidasInvol++;
+                          else if ((motivo === 'involuntario' || motivo === 'involuntario_justa_causa')) saidasInvol++;
                       }
                   }
               });
