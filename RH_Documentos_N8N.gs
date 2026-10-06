@@ -7,7 +7,7 @@ function bancoDocumentosRH(resource,method,query,body) {
  if(!allowed.includes(resource))throw Error('Recurso não permitido');
  const props=PropertiesService.getScriptProperties(),url=props.getProperty('SUPABASE_URL'),key=props.getProperty('SUPABASE_KEY');
  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(url||'')||!key)throw Error('Propriedades Supabase ausentes');
- const options={method:method,muteHttpExceptions:true,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'}};
+ const options={method:method,muteHttpExceptions:true,headers:Object.assign({apikey:key,'Content-Type':'application/json',Prefer:'return=representation'},key.startsWith('sb_secret_')?{}:{Authorization:'Bearer '+key})};
  if(body!==undefined)options.payload=JSON.stringify(body);
  const r=UrlFetchApp.fetch(url.replace(/\/$/,'')+'/rest/v1/'+resource+(query?'?'+query:''),options);
  if(r.getResponseCode()<200||r.getResponseCode()>=300)throw Error('Banco: HTTP '+r.getResponseCode()+' em '+resource);
@@ -36,7 +36,7 @@ function limparCopiaTemporariaDocumentoRH(d){
  atualizarDocumentoRH(d,{drive_verified_at:verified,storage_cleanup_error:null});
  const props=PropertiesService.getScriptProperties(),base=props.getProperty('SUPABASE_URL'),key=props.getProperty('SUPABASE_KEY');
  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(base||'')||!key)throw Error('Configuração de armazenamento ausente');
- const removed=UrlFetchApp.fetch(base.replace(/\/$/,'')+'/storage/v1/object/rh-documentos',{method:'delete',contentType:'application/json',headers:{apikey:key,Authorization:'Bearer '+key},payload:JSON.stringify({prefixes:[d.storage_path]}),muteHttpExceptions:true});
+ const removed=UrlFetchApp.fetch(base.replace(/\/$/,'')+'/storage/v1/object/rh-documentos',{method:'delete',contentType:'application/json',headers:Object.assign({apikey:key},key.startsWith('sb_secret_')?{}:{Authorization:'Bearer '+key}),payload:JSON.stringify({prefixes:[d.storage_path]}),muteHttpExceptions:true});
  if(removed.getResponseCode()<200||removed.getResponseCode()>=300||!Array.isArray(JSON.parse(removed.getContentText())))throw Error('Storage API não confirmou remoção da cópia temporária');
  atualizarDocumentoRH(d,{storage_deleted_at:new Date().toISOString(),storage_cleanup_error:null});
 }
@@ -107,7 +107,7 @@ function importarDocumentoDriveRH(d,s){
   if(!match)throw Error('Competência precisa estar em MM/AAAA.');
   target=subpastaDocumentoRH(target,match[2]).id;target=subpastaDocumentoRH(target,match[1]).id;
   const props=PropertiesService.getScriptProperties(),base=props.getProperty('SUPABASE_URL'),key=props.getProperty('SUPABASE_KEY');
-  const source=UrlFetchApp.fetch(base.replace(/\/$/,'')+'/storage/v1/object/authenticated/rh-documentos/'+encodeURIComponent(d.storage_path),{headers:{apikey:key,Authorization:'Bearer '+key},muteHttpExceptions:true});
+  const source=UrlFetchApp.fetch(base.replace(/\/$/,'')+'/storage/v1/object/authenticated/rh-documentos/'+encodeURIComponent(d.storage_path),{headers:Object.assign({apikey:key},key.startsWith('sb_secret_')?{}:{Authorization:'Bearer '+key}),muteHttpExceptions:true});
   if(source.getResponseCode()!==200)throw Error('PDF privado indisponível no armazenamento');
   const bytes=source.getBlob().getBytes();
   if(bytes.length>10485760)throw Error('PDF excede 10 MB');

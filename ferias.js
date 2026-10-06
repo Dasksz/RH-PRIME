@@ -1,5 +1,5 @@
 'use strict';
-const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU');
+const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98');
 window.RHNavigationClient=client;
 const $=id=>document.getElementById(id),V=RHVacations;let employees=[],periods=[],launches=[],documents=[],deliveries=[],events=[],legacy=[],profile,currentEmployee,busy=false,onSubmit;
 const statusNames={programado:'Programado',concluido:'Gozo confirmado',cancelado:'Cancelado / estornado'},deliveryNames={prepared:'Aguardando upload',uploading:'Upload em andamento',ready:'Pronto para autorização',queued:'Na fila de envio',sending:'Chamando n8n',accepted:'Aceito pelo n8n',uncertain:'Envio incerto — conferir n8n',failed:'Falha — revisar',cancelled:'Envio cancelado'};
