@@ -1,0 +1,13 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),{stripTypeScriptTypes}=require('node:module');
+const employeeId='11111111-1111-1111-1111-111111111111',userId='22222222-2222-2222-2222-222222222222';
+function env({auth=true,admin=true,script={status:'success',employee_id:employeeId,folders:[]}}={}){
+ const calls=[],c=vm.createContext({Request,Response,AbortSignal,Deno:{env:{get:k=>({SUPABASE_URL:'https://example.supabase.co',SUPABASE_PUBLISHABLE_KEYS:'{"default":"sb_publishable_test_only"}'})[k]},serve:fn=>c.handler=fn},fetch:async(url,options)=>{calls.push({url,options});if(url.includes('/auth/'))return Response.json({id:userId},{status:auth?200:401});if(url.includes('/rest/'))return Response.json([{status:admin?'admin':'aprovado'}]);return Response.json(script);}});
+ vm.runInContext(stripTypeScriptTypes(fs.readFileSync(require.resolve('../drive-folder-lookup.ts'),'utf8')),c);return {c,calls};
+}
+const request=(body={employeeId},jwt='eyJ.test.signature')=>new Request('https://example.invalid/lookup',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+jwt,Origin:'https://dasksz.github.io'},body:JSON.stringify(body)});
+test('sem sessão não faz consultas',async()=>{const {c,calls}=env();assert.equal((await c.handler(request({},''))).status,401);assert.equal(calls.length,0);});
+test('sessão revogada é rejeitada pelo Auth',async()=>{const {c,calls}=env({auth:false});assert.equal((await c.handler(request())).status,401);assert.equal(calls.length,1);});
+test('perfil aprovado sem administração não alcança o Apps Script',async()=>{const {c,calls}=env({admin:false});assert.equal((await c.handler(request())).status,403);assert.equal(calls.length,2);});
+test('admin autorizado encaminha somente uma busca de leitura',async()=>{const {c,calls}=env();const r=await c.handler(request());assert.equal(r.status,200);const data=JSON.parse(calls[2].options.body);assert.equal(data.action,'lookup_folder');assert.equal(data.employee_id,employeeId);assert.equal(data.access_token,'eyJ.test.signature');assert.equal(calls[0].options.headers.apikey,'sb_publishable_test_only');assert.equal(r.headers.get('Access-Control-Allow-Origin'),'https://dasksz.github.io');});
+test('implantação antiga explica a atualização necessária',async()=>{const {c}=env({script:{status:'error',message:'Evento inválido.'}});const r=await c.handler(request());assert.equal(r.status,502);assert.match((await r.json()).error,/RH_Drive_Busca/);});
+test('ID inválido não é encaminhado ao Apps Script',async()=>{const {c,calls}=env();assert.equal((await c.handler(request({employeeId:'outro'}))).status,400);assert.equal(calls.length,2);});
