@@ -435,10 +435,11 @@ function respostaRH(data) { return ContentService.createTextOutput(JSON.stringif
 function doPost(e) {
   try {
     if (!e || !e.postData) throw new Error('Payload ausente.');
+    const data = JSON.parse(e.postData.contents);
+    if(data.action==='lookup_folder')return respostaRH(buscarPastaColaboradorRH(data));
     const props = propriedadesRH(), token = props.getProperty('WEBHOOK_TOKEN');
     // Ative a propriedade somente após configurar o mesmo token na URL dos webhooks.
     if (token && (!e.parameter || e.parameter.token !== token)) throw new Error('Webhook não autorizado.');
-    const data = JSON.parse(e.postData.contents);
     if (data.schema && data.schema !== 'public') throw new Error('Schema não permitido.');
     if (!['INSERT','UPDATE','DELETE'].includes(data.type)) throw new Error('Evento inválido.');
     return comLockRH(() => {
