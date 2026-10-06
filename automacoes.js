@@ -8,7 +8,8 @@ function notify(text,error=false){el('message').textContent=text;el('message').c
 async function action(fn){document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){notify(e.message||String(e),true);}finally{document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
 function cell(row,text){const td=document.createElement('td');td.textContent=text||'—';row.append(td);return td;}
 function renderRows(id,data,render){el(id).replaceChildren();if(!data.length){const tr=document.createElement('tr');cell(tr,'Nenhum registro.');el(id).append(tr);}data.forEach(d=>{const row=document.createElement('tr');render(row,d);el(id).append(row);});}
-function selected(){const e=employees.find(e=>e.id===el('employee').value);if(!e)return;el('folder').value=(links.find(l=>l.funcionario_id===e.id)||{}).folder_id||'';el('destination').textContent=e.nome+' → '+(e.data_desligamento?'Ex-funcionários (desligado)':'Funcionários ativos')+'. A tarefa procura uma pasta existente e pede sua confirmação antes de reutilizar.';}
+function folderPreview(){const id=el('folder').value.trim(),valid=/^[A-Za-z0-9_-]{10,200}$/.test(id),a=el('folderPreview');a.hidden=!valid;if(valid){a.href='https://drive.google.com/drive/folders/'+encodeURIComponent(id);a.textContent='Abrir e conferir pasta no Drive · '+id;}else a.removeAttribute('href');}
+function selected(){const e=employees.find(e=>e.id===el('employee').value);if(!e)return;el('folder').value=(links.find(l=>l.funcionario_id===e.id)||{}).folder_id||'';el('folderSearchStatus').textContent=el('folder').value?'Pasta já vinculada. Você pode abrir para conferir ou informar outro ID manualmente.':'';el('folderResults').replaceChildren();folderPreview();el('destination').textContent=e.nome+' → '+(e.data_desligamento?'Ex-funcionários (desligado)':'Funcionários ativos')+'. A tarefa procura uma pasta existente e pede sua confirmação antes de reutilizar.';}
 function renderMessage(){let text=el('messageTemplate').value;const fields={nome:name(el('docEmployee').value),tipo:el('type').value,competencia:el('period').value,link:el('url').value};if(/\{([^{}]+)\}/g.test(text)){text=text.replace(/\{([^{}]+)\}/g,(_,k)=>{if(!(k in fields))throw Error('Variável desconhecida: '+k);return fields[k];});}el('preview').textContent=text;return text;}
 async function refresh(){
  [links]=await Promise.all([RH.fetchAll(client,'rh_drive_links','*','funcionario_id')]);
@@ -21,7 +22,29 @@ async function refresh(){
  renderRows('documents',docs,(r,d)=>{cell(r,name(d.funcionario_id));cell(r,d.document_type);cell(r,d.period);cell(r,labels[d.status]);const td=cell(r,'');try{const url=new URL(d.url);if(url.protocol==='https:'){const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir';td.replaceChildren(a);}}catch(_){}});
  selected();
 }
+function showDriveSettings(open){el('driveSettings').hidden=!open;el('toggleDriveSettings').setAttribute('aria-expanded',String(open));if(open){el('driveSettingsTitle').focus();el('driveSettings').scrollIntoView({block:'start'});}else el('toggleDriveSettings').focus();}
+el('toggleDriveSettings').onclick=e=>{e.preventDefault();if(!el('content').hidden)showDriveSettings(el('driveSettings').hidden);};
+el('closeDriveSettings').onclick=()=>showDriveSettings(false);
 el('employee').onchange=selected;
+el('folder').addEventListener('input',folderPreview);
+el('findFolder').onclick=()=>action(async()=>{
+ const id=el('employee').value,original=el('folder').value;
+ if(!id)throw Error('Escolha um colaborador.');
+ if(links.some(l=>l.funcionario_id===id&&l.folder_id)){selected();notify('Este colaborador já possui uma pasta vinculada. Abra o link para conferir.');return;}
+ el('folderResults').replaceChildren();el('folderSearchStatus').textContent='Buscando nas pastas de ativos e ex-funcionários…';
+ try{
+  const {data,error}=await client.functions.invoke('drive-folder-lookup',{body:{employeeId:id}});
+  if(error){let message=error.message;try{const body=await error.context.json();message=body.error||message;}catch(_){}throw Error(message||'Não foi possível buscar a pasta.');}
+  if(id!==el('employee').value)return;
+  if(!data||data.employee_id!==id||!Array.isArray(data.folders))throw Error('Resposta da busca inválida.');
+  const folders=data.folders.filter(f=>/^[A-Za-z0-9_-]{10,200}$/.test(f.id||''));
+  if(!folders.length){el('folderSearchStatus').textContent='Nenhuma pasta compatível foi encontrada. Você pode informar o ID manualmente.';return;}
+  const choose=f=>{el('folder').value=f.id;folderPreview();el('folderSearchStatus').textContent='Confira a pasta no Drive e clique em “Salvar vínculo” para registrá-la.';};
+  if(folders.length===1&&el('folder').value===original){choose(folders[0]);return;}
+  el('folderSearchStatus').textContent=folders.length>1?'Encontramos mais de uma pasta. Abra para conferir e selecione a correta.':'Pasta encontrada. Seu preenchimento manual foi preservado; selecione a pasta se desejar.';
+  folders.forEach(f=>{const row=document.createElement('div');row.className='folder-result';const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='Selecionar: '+f.name+' · '+f.location;b.onclick=()=>choose(f);const a=document.createElement('a');a.href='https://drive.google.com/drive/folders/'+encodeURIComponent(f.id);a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir no Drive';row.append(b,a);el('folderResults').append(row);});
+ }catch(e){if(id!==el('employee').value)return;el('folderSearchStatus').textContent=(e.message||String(e))+' Você pode informar o ID manualmente.';throw e;}
+});
 el('saveSettings').onclick=()=>action(async()=>{
  const ids=['active','former','template'].map(id=>el(id).value.trim());if(ids.some(id=>!/^[A-Za-z0-9_-]{10,200}$/.test(id))||new Set(ids).size!==3)throw Error('Informe três IDs de pastas válidos e diferentes.');
  await RH.result(client.from('rh_automation_settings').update({drive_enabled:el('enabled').checked,active_folder_id:ids[0],former_folder_id:ids[1],template_folder_id:ids[2]}).eq('id',true).select(),true);await refresh();notify('Configuração salva. Cadastros anteriores não são movimentados em massa.');
@@ -37,4 +60,4 @@ el('saveTemplate').onclick=()=>action(async()=>{renderMessage();const text=el('m
 el('copy').onclick=()=>action(async()=>{await navigator.clipboard.writeText(renderMessage());notify('Mensagem copiada. O envio é manual.');});
 el('saveDocument').onclick=()=>action(async()=>{const url=new URL(el('url').value);if(url.protocol!=='https:')throw Error('Use um link HTTPS.');await RH.result(client.from('rh_document_registry').insert({funcionario_id:el('docEmployee').value,document_type:el('type').value.trim(),period:el('period').value.trim(),url:url.href,status:el('docStatus').value,notes:el('notes').value}).select(),true);await refresh();notify('Documento registrado. Nenhum arquivo foi enviado ou compartilhado.');});
 ['messageTemplate','docEmployee','type','period','url'].forEach(id=>el(id).addEventListener('input',()=>{try{renderMessage();}catch(e){el('preview').textContent=e.message;}}));
-action(async()=>{const p=await RH.profile(client);if(p.status!=='admin')throw Error('Esta área exige acesso de administrador.');employees=await RH.fetchAll(client,'funcionarios_epi','id,nome,cpf,data_desligamento');employees.sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));['employee','docEmployee'].forEach(id=>employees.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.nome+(e.data_desligamento?' · desligado':'');el(id).append(o);}));await refresh();el('active').value=settings.active_folder_id;el('former').value=settings.former_folder_id;el('template').value=settings.template_folder_id;el('enabled').checked=settings.drive_enabled;el('messageTemplate').value=settings.message_template;renderMessage();el('content').hidden=false;notify('Área administrativa conectada.');});
+action(async()=>{const p=await RH.profile(client);if(p.status!=='admin')throw Error('Esta área exige acesso de administrador.');employees=await RH.fetchAll(client,'funcionarios_epi','id,nome,cpf,data_desligamento');employees.sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));['employee','docEmployee'].forEach(id=>employees.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.nome+(e.data_desligamento?' · desligado':'');el(id).append(o);}));await refresh();el('active').value=settings.active_folder_id;el('former').value=settings.former_folder_id;el('template').value=settings.template_folder_id;el('enabled').checked=settings.drive_enabled;el('messageTemplate').value=settings.message_template;renderMessage();el('content').hidden=false;el('toggleDriveSettings').hidden=false;notify('Área administrativa conectada.');});
