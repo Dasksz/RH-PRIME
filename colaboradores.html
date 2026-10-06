@@ -22,7 +22,7 @@
       }
     </style>
       <link rel="stylesheet" href="rh-responsive.css">
-    <script src="rh-core.js"></script>
+    <script src="rh-core.js"></script><script src="rh-navigation.js?v=20261006"></script><script src="rh-search-focus.js?v=20261006"></script>
 <link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
 </head>
   <body class="bg-[#F8FAFC]">
@@ -39,6 +39,7 @@
       const SUPABASE_KEY =
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      window.RHNavigationClient = supabase;
 
       // Ícones SVG Nativos
       const Icon = ({ size = 20, className = "", children }) => (
@@ -413,8 +414,7 @@
         }
 
         const handleLogout = async () => {
-          await supabase.auth.signOut();
-          window.location.href = "login.html";
+          await RH.logout(supabase);
         };
 
         useEffect(() => {
@@ -730,58 +730,7 @@
         return (
           <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
             {/* Header */}
-            <header className="bg-[#002060] text-white shadow-md sticky top-0 z-50">
-              <div className="px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Shield size={28} className="text-[#E30613]" />
-                  <div>
-                    <h1 className="text-xl font-extrabold tracking-tight leading-none">PRIME RH</h1>
-                    <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mt-1">Gestão de Colaboradores</p>
-                  </div>
-                </div>
-
-                <button className="md:hidden p-2 text-white" onClick={() => setMenuOpen(!menuOpen)}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 6h16M4 12h16M4 18h16"></path>
-                  </svg>
-                </button>
-
-                <nav className="hidden md:flex items-center gap-6">
-                  <a href="index.html" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
-                    EPI/Fardamento
-                  </a>
-                  <span className="text-sm font-bold text-white border-b-2 border-[#E30613] pb-1">Colaboradores</span>
-                  <a href="ferias.html" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
-                    Férias
-                  </a>
-                  <a href="indicadores.html" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
-                    Indicadores
-                  </a>
-                  <button onClick={handleLogout} className="flex items-center gap-2 text-red-300 hover:text-white ml-4 text-sm font-medium">
-                    Sair
-                  </button>
-                </nav>
-              </div>
-
-              {menuOpen && (
-                <nav className="md:hidden bg-[#001848] px-5 py-3 flex flex-col gap-3">
-                  <a href="index.html" className="text-sm font-medium text-slate-300">
-                    EPI/Fardamento
-                  </a>
-                  <span className="text-sm font-bold text-white">Colaboradores</span>
-                  <a href="ferias.html" className="text-sm font-medium text-slate-300">
-                    Controle de Férias
-                  </a>
-                  <a href="indicadores.html" className="text-sm font-medium text-slate-300">
-                    Indicadores de RH
-                  </a>
-                  <hr className="border-slate-700 my-1" />
-                  <button onClick={handleLogout} className="text-sm font-medium text-red-300 text-left">
-                    Sair do Sistema
-                  </button>
-                </nav>
-              )}
-            </header>
+            <rh-navigation active="colaboradores"></rh-navigation>
 
             {/* Main Content */}
             <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
@@ -855,7 +804,7 @@
                 ) : (
                   <>
                     {/* Visualização Compacta em Dispositivos Móveis */}
-                    <div className="block md:hidden divide-y divide-slate-100">
+                    <div className="rh-employee-list block md:hidden divide-y divide-slate-100">
                       {colaboradoresFiltrados.map((item) => {
                         const cpfFormatado = formatarCPF(item.matricula || item.cpf);
                         return (
