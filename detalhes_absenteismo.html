@@ -54,6 +54,7 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <script src="rh-absence-files.js?v=20261006"></script>
     <script type="text/babel">
       const { useState, useEffect, useMemo } = React;
 
@@ -136,6 +137,21 @@
           horas_perdidas_custom: "",
         });
         const [isSubmitting, setIsSaving] = useState(false);
+        const [faltaAttachment, setFaltaAttachment] = useState(null);
+        const [editAttachment, setEditAttachment] = useState(null);
+        const [removeEditAttachment, setRemoveEditAttachment] = useState(false);
+
+        const chooseAttachment = async (event, setter) => {
+          const input=event.target, file=input.files?.[0];
+          if(!file){setter(null);return;}
+          try{await RHAbsenceFiles.validate(file);setter(file);}
+          catch(err){input.value='';setter(null);alert(err.message);}
+        };
+        const openAttachment = (item) => RHAbsenceFiles.open(supabase,item).catch(err=>alert(err.message));
+        const cleanupAttachment = async (path) => {
+          try{await RHAbsenceFiles.remove(supabase,path);}
+          catch(err){console.error(err.message);}
+        };
 
         // Editar Falta Modal State
         const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -296,8 +312,13 @@
 
         const handleOpenEdit = (item) => {
           item = absenteismo.find(original => original.id === item.id) || item;
+          setEditAttachment(null);
+          setRemoveEditAttachment(false);
           setEditItem({
             id: item.id,
+            funcionario_id: item.funcionario_id,
+            atestado_path: item.atestado_path,
+            atestado_nome: item.atestado_nome,
             funcionario_nome: item.funcionario_nome,
             data_inicio: item.data_inicio || "",
             data_fim: item.data_fim || "",
@@ -313,6 +334,7 @@
           if (!editItem.id) return;
 
           setIsSaving(true);
+          let uploaded=null;
           try {
             const parts = editItem.data_inicio.split("-");
             const mesRefCalculado = `${parts[1]}/${parts[0]}`;
@@ -325,18 +347,26 @@
               motivo: editItem.motivo,
               carga_horaria: Number(editItem.carga_horaria) || 220,
             };
+            if(editAttachment){
+              uploaded=await RHAbsenceFiles.upload(supabase,editAttachment,editItem.funcionario_id);
+              Object.assign(payload,uploaded);
+            }else if(removeEditAttachment)Object.assign(payload,RHAbsenceFiles.empty);
 
-            const { error } = await supabase
+            const { data: updated, error } = await supabase
               .from("rh_absenteismo")
               .update(payload)
-              .eq("id", editItem.id);
+              .eq("id", editItem.id).select('id');
 
             if (error) throw error;
+            if (!updated?.length) throw Error('Registro não atualizado. Confira seu acesso e tente novamente.');
+            if((editAttachment||removeEditAttachment)&&editItem.atestado_path)await cleanupAttachment(editItem.atestado_path);
+            uploaded=null;
 
             alert("Registro de absenteísmo atualizado com sucesso!");
             setIsEditModalOpen(false);
             fetchData();
           } catch (err) {
+            if(uploaded)await cleanupAttachment(uploaded.atestado_path);
             console.error("Erro ao atualizar absenteísmo:", err);
             alert("Erro ao atualizar registro: " + err.message);
           } finally {
@@ -347,8 +377,11 @@
         const handleExcluirAbsenteismo = async (id) => {
           if (!window.confirm("Deseja realmente excluir este registro de absenteísmo?")) return;
           try {
-            const { error } = await supabase.from("rh_absenteismo").delete().eq("id", id);
+            const attachment=absenteismo.find(item=>item.id===id)?.atestado_path;
+            const { data: removed, error } = await supabase.from("rh_absenteismo").delete().eq("id", id).select('id');
             if (error) throw error;
+            if (!removed?.length) throw Error('Registro não excluído. Confira seu acesso e tente novamente.');
+            await cleanupAttachment(attachment);
             alert("Registro excluído com sucesso!");
             fetchData();
           } catch (err) {
@@ -365,6 +398,7 @@
           }
 
           setIsSaving(true);
+          let uploaded=null;
           try {
             const parts = faltaForm.data_inicio.split("-");
             const mesRefCalculado = `${parts[1]}/${parts[0]}`;
@@ -373,6 +407,7 @@
             const motivoCompleto = faltaForm.observacao ? `${faltaForm.motivo_tipo} - ${faltaForm.observacao}` : faltaForm.motivo_tipo;
 
             const payload = {
+              funcionario_id: colabSelecionadoObj.id,
               funcionario_nome: colabSelecionadoObj.nome,
               cpf: colabSelecionadoObj.cpf ? colabSelecionadoObj.cpf.replace(/\D/g, "") : "",
               data_inicio: faltaForm.data_inicio,
@@ -382,9 +417,15 @@
               motivo: motivoCompleto,
               carga_horaria: colabSelecionadoObj.carga_horaria || 220,
             };
+            if(faltaAttachment){
+              uploaded=await RHAbsenceFiles.upload(supabase,faltaAttachment,colabSelecionadoObj.id);
+              Object.assign(payload,uploaded);
+            }
 
             const { error } = await supabase.from("rh_absenteismo").insert([payload]);
             if (error) throw error;
+            uploaded=null;
+            setFaltaAttachment(null);
 
             alert("Falta/Afastamento cadastrado com sucesso!");
             setIsModalOpen(false);
@@ -397,6 +438,7 @@
             });
             fetchData();
           } catch (err) {
+            if(uploaded)await cleanupAttachment(uploaded.atestado_path);
             console.error("Erro ao cadastrar falta:", err);
             alert("Erro ao cadastrar falta: " + err.message);
           } finally {
@@ -566,6 +608,7 @@
                     onClick={() => {
                       setModalColabSearch("");
                       if (colaboradores.length > 0) setSelectedColabCpf(colaboradores[0].cpf || colaboradores[0].nome || "");
+                      setFaltaAttachment(null);
                       setIsModalOpen(true);
                     }}
                     className="flex items-center gap-2 bg-[#002060] hover:bg-[#001848] text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm"
@@ -659,6 +702,7 @@
                               <span className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full font-semibold bg-slate-100 text-slate-800">
                                 {item.motivo || "Não informado"}
                               </span>
+                              {item.atestado_path&&<button type="button" onClick={()=>openAttachment(item)} className="block mt-2 text-blue-600 underline font-bold">Ver atestado</button>}
                             </td>
                             <td className="px-6 py-4 text-center whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1.5">
@@ -697,17 +741,17 @@
             {/* MODAL EDITAR ABSENTEÍSMO */}
             {isEditModalOpen && (
               <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fadeIn my-auto">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn my-auto">
                   <div className="bg-[#002060] p-4 text-white flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
                       <Pencil size={20} /> Editar Falta / Afastamento
                     </h3>
-                    <button onClick={() => setIsEditModalOpen(false)} className="text-white/80 hover:text-white">
+                    <button disabled={isSubmitting} onClick={() => setIsEditModalOpen(false)} className="text-white/80 hover:text-white">
                       <XCircle size={22} />
                     </button>
                   </div>
 
-                  <form onSubmit={handleSalvarEdit} className="p-4 sm:p-6 space-y-4 text-xs">
+                  <form onSubmit={handleSalvarEdit} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
                     <div>
                       <label className="block font-bold text-slate-700 uppercase mb-1">Colaborador</label>
                       <input
@@ -775,20 +819,31 @@
                       />
                     </div>
 
+                    <div className="space-y-2">
+                      <label htmlFor="editAtestado" className="block font-bold text-slate-700 uppercase">Atestado / documento (opcional)</label>
+                      {editItem.atestado_path&&!removeEditAttachment&&<div className="flex flex-wrap items-center gap-3">
+                        <button type="button" onClick={()=>openAttachment(editItem)} className="text-blue-600 underline">Ver: {editItem.atestado_nome}</button>
+                        <button type="button" disabled={isSubmitting} onClick={()=>setRemoveEditAttachment(true)} className="text-red-600 underline">Remover anexo ao salvar</button>
+                      </div>}
+                      {removeEditAttachment&&<p>O anexo será removido ao salvar. <button type="button" onClick={()=>setRemoveEditAttachment(false)} className="underline">Desfazer</button></p>}
+                      <input id="editAtestado" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={isSubmitting} onChange={e=>chooseAttachment(e,setEditAttachment)} className="block w-full text-sm" />
+                      <p className="text-slate-500">JPG, PNG ou PDF de até 10 MB. Um novo arquivo substitui o anexo atual ao salvar.</p>
+                    </div>
+
                     <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
                       <button
                         type="button"
-                        onClick={() => setIsEditModalOpen(false)}
+                        disabled={isSubmitting} onClick={() => setIsEditModalOpen(false)}
                         className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
-                        disabled={isSaving}
+                        disabled={isSubmitting}
                         className="px-6 py-2.5 text-white bg-[#002060] hover:bg-blue-900 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm"
                       >
-                        {isSaving ? (
+                        {isSubmitting ? (
                           <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                         ) : (
                           <CheckCircle2 size={16} />
@@ -809,7 +864,7 @@
                     <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
                       <Plus size={20} /> Cadastrar Falta / Afastamento
                     </h3>
-                    <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white">
+                    <button disabled={isSubmitting} onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white">
                       <XCircle size={22} />
                     </button>
                   </div>
@@ -915,17 +970,23 @@
                       <label className="block font-bold text-slate-700 uppercase mb-1">Observações Adicionais</label>
                       <input
                         type="text"
-                        placeholder="Ex: CID X, Atestado de 2 dias do Hospital Y"
+                        placeholder="Ex: Atestado de 2 dias"
                         value={faltaForm.observacao}
                         onChange={(e) => setFaltaForm({ ...faltaForm, observacao: e.target.value })}
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                       />
                     </div>
 
+                    <div className="space-y-2">
+                      <label htmlFor="novoAtestado" className="block font-bold text-slate-700 uppercase">Anexar atestado / documento (opcional)</label>
+                      <input id="novoAtestado" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={isSubmitting} onChange={e=>chooseAttachment(e,setFaltaAttachment)} className="block w-full text-sm" />
+                      <p className="text-slate-500">JPG, PNG ou PDF de até 10 MB. O arquivo será vinculado a esta falta e terá acesso restrito.</p>
+                    </div>
+
                     <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
                       <button
                         type="button"
-                        onClick={() => setIsModalOpen(false)}
+                        disabled={isSubmitting} onClick={() => setIsModalOpen(false)}
                         className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-bold"
                       >
                         Cancelar
