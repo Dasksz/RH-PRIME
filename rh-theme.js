@@ -5,6 +5,7 @@
  apply(current);window.RHTheme={toggle(){apply(current==='dark'?'light':'dark');}};
  document.addEventListener('click',event=>{if(event.target.closest('[data-rh-theme-toggle]'))window.RHTheme.toggle();});
  function mount(){
+  if(document.querySelector("rh-navigation"))return;
   const header=document.querySelector('header');let host=header&&(Array.from(header.querySelectorAll('nav')).find(nav=>getComputedStyle(nav).display!=='none')||header);
   if(document.body.classList.contains('rh-login'))host=document.body;
   if(!host){host=document.querySelector('[data-rh-theme-host]');}
