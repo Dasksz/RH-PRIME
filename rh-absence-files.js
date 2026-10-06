@@ -1,7 +1,22 @@
 (function(root){
  'use strict';
  const bucket='rh-atestados',limit=10*1024*1024;
- const empty={atestado_path:null,atestado_nome:null,atestado_mime:null,atestado_size:null};
+ const empty={atestado_path:null,atestado_nome:null,atestado_mime:null,atestado_size:null,atestado_tipo:null,atestado_data:null,atestado_dias:null};
+ function documentInfo({nome,inicio,fim,tipo='atestado',data,dias,mime='application/pdf'}){
+  const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
+  data=data||inicio;
+  if(!validDate(data)||!validDate(inicio)||!validDate(fim)||fim<inicio)throw Error('Confira as datas do documento e do afastamento.');
+  if(!['atestado','comparecimento'].includes(tipo))throw Error('Tipo de documento inválido.');
+  const person=String(nome||'').trim().replace(/\s+/g,' ').toUpperCase().slice(0,220);
+  if(!person)throw Error('Nome do colaborador não informado.');
+  const extension={'application/pdf':'.pdf','image/jpeg':'.jpg','image/png':'.png'}[mime];
+  if(!extension)throw Error('Formato de documento inválido.');
+  const count=tipo==='comparecimento'?null:(dias==null||dias===''?Math.round((Date.parse(fim+'T00:00:00Z')-Date.parse(inicio+'T00:00:00Z'))/86400000)+1:Number(dias));
+  if(tipo==='atestado'&&(!Number.isInteger(count)||count<1||count>3660))throw Error('Informe a quantidade de dias do atestado.');
+  const date=data.slice(8,10)+'.'+data.slice(5,7);
+  const filename=(tipo==='comparecimento'?'COMPARECIMENTO '+date:'ATESTADO - '+date+' '+count+(count===1?' DIA':' DIAS'))+' - '+person+extension;
+  return {atestado_nome:filename,atestado_tipo:tipo,atestado_data:data,atestado_dias:count};
+ }
  async function validate(file){
   if(!file||file.size<1)throw Error('Selecione um arquivo com conteúdo.');
   if(file.size>limit)throw Error('O atestado deve ter até 10 MB.');
@@ -38,5 +53,5 @@
    else throw Error('Permita abrir uma nova aba para consultar o atestado.');
   }catch(e){if(tab)tab.close();throw e;}
  }
- root.RHAbsenceFiles={validate,upload,remove,open,empty};
+ root.RHAbsenceFiles={validate,upload,remove,open,documentInfo,empty};
 })(globalThis);
