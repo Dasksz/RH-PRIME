@@ -1,7 +1,7 @@
 /**
  * RH PRIME — sincronização por identidade estável, versão 2026-10-04.
- * Configuração inicial completa incluída a pedido do proprietário.
- * Depois de instalar, troque a chave e remova os valores do código e do histórico.
+ * A chave secreta deve existir somente nas Propriedades do script: SUPABASE_KEY.
+ * Compatível com sb_secret_; nenhuma chave privilegiada é incluída no código.
  * Execute prepararEstruturaRH e instalarGatilhoRH antes de atualizar a implantação.
  */
 const RH_TZ = 'America/Sao_Paulo';
@@ -45,7 +45,6 @@ const RH_JSON = ['itens_checked','historico_periodos'];
 const RH_VERSION = "2026-10-04-rh3";
 const RH_CONFIG_INICIAL = {
   "SUPABASE_URL": "https://gcksbfstheavpfgcdndb.supabase.co",
-  "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzc1MDcyNywiZXhwIjoyMDkzMzI2NzI3fQ.yuYxAYnllivwnR7fKzEAfgUIdLEAQZjIBAPrWfQh0IY",
   "SPREADSHEET_ID": "1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg",
   "WEB_APP_URL": "https://script.google.com/macros/s/AKfycbxiOCFqmTythI4H9Lemp_b_9fsZcJrDZX-CBGWleVq0jV22EDtYASP5XmnWE5_7vqqg/exec"
 };
@@ -123,7 +122,7 @@ function requestRH(table, method, query, payload) {
   const props = propriedadesRH(), base = props.getProperty('SUPABASE_URL'), key = props.getProperty('SUPABASE_KEY');
   if (!base || !key) throw new Error('Configure SUPABASE_URL e SUPABASE_KEY nas Propriedades do script.');
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(base)) throw new Error('SUPABASE_URL inválida.');
-  const options = { method: method, muteHttpExceptions: true, headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation' } };
+  const options = { method: method, muteHttpExceptions: true, headers: Object.assign({ apikey: key, 'Content-Type': 'application/json', Prefer: 'return=representation' }, key.startsWith('sb_secret_') ? {} : { Authorization: 'Bearer ' + key }) };
   if (payload !== undefined) options.payload = JSON.stringify(payload);
   const response = UrlFetchApp.fetch(base.replace(/\/$/,'') + '/rest/v1/' + table + (query ? '?' + query : ''), options);
   const status = response.getResponseCode(), text = response.getContentText();
@@ -482,7 +481,7 @@ function ativarWebhooksRH() {
   let version; try { version=JSON.parse(deployed.getContentText()).versao; } catch (err) {}
   if(deployed.getResponseCode()!==200 || version!==RH_VERSION) throw new Error('Atualize a implantação Web App para esta versão, executando como você e com acesso Qualquer pessoa. Preserve a URL existente.');
   const key=props.getProperty('SUPABASE_KEY');
-  const response=UrlFetchApp.fetch(props.getProperty('SUPABASE_URL')+'/rest/v1/rpc/rh_ativar_webhooks',{method:'post',contentType:'application/json',payload:'{}',headers:{apikey:key,Authorization:'Bearer '+key},muteHttpExceptions:true});
+  const response=UrlFetchApp.fetch(props.getProperty('SUPABASE_URL')+'/rest/v1/rpc/rh_ativar_webhooks',{method:'post',contentType:'application/json',payload:'{}',headers:Object.assign({apikey:key},key.startsWith('sb_secret_')?{}:{Authorization:'Bearer '+key}),muteHttpExceptions:true});
   if(response.getResponseCode()<200 || response.getResponseCode()>=300) throw new Error('Não foi possível ativar webhooks. HTTP '+response.getResponseCode());
   planilhaRH().toast('Webhooks ativados. Teste uma edição em cada direção.','RH PRIME',10);
 }
@@ -494,4 +493,14 @@ function atualizarCnpjsRH(ss) {
   const config=SHEET_CONFIG['Controle EPI e Fardamento'],map=layoutRH(sheet,config,false),count=sheet.getLastRow()-1;
   const locals=sheet.getRange(2,map.local_registro,count,1).getValues();
   sheet.getRange(2,23,count,1).setValues(locals.map(row=>[obterCnpjLocalRegistro(row[0],RH_EMPRESAS_CACHE)]));
+}
+
+// Teste somente leitura, sem sincronização, criação de gatilhos ou envio de mensagens.
+function verificarConexaoSupabaseRH() {
+  const props=propriedadesRH(), key=props.getProperty('SUPABASE_KEY');
+  if(!key || !key.startsWith('sb_secret_')) throw Error('Cole a nova chave sb_secret_ em SUPABASE_KEY nas Propriedades do script.');
+  requestRH('funcionarios_epi','get','select=id&limit=0');
+  if(typeof bancoDriveRH==='function') bancoDriveRH('rh_automation_settings','get','select=id&limit=0');
+  if(typeof bancoDocumentosRH==='function') bancoDocumentosRH('rh_delivery_documents','get','select=id&limit=0');
+  console.log('Conexão REST com a nova chave secreta validada. Nenhum dado foi alterado.');
 }

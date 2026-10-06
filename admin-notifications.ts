@@ -1,6 +1,6 @@
 // Each request requires a short-lived, single-use event capability verified in Postgres.
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
-const client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+const client = createClient(Deno.env.get('SUPABASE_URL')!, (JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') || '{}')['default'] || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || 'sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98'), {
   auth: { persistSession: false, autoRefreshToken: false }
 });
 Deno.serve(async (req: Request) => {

@@ -1,5 +1,5 @@
 'use strict';
-const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU');
+const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98');
 const el=id=>document.getElementById(id);let employees=[],links=[],settings;
 RHFolderChoice.start(client);
 const labels={awaiting_choice:'Aguardando escolha da pasta',waiting:'Aguardando',processing:'Processando',done:'Concluído',failed:'Falha',prepared:'Preparado',sent_manual:'Envio manual',signed_manual:'Assinatura manual'};

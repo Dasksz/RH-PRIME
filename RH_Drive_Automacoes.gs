@@ -8,7 +8,7 @@ function bancoDriveRH(resource,method,query,body) {
   const props=PropertiesService.getScriptProperties();
   const url=props.getProperty('SUPABASE_URL'), key=props.getProperty('SUPABASE_KEY');
   if(!url || !/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(url) || !key) throw Error('Configure as propriedades SUPABASE_URL e SUPABASE_KEY no Apps Script.');
-  const options={method:method, muteHttpExceptions:true,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'}};
+  const options={method:method, muteHttpExceptions:true,headers:Object.assign({apikey:key,'Content-Type':'application/json',Prefer:'return=representation'},key.startsWith('sb_secret_')?{}:{Authorization:'Bearer '+key})};
   if(body!==undefined) options.payload=JSON.stringify(body);
   const r=UrlFetchApp.fetch(url.replace(/\/$/,'')+'/rest/v1/'+resource+(query?'?'+query:''),options);
   if(r.getResponseCode()<200 || r.getResponseCode()>=300) throw Error('Banco: HTTP '+r.getResponseCode()+' em '+resource);
