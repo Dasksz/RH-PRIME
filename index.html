@@ -41,7 +41,7 @@
       <link rel="stylesheet" href="rh-responsive.css">
     <script src="rh-core.js"></script>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#102c38">
-<link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
+<link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="rh-mobile-menus.css?v=20261006"><script src="rh-theme.js"></script>
 </head>
   <body>
     <div id="root"></div>
@@ -1487,7 +1487,7 @@
         if (viewMode === "dashboard") {
           return (
             <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
-              <header className="bg-[#002060] text-white px-5 py-4 flex items-center justify-between shadow-md sticky top-0 z-50">
+              <header className="rh-main-header bg-[#002060] text-white px-5 py-4 flex items-center justify-between shadow-md sticky top-0 z-50">
                 <div className="flex items-center gap-3 cursor-pointer group" onClick={() => RH.openAdmin(supabase)} title="Clique para abrir Área Restrita do Administrador">
                   <Shield size={28} className="text-[#E30613] group-hover:scale-110 transition-transform" />
                   <div>
@@ -1534,6 +1534,8 @@
                 {/* Menu Toggle Mobile (Using a simple button logic since we are in index.html) */}
                 <button
                   className="md:hidden p-2 text-white"
+                  aria-label="Abrir ou fechar menu"
+                  aria-controls="mobile-nav"
                   onClick={() =>
                     document
                       .getElementById("mobile-nav")
