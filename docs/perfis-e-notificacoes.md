@@ -34,3 +34,6 @@ A busca preserva a altura da página durante a digitação e mantém o campo na 
 ## Vencimento de férias no histórico
 
 O prazo concessivo aparece destacado ao lado do período aquisitivo, inclusive após o saldo ser quitado e nos períodos projetados. Não houve alteração do cálculo ou das datas cadastradas. Referências não conferidas continuam identificadas e avisos de divergência permanecem visíveis. Cada saída com datas mostra se o término ocorre até ou depois desse vencimento de referência. O CSV inclui o prazo concessivo. A verificação de navegador cobre períodos quitados com término anterior/posterior e períodos em formação/futuros.
+
+
+O cabeçalho de EPI/Fardamento, colaboradores, férias e indicadores usa um único componente de navegação, com menu compacto sobre o conteúdo no celular, opção atual destacada, tema e saída no mesmo lugar. As tabelas administrativas apresentam cartões com rótulos por campo no celular e mantêm a tabela no computador. A seleção de registros e as ações continuam disponíveis.
