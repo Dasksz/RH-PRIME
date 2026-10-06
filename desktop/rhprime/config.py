@@ -34,4 +34,4 @@ def set_secret(name, value):
     elif keyring.get_password('RH PRIME', name):
         keyring.delete_password('RH PRIME', name)
 
-PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdja3NiZnN0aGVhdnBmZ2NkbmRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA3MjcsImV4cCI6MjA5MzMyNjcyN30.5yqzDt5mTJRpTavKq4GJ0CwX6qT3GaVvXqbcdawJUmU'
+PUBLIC_KEY = 'sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98'
