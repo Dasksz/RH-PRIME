@@ -75,5 +75,22 @@
     try { const p=await profile(client);if(p.status!=='admin') throw new Error('Esta área exige acesso de administrador.');window.location.href='admin.html'; }
     catch(error){window.alert(error.message);}
   }
-  global.RH={cleanCpf,validCpf,result,fetchAll,today,date,archivePeriod,absByMonth,watch,profile,openAdmin};
+  async function logout(client) {
+    const storageKey = client.auth.storageKey || 'sb-gcksbfstheavpfgcdndb-auth-token';
+    let timer;
+    try {
+      await Promise.race([
+        client.auth.signOut({scope:'local'}).catch(() => null),
+        new Promise(resolve => { timer=setTimeout(resolve,4000); })
+      ]);
+    } finally {
+      clearTimeout(timer);
+      // Limpa somente a sessão deste projeto, inclusive se a rede falhar.
+      for (const storage of [localStorage,sessionStorage]) {
+        try { storage.removeItem(storageKey);storage.removeItem(storageKey+'-code-verifier'); } catch (_) {}
+      }
+      window.location.replace('login.html');
+    }
+  }
+  global.RH={cleanCpf,validCpf,result,fetchAll,today,date,archivePeriod,absByMonth,watch,profile,openAdmin,logout};
 })(window);
