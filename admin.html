@@ -21,9 +21,9 @@
     <!-- XLSX with Cell Styles support (xlsx-js-style) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
       <link rel="stylesheet" href="rh-responsive.css">
-    <script src="rh-core.js"></script><script src="rh-folder-choice.js?v=20261005"></script>
+    <script src="rh-core.js"></script><script src="rh-admin-tables.js?v=20261006"></script><link rel="stylesheet" href="rh-admin-tables.css?v=20261006"><script src="rh-search-focus.js?v=20261006"></script><script src="rh-folder-choice.js?v=20261005"></script>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#102c38">
-<link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="rh-mobile-menus.css?v=20261006"><script src="rh-theme.js"></script>
+<link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="rh-mobile-menus.css?v=20261006"><script src="rh-theme.js"></script><link rel="stylesheet" href="rh-profiles.css?v=20261006"><script src="rh-profiles.js?v=20261006"></script>
 </head>
   <body class="bg-slate-100 text-slate-800 antialiased font-sans min-h-screen rh-admin">
     <div id="root"></div>
@@ -226,6 +226,7 @@
 
         // Table Viewer State
         const [availableTables] = useState([
+          { name: "profiles", label: "Perfis e acessos" },
           { name: "devolucoes_pendentes", label: "Devoluções Pendentes" },
           { name: "funcionarios_epi", label: "Funcionários & EPIs" },
           { name: "empresas", label: "Empresas Cadastradas" },
@@ -233,7 +234,7 @@
           { name: "rh_absenteismo", label: "Absenteísmo" },
           { name: "epi_funcao", label: "Regras por Função" },
         ]);
-        const [selectedTableName, setSelectedTableName] = useState("devolucoes_pendentes");
+        const [selectedTableName, setSelectedTableName] = useState("profiles");
         const [tableData, setTableData] = useState([]);
         const [tableColumns, setTableColumns] = useState([]);
         const [tableLoading, setTableLoading] = useState(false);
@@ -273,12 +274,11 @@
         }
 
         const handleLogout = async () => {
-          await supabase.auth.signOut();
-          window.location.href = "login.html";
+          await RH.logout(supabase);
         };
 
         useEffect(() => {
-          if (activeSection === "tables") {
+          if (activeSection === "tables" && selectedTableName !== "profiles") {
             fetchTableData(selectedTableName);
           } else if (activeSection === "empresas") {
             fetchEmpresas();
@@ -899,7 +899,7 @@
               {
                 tabela_afetada: selectedTableName,
                 tipo_operacao: "UPDATE",
-                descricao: `Edição manual no registro #${id} da tabela ${selectedTableName}`,
+                descricao: `Edição manual no registro #${pkVal} da tabela ${selectedTableName}`,
                 dados_anteriores: editingRow,
                 dados_novos: editFormData,
               },
@@ -1046,6 +1046,7 @@
 
             {/* Main Content Area */}
             <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+              <RHAccessNotice client={supabase} onOpen={() => {setActiveSection("tables");setSelectedTableName("profiles");}} />
               {/* SECTION 1: LOGS AUDIT & REVERSION */}
               {activeSection === "logs" && (
                 <div className="space-y-6 animate-fadeIn">
@@ -1550,6 +1551,7 @@
                   </div>
 
                   {/* Table Viewer */}
+                  {selectedTableName === "profiles" ? <RHProfiles client={supabase} /> : (
                   <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 shadow-md overflow-hidden">
                     <div className="p-4 bg-slate-900/60 border-b border-slate-700 flex items-center justify-between">
                       <h2 className="text-sm font-bold text-white flex items-center gap-2">
@@ -1607,6 +1609,7 @@
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               )}
 
