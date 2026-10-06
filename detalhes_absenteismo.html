@@ -140,6 +140,31 @@
         const [faltaAttachment, setFaltaAttachment] = useState(null);
         const [editAttachment, setEditAttachment] = useState(null);
         const [removeEditAttachment, setRemoveEditAttachment] = useState(false);
+        const [faltaDocument, setFaltaDocument] = useState({tipo:'atestado',data:'',dias:''});
+        const [driveStates, setDriveStates] = useState({});
+        const [driveReady, setDriveReady] = useState(null);
+
+        useEffect(() => {
+          let cancelled=false;
+          const ids=absenteismo.filter(a=>a.atestado_path).map(a=>a.id);
+          if(!ids.length){setDriveStates({});return;}
+          const refresh=async()=>{
+            const {data,error}=await supabase.rpc('rh_absence_drive_status',{p_ids:ids});
+            if(cancelled||error)return;
+            setDriveReady(!!data?.worker_ready);
+            setDriveStates(Object.fromEntries((data?.records||[]).map(a=>[a.id,a])));
+          };
+          refresh();const timer=setInterval(refresh,30000);
+          return ()=>{cancelled=true;clearInterval(timer);};
+        },[absenteismo]);
+        const retryDrive=async(id)=>{
+          const {error}=await supabase.rpc('rh_retry_absence_drive',{p_id:id});
+          if(error){alert(error.message);return;}fetchData();
+        };
+        const documentPreview=(employee,start,end,document,mime)=>{
+          try{return RHAbsenceFiles.documentInfo({nome:employee,inicio:start,fim:end,...document,mime:mime||'application/pdf'}).atestado_nome;}
+          catch{return 'Confira a data e os dias para gerar o nome.';}
+        };
 
         const chooseAttachment = async (event, setter) => {
           const input=event.target, file=input.files?.[0];
@@ -319,6 +344,10 @@
             funcionario_id: item.funcionario_id,
             atestado_path: item.atestado_path,
             atestado_nome: item.atestado_nome,
+            atestado_mime: item.atestado_mime,
+            atestado_tipo: item.atestado_tipo||'atestado',
+            atestado_data: item.atestado_data||item.data_inicio,
+            atestado_dias: item.atestado_dias??'',
             funcionario_nome: item.funcionario_nome,
             data_inicio: item.data_inicio || "",
             data_fim: item.data_fim || "",
@@ -351,6 +380,7 @@
               uploaded=await RHAbsenceFiles.upload(supabase,editAttachment,editItem.funcionario_id);
               Object.assign(payload,uploaded);
             }else if(removeEditAttachment)Object.assign(payload,RHAbsenceFiles.empty);
+            if(editAttachment||(editItem.atestado_path&&!removeEditAttachment))Object.assign(payload,RHAbsenceFiles.documentInfo({nome:editItem.funcionario_nome,inicio:editItem.data_inicio,fim:editItem.data_fim,tipo:editItem.atestado_tipo,data:editItem.atestado_data,dias:editItem.atestado_dias,mime:uploaded?.atestado_mime||editItem.atestado_mime}));
 
             const { data: updated, error } = await supabase
               .from("rh_absenteismo")
@@ -418,8 +448,9 @@
               carga_horaria: colabSelecionadoObj.carga_horaria || 220,
             };
             if(faltaAttachment){
+              const info=RHAbsenceFiles.documentInfo({nome:colabSelecionadoObj.nome,inicio:faltaForm.data_inicio,fim:faltaForm.data_fim,...faltaDocument,mime:(await RHAbsenceFiles.validate(faltaAttachment)).mime});
               uploaded=await RHAbsenceFiles.upload(supabase,faltaAttachment,colabSelecionadoObj.id);
-              Object.assign(payload,uploaded);
+              Object.assign(payload,uploaded,info);
             }
 
             const { error } = await supabase.from("rh_absenteismo").insert([payload]);
@@ -609,6 +640,7 @@
                       setModalColabSearch("");
                       if (colaboradores.length > 0) setSelectedColabCpf(colaboradores[0].cpf || colaboradores[0].nome || "");
                       setFaltaAttachment(null);
+                      setFaltaDocument({tipo:faltaForm.motivo_tipo==='Declaração de Comparecimento'?'comparecimento':'atestado',data:'',dias:''});
                       setIsModalOpen(true);
                     }}
                     className="flex items-center gap-2 bg-[#002060] hover:bg-[#001848] text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm"
@@ -702,7 +734,13 @@
                               <span className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full font-semibold bg-slate-100 text-slate-800">
                                 {item.motivo || "Não informado"}
                               </span>
-                              {item.atestado_path&&<button type="button" onClick={()=>openAttachment(item)} className="block mt-2 text-blue-600 underline font-bold">Ver atestado</button>}
+                              {item.atestado_path&&<div className="mt-2 space-y-1">
+                                <button type="button" onClick={()=>openAttachment(item)} className="block text-blue-600 underline font-bold">{item.atestado_tipo==='comparecimento'?'Ver comparecimento':'Ver atestado'}</button>
+                                <p className="text-[10px] text-slate-500 break-words">{item.atestado_nome}</p>
+                                <p className="text-[10px] text-slate-500">Drive: {driveStates[item.id]?.status==='completed'?'Salvo em ATESTADOS / '+(item.atestado_data||item.data_inicio).slice(0,4):driveStates[item.id]?.status==='failed'?'Não foi possível arquivar':driveReady===false?'Aguardando ativação da cópia automática':'Aguardando cópia automática'}</p>
+                                {driveStates[item.id]?.status==='completed'&&<a className="text-[10px] underline" href={driveStates[item.id].link} target="_blank" rel="noopener noreferrer">Conferir no Drive</a>}
+                                {driveStates[item.id]?.status==='failed'&&<div className="text-[10px]"><p>{driveStates[item.id].error}</p><button type="button" className="underline" onClick={()=>retryDrive(item.id)}>Tentar arquivar novamente</button></div>}
+                              </div>}
                             </td>
                             <td className="px-6 py-4 text-center whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1.5">
@@ -827,7 +865,17 @@
                       </div>}
                       {removeEditAttachment&&<p>O anexo será removido ao salvar. <button type="button" onClick={()=>setRemoveEditAttachment(false)} className="underline">Desfazer</button></p>}
                       <input id="editAtestado" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={isSubmitting} onChange={e=>chooseAttachment(e,setEditAttachment)} className="block w-full text-sm" />
-                      <p className="text-slate-500">JPG, PNG ou PDF de até 10 MB. Um novo arquivo substitui o anexo atual ao salvar.</p>
+                      {(editAttachment||(editItem.atestado_path&&!removeEditAttachment))&&<div className="space-y-3 pt-2">
+                        <div><label htmlFor="editDocType" className="block font-bold mb-1">Tipo de documento</label>
+                          <select id="editDocType" disabled={isSubmitting} value={editItem.atestado_tipo} onChange={e=>setEditItem({...editItem,atestado_tipo:e.target.value})} className="w-full p-2.5 border rounded-xl"><option value="atestado">Atestado</option><option value="comparecimento">Comparecimento</option></select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label htmlFor="editDocDate" className="block font-bold mb-1">Data do documento</label><input id="editDocDate" type="date" required disabled={isSubmitting} value={editItem.atestado_data||editItem.data_inicio} onChange={e=>setEditItem({...editItem,atestado_data:e.target.value})} className="w-full p-2.5 border rounded-xl" /></div>
+                          {editItem.atestado_tipo==='atestado'&&<div><label htmlFor="editDocDays" className="block font-bold mb-1">Dias do atestado</label><input id="editDocDays" type="number" min="1" max="3660" step="1" disabled={isSubmitting} value={editItem.atestado_dias} placeholder="Dias do período" onChange={e=>setEditItem({...editItem,atestado_dias:e.target.value})} className="w-full p-2.5 border rounded-xl" /></div>}
+                        </div>
+                        <p className="text-slate-500 break-words">Nome: {documentPreview(editItem.funcionario_nome,editItem.data_inicio,editItem.data_fim,{tipo:editItem.atestado_tipo,data:editItem.atestado_data,dias:editItem.atestado_dias},editAttachment?.type||editItem.atestado_mime)}</p>
+                      </div>}
+                      <p className="text-slate-500">JPG, PNG ou PDF de até 10 MB. Destino: ATESTADOS / ano. Arquivos já arquivados no Drive são preservados.</p>
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
@@ -933,10 +981,11 @@
                       <label className="block font-bold text-slate-700 uppercase mb-1">Tipo de Falta / Motivo *</label>
                       <select
                         value={faltaForm.motivo_tipo}
-                        onChange={(e) => setFaltaForm({ ...faltaForm, motivo_tipo: e.target.value })}
+                        onChange={(e) => {setFaltaForm({ ...faltaForm, motivo_tipo: e.target.value });if(e.target.value==='Declaração de Comparecimento'||e.target.value==='Com Atestado Médico')setFaltaDocument({...faltaDocument,tipo:e.target.value==='Declaração de Comparecimento'?'comparecimento':'atestado'});}}
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                       >
                         <option value="Com Atestado Médico">Com Atestado Médico</option>
+                        <option value="Declaração de Comparecimento">Declaração de Comparecimento</option>
                         <option value="Falta Não Justificada (Sem Atestado)">Falta Não Justificada (Sem Atestado)</option>
                         <option value="Falta Justificada">Falta Justificada</option>
                         <option value="Afastamento Inss / Licença">Afastamento INSS / Licença</option>
@@ -980,7 +1029,18 @@
                     <div className="space-y-2">
                       <label htmlFor="novoAtestado" className="block font-bold text-slate-700 uppercase">Anexar atestado / documento (opcional)</label>
                       <input id="novoAtestado" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={isSubmitting} onChange={e=>chooseAttachment(e,setFaltaAttachment)} className="block w-full text-sm" />
-                      <p className="text-slate-500">JPG, PNG ou PDF de até 10 MB. O arquivo será vinculado a esta falta e terá acesso restrito.</p>
+                      {faltaAttachment&&<div className="space-y-3 pt-2">
+                        <div><label htmlFor="newDocType" className="block font-bold mb-1">Tipo de documento</label>
+                          <select id="newDocType" disabled={isSubmitting} value={faltaDocument.tipo} onChange={e=>{setFaltaDocument({...faltaDocument,tipo:e.target.value});setFaltaForm({...faltaForm,motivo_tipo:e.target.value==='comparecimento'?'Declaração de Comparecimento':'Com Atestado Médico'});}} className="w-full p-2.5 border rounded-xl"><option value="atestado">Atestado</option><option value="comparecimento">Comparecimento</option></select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label htmlFor="newDocDate" className="block font-bold mb-1">Data do documento</label><input id="newDocDate" type="date" required disabled={isSubmitting} value={faltaDocument.data||faltaForm.data_inicio} onChange={e=>setFaltaDocument({...faltaDocument,data:e.target.value})} className="w-full p-2.5 border rounded-xl" /></div>
+                          {faltaDocument.tipo==='atestado'&&<div><label htmlFor="newDocDays" className="block font-bold mb-1">Dias do atestado</label><input id="newDocDays" type="number" min="1" max="3660" step="1" disabled={isSubmitting} value={faltaDocument.dias} placeholder="Dias do período" onChange={e=>setFaltaDocument({...faltaDocument,dias:e.target.value})} className="w-full p-2.5 border rounded-xl" /></div>}
+                        </div>
+                        <p className="text-slate-500 break-words">Nome: {documentPreview(colabSelecionadoObj?.nome,faltaForm.data_inicio,faltaForm.data_fim,faltaDocument,faltaAttachment.type)}</p>
+                        {faltaDocument.tipo==='comparecimento'&&<p className="text-slate-500">Confira as horas perdidas acima conforme a duração do comparecimento.</p>}
+                      </div>}
+                      <p className="text-slate-500">JPG, PNG ou PDF de até 10 MB. Destino: pasta do colaborador / ATESTADOS / ano da data do documento. Acesso restrito.</p>
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
