@@ -1,0 +1,10 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRIME RH — Prévia de experiência</title>
+<link rel="stylesheet" href="../rh-profiles.css"><style>body{font:16px system-ui;background:#edf2f7;color:#142c38;margin:24px}button,input,select{font:inherit}#root{max-width:1050px;margin:auto}</style>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script><script src="../rh-experience.js"></script><script src="../rh-profiles.js"></script><div id="root"></div>
+<script>
+const profiles=[{id:'manager',name:'Gestor de exemplo',email:'gestor@example.test',role:'supervisor',status:'aprovado',access_mode:'todos',access_level:'consulta',access_scopes:[],access_version:1,whatsapp:'5511999999999',experience_notifications:true}];
+const employees=[{id:'employee',nome:'Colaborador de exemplo',unidade:'FILIAL 1',setor:'ARMAZÉM',admissao:'19/07/2026',manager_profile_id:'manager'}];
+const client={from(table){return {select(){return this},eq(){return this},order(){return this},limit(){return this},single(){return this},update(value){Object.assign(profiles[0],value);return this},then(resolve){resolve({data:table==='rh_notification_settings'?{recipient_profile_id:'',employee_id:'',recipient_name:'',recipient_whatsapp:'',whatsapp_enabled:false}:table==='profiles'?profiles:table==='funcionarios_epi'?employees:[],error:null})}}}};
+window.RH={fetchAll:async(c,t)=>t==='profiles'?profiles:employees,result:async request=>(await request).data};
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(RHProfiles,{client}));
+</script></html>
