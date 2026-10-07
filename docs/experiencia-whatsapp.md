@@ -4,14 +4,22 @@ No Portal Admin → Gerenciador de Tabelas → Perfis, configure o perfil do sup
 
 Em **Experiência — gestor do colaborador**, busque o colaborador, selecione seu gestor específico e salve. O gestor precisa estar aprovado e ter acesso à filial/setor do colaborador. Não há atribuição automática para todos os gestores da área. Remover o vínculo interrompe os avisos pendentes.
 
-A rotina verifica diariamente às 08h de Brasília. Calcula 90 dias corridos após a admissão e avisa a partir de 80 dias após a admissão, uma vez por colaborador/data de admissão. Se o vínculo ou telefone for cadastrado entre o dia 80 e o dia 89, o aviso pode sair na próxima verificação. Após 90 dias, não envia aviso retroativo. Datas inválidas e colaboradores desligados são ignorados.
+A rotina verifica diariamente às 08h de Brasília. O prazo total é de 90 dias corridos após a admissão, dividido em dois períodos de 45 dias:
 
-A mensagem contém nome, função, filial/setor, admissão, término previsto e dias restantes. O painel mantém o status do envio. `aceito` significa que o WAHA aceitou a solicitação; não confirma leitura pelo destinatário. `incerto` exige conferência no n8n antes de qualquer reenvio para evitar duplicados.
+| Aviso | Quando começa | Término do período |
+|---|---|---|
+| Primeiro período | 38 dias após a admissão | 45 dias após a admissão |
+| Segundo período | 83 dias após a admissão | 90 dias após a admissão |
+
+Cada aviso é independente: o envio do primeiro não impede o segundo. Um aviso por colaborador/data de admissão/período, somente ao gestor vinculado. Se a configuração ocorrer após o dia do aviso, a rotina recupera o primeiro entre os dias 38 e 44 e o segundo entre os dias 83 e 89. Não envia aviso retroativo depois do fim do respectivo período. Datas inválidas e colaboradores desligados são ignorados.
+
+A mensagem identifica o período e contém nome, função, filial/setor, admissão, término previsto e dias restantes naquele período. Nas datas de aviso, faltam sete dias para o término. O painel mantém o status. `aceito` significa que o WAHA aceitou a solicitação; não confirma leitura. `incerto` exige conferência no n8n antes de reenvio.
 
 ## Integração
 
-`rh_experiencia.sql` adiciona os campos e agendas ao Supabase. Reutiliza o fluxo publicado **RH PRIME — Notificações administrativas** e a função `admin-notifications`. O evento possui token de uso único com validade de 10 minutos. No momento do envio, o banco confere novamente gestor, telefone, aprovação, acesso à área, desligamento e data de admissão.
+Aplicar `rh_experiencia.sql` e, em seguida, `rh_experiencia_periodos.sql`. A atualização preserva o histórico dos avisos antigos como segundo período e invalida capacidades pendentes não utilizadas. Reutiliza o fluxo publicado **RH PRIME — Notificações administrativas** e a função `admin-notifications`; não exige alteração no n8n, Apps Script ou Google Sheets.
 
-O prazo de 90 dias é o padrão operacional desta automação. Para contratos com duração diferente, essa regra precisa ser ajustada antes de habilitar os avisos.
+O evento possui token de uso único com validade de 10 minutos. No envio, o banco confere novamente gestor, telefone, aprovação, acesso à área, desligamento, data de admissão e período correspondente.
 
-Teste de banco: `tests/rh_experiencia.sql`, com rollback e sem chamadas HTTP. Prévia das telas com dados fictícios: `tests/experience_preview.html`.
+Teste atual: `tests/rh_experiencia_periodos.sql`, com rollback e sem chamadas externas. O teste `tests/rh_experiencia.sql` documenta apenas a regra anterior e deve ser executado antes da atualização de períodos. Prévia das telas com dados fictícios: `tests/experience_preview.html`.
+
