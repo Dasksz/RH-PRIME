@@ -7,7 +7,7 @@ declare e uuid;p uuid;n uuid;first_notice uuid;today date=(now() at time zone 'A
  select f.id into e from public.funcionarios_epi f where f.data_desligamento is null
  and not exists(select 1 from public.rh_admin_notifications n where n.employee_id=f.id and n.experience_admission is not null) limit 1;
  if e is null or p is null then raise exception 'Fixture indisponível';end if;
- update public.profiles set whatsapp='5511999999999',experience_notifications=true where id=p;
+ update public.profiles set name='  CARLOS   EDUARDO  ',whatsapp='5511999999999',experience_notifications=true where id=p;
  update public.funcionarios_epi set manager_profile_id=p where id=e;
  for test in select * from (values(37,0),(38,1),(44,1),(45,0),(82,0),(83,2),(89,2),(90,0)) v(day,period) loop
   update public.funcionarios_epi set admissao=to_char(today-test.day,'DD/MM/YYYY') where id=e;
@@ -24,6 +24,8 @@ declare e uuid;p uuid;n uuid;first_notice uuid;today date=(now() at time zone 'A
    then raise exception 'Mensagem deve indicar 7 dias restantes';end if;
    if (select position(to_char(today-test.day+case test.period when 1 then 45 else 90 end,'DD/MM/YYYY') in message_text) from public.rh_admin_notifications where id=n)=0
    then raise exception 'Data de término incorreta';end if;
+   if (select position('Olá, Carlos!' in message_text)=0 or message_text ~ 'https?://' from public.rh_admin_notifications where id=n)
+   then raise exception 'Mensagem deve usar o primeiro nome e não deve conter link';end if;
   end if;
  end loop;
  -- Primeiro período já avisado não impede o aviso do segundo para a mesma admissão.
@@ -66,6 +68,6 @@ declare e uuid;p uuid;n uuid;first_notice uuid;today date=(now() at time zone 'A
  then raise exception 'Um período já enviado foi reaberto';end if;
  if rh_internal.experience_date('31/02/2026') is not null then raise exception 'Data inválida aceita';end if;
 end $$;
-select 'PASS: dias 37/38/44/45/82/83/89/90, dois avisos independentes, mensagens, gestores, desligamento, opt-in, tokens e duplicidade; nenhum envio externo' as result;
+select 'PASS: dias 37/38/44/45/82/83/89/90, dois avisos independentes, primeiro nome, ausência de link, gestores, desligamento, opt-in, tokens e duplicidade; nenhum envio externo' as result;
 rollback;
 

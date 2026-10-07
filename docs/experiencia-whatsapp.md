@@ -15,9 +15,11 @@ Cada aviso é independente: o envio do primeiro não impede o segundo. Um aviso 
 
 A mensagem identifica o período e contém nome, função, filial/setor, admissão, término previsto e dias restantes naquele período. Nas datas de aviso, faltam sete dias para o término. O painel mantém o status. `aceito` significa que o WAHA aceitou a solicitação; não confirma leitura. `incerto` exige conferência no n8n antes de reenvio.
 
+O cumprimento usa somente o primeiro nome do perfil do gestor, informado na criação da conta e mantido no campo `profiles.name`. Remove espaços extras e ajusta a inicial: “CARLOS EDUARDO” recebe “Olá, Carlos!”. Caso o nome esteja vazio, usa “Olá, gestor!”. O nome do colaborador permanece completo. As mensagens não incluem link para o sistema.
+
 ## Integração
 
-Aplicar `rh_experiencia.sql` e, em seguida, `rh_experiencia_periodos.sql`. A atualização preserva o histórico dos avisos antigos como segundo período e invalida capacidades pendentes não utilizadas. Reutiliza o fluxo publicado **RH PRIME — Notificações administrativas** e a função `admin-notifications`; não exige alteração no n8n, Apps Script ou Google Sheets.
+Aplicar `rh_experiencia.sql`, `rh_experiencia_periodos.sql` e `rh_experiencia_mensagens.sql`, nessa ordem. A atualização preserva o histórico dos avisos antigos como segundo período e invalida capacidades pendentes não utilizadas. Reutiliza o fluxo publicado **RH PRIME — Notificações administrativas** e a função `admin-notifications`; não exige alteração no n8n, Apps Script ou Google Sheets.
 
 O evento possui token de uso único com validade de 10 minutos. No envio, o banco confere novamente gestor, telefone, aprovação, acesso à área, desligamento, data de admissão e período correspondente.
 
