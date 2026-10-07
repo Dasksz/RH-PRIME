@@ -15,7 +15,7 @@
   }catch(e){setError(e.message);}finally{setSaving(false);}}
   const manager=managers.find(p=>p.id===managerId);
   return h('div',{className:'rp-editor'},h('h3',null,'Experiência — gestor do colaborador'),
-   h('p',null,'Aviso diário às 08h, horário de Brasília, a partir de 80 dias após a admissão. Prazo padrão: 90 dias. Um aviso por contrato, somente ao gestor vinculado. Colaboradores desligados não recebem avisos.'),
+   h('p',null,'Verificação diária às 08h, horário de Brasília. Dois períodos de 45 dias (90 dias no total): aviso do primeiro aos 38 dias e do segundo aos 83 dias após a admissão. Um aviso por período, somente ao gestor vinculado. Colaboradores desligados não recebem avisos.'),
    error&&h('p',{role:'alert',className:'rp-error'},error),message&&h('p',{role:'status',className:'rp-success'},message),
    h('label',{className:'rp-field'},'Buscar colaborador',h('input',{value:query,onChange:e=>setQuery(e.target.value),placeholder:'Nome, filial ou setor'})),
    h('div',{className:'rp-grid'},h('label',{className:'rp-field'},'Colaborador',h('select',{'aria-label':'Colaborador',value:employeeId,onChange:e=>choose(e.target.value)},h('option',{value:''},'Selecionar colaborador'),filtered.map(e=>h('option',{key:e.id,value:e.id},e.nome+' — '+(e.unidade||'')+' / '+(e.setor||''))))),
