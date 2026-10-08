@@ -87,11 +87,11 @@ function copiarModeloDriveRH(source,target,deadline) {
   }
  }
 }
-function executarTarefaDriveRH(job,s,deadline) {
+function executarTarefaDriveRH(job,s,deadline,context) {
  const employees=bancoDriveRH('funcionarios_epi','get','id=eq.'+job.funcionario_id+'&select=id,nome,cpf,data_desligamento');
  if(employees.length!==1)throw Error('Colaborador indisponível');
  const e=employees[0], links=bancoDriveRH('rh_drive_links','get','funcionario_id=eq.'+e.id);
- const folders=filhosDriveRH(s.active_folder_id).concat(filhosDriveRH(s.former_folder_id)).filter(f=>f.mimeType==='application/vnd.google-apps.folder');
+ const folders=job.link_only&&context ? context.folders : carregarPastasVinculoRH(s);
  let link=links[0],folder;
  const hasChoice=job.folder_choice&&job.choice_revision===job.revision;
  if(!link&&!job.link_only&&!e.data_desligamento){
@@ -124,6 +124,12 @@ function executarTarefaDriveRH(job,s,deadline) {
   if(e.data_desligamento)throw Error('Desligado sem pasta existente: vincule a pasta correta; nenhuma pasta vazia será criada.');
   folder=apiDriveRH('files','post',{name:e.nome,mimeType:'application/vnd.google-apps.folder',parents:[target],appProperties:{rh_employee_id:e.id,rh_new_template:'yes',rh_choice_job:job.id,rh_choice_revision:String(job.revision)}},{fields:'id,name,parents,appProperties'});
  }
+ if(job.link_only&&context){
+  // Revalidate only the chosen folder; never bind a moved/deleted/reassigned folder from the snapshot.
+  folder=pastaDriveRH(folder.id);
+  if(!(folder.parents||[]).some(id=>id===s.active_folder_id||id===s.former_folder_id))throw Error('Pasta mudou de localização; solicite nova busca.');
+  if(!link&&!candidatasPastaRH([folder],e).length)throw Error('Pasta mudou após a busca; revise o vínculo.');
+ }
  const owner=(folder.appProperties||{}).rh_employee_id;
  if(owner && owner!==e.id)throw Error('Pasta vinculada a outro colaborador.');
  if(!link){
@@ -144,6 +150,10 @@ function executarTarefaDriveRH(job,s,deadline) {
  const verified=pastaDriveRH(folder.id);
  if(!(verified.parents||[]).includes(destination))throw Error('Destino não confirmado após movimentação.');
 }
+function carregarPastasVinculoRH(s){
+ const folders=filhosDriveRH(s.active_folder_id).concat(filhosDriveRH(s.former_folder_id));
+ return folders.filter(f=>f.mimeType==='application/vnd.google-apps.folder');
+}
 function processarFilaDriveRH() {
  const lock=LockService.getScriptLock();if(!lock.tryLock(1000))return;
  const deadline=Date.now()+240000;
@@ -153,11 +163,20 @@ function processarFilaDriveRH() {
   // Heartbeat inclusive quando pausado.
   bancoDriveRH('rh_automation_settings','patch','id=eq.true',{last_worker_at:new Date().toISOString(),drive_worker_version:'folder-choice-v1'});
   if(!settings.drive_enabled)return;
+  let context=null;
   while(Date.now()<deadline-30000){
    let jobs=bancoDriveRH('rpc/rh_claim_existing_drive','post','',{});
    if(!jobs.length)jobs=bancoDriveRH('rpc/rh_claim_drive_with_choice','post','',{});if(!jobs.length)break;
    const job=jobs[0];let error=null;
-   try{validarRaizesDriveRH(settings);executarTarefaDriveRH(job,settings,deadline);}catch(e){error=String(e.message).slice(0,500);}
+   try{
+    if(job.link_only){
+     if(!context){validarRaizesDriveRH(settings);context={folders:carregarPastasVinculoRH(settings)};}
+     executarTarefaDriveRH(job,settings,deadline,context);
+    }else{
+     // Normal jobs can create/move folders, so discard the snapshot before processing them.
+     context=null;validarRaizesDriveRH(settings);executarTarefaDriveRH(job,settings,deadline);
+    }
+   }catch(e){error=String(e.message).slice(0,500);}
    bancoDriveRH('rpc/rh_finish_drive','post','',{p_id:job.id,p_revision:job.claimed_revision,p_error:error});
   }
  }finally{lock.releaseLock();}
