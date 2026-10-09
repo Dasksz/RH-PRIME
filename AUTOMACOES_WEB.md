@@ -89,3 +89,10 @@ Na Administração e em Automações, a janela aparece depois da busca do proces
 Usar uma pasta existente preserva seu nome e conteúdo, sem copiar o modelo; se estiver em ex-funcionários, o processador a move para ativos. Criar outra preserva a antiga, cria uma pasta com o nome completo e copia o modelo; o Drive permite pastas com nomes iguais. Sem correspondências, a criação continua automática. Pastas já vinculadas e desligamentos continuam pelo fluxo anterior. O modo Vincular pastas existentes do lote preserva seu comportamento de vínculo sem mutação.
 
 Nenhuma escolha é feita automaticamente pelo modal. Nome/CPF alterados, pasta removida, mudança de dono ou de raiz exigem nova conferência. Solicite nova busca pelo seletor em Automações.
+
+
+### Reconhecimento de pastas criadas pelo Python (Automações)
+
+Use **Reconhecer e vincular ativos sem pasta** para colocar na fila somente colaboradores ativos sem vínculo e sem tarefa pendente. O processador já instalado busca pelo nome normalizado/CPF nas raízes configuradas e registra correspondências únicas. Essa ação não cria, move, renomeia pastas ou envia mensagens. Se a pasta não for encontrada ou houver homônimos, revise a falha pelo seletor individual, use **Buscar pasta** e confira o ID antes de salvar o vínculo.
+
+Para tratar uma única pessoa, use **Reconhecer e vincular existente**. **Colocar na fila / tentar novamente** mantém o fluxo de criação e organização de pastas; não confunda as duas ações. Atualizar o acompanhamento preserva o ID digitado e os resultados da busca. O reconhecimento em lote não exige alteração no Python ou novo código no Apps Script quando o processador já está na versão `existing-link-v1` ou `folder-choice-v1`.
