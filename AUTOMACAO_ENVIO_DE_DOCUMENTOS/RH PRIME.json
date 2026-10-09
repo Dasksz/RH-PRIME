@@ -48,7 +48,7 @@
         "resource": "Chatting",
         "operation": "Send Text",
         "session": "default",
-        "chatId": "={{ ($('IF Caption Not Empty').item.json.body.chatId || $('Receber do Python').item.json.body.chatId).replace(/^(\\d{2})(\\d{8})@c\\.us$/, '$19$2@c.us') }}",
+        "chatId": "={{ ($('IF Caption Not Empty').item.json.body.chatId || $('Receber do Python').item.json.body.chatId).replace(/^(55\\d{2})([6-9]\\d{7})@c\\.us$/, '$1' + '9' + '$2@c.us') }}",
         "text": "={{ $('Receber do Python').item.json.body.caption }}",
         "requestOptions": {}
       },
