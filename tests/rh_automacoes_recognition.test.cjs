@@ -16,3 +16,18 @@ test('cancelar lote e automação pausada não criam tarefas',async()=>{for(cons
 test('falha parcial informa quantas tarefas foram registradas',async()=>{const e=env({failAt:2});await e.node('recognizeAll').onclick();assert.match(e.node('message').textContent,/1 reconhecimento/);assert.match(e.node('message').textContent,/Falha simulada/);});
 test('atualização preserva ID manual enquanto renova o acompanhamento',async()=>{const e=env();e.node('folder').value='manual-folder123';await e.ctx.refresh();assert.equal(e.node('folder').value,'manual-folder123');});
 test('reconhecimento individual respeita tarefa em escolha',async()=>{const e=env();e.node('employee').value='choice';await e.node('recognizeOne').onclick();assert.equal(e.calls.length,0);assert.match(e.node('message').textContent,/tarefa pendente/);});
+test('indicadores listam nomes por vínculo, revisão e processamento sem incluir desligados',async()=>{
+ const e=env();await e.ctx.refresh();
+ const ids=filter=>Array.from(e.ctx.folderPeople(filter),person=>person.id);
+ assert.deepEqual(ids('with'),['linked']);
+ assert.deepEqual(ids('without'),['queued','choice','fresh','retry']);
+ assert.deepEqual(ids('review'),['choice','retry']);
+ assert.deepEqual(ids('pending'),['queued']);
+ assert.equal(e.node('pendingFolders').textContent,1);
+});
+test('revisão pode incluir pessoa com pasta e espera continua visível em andamento',async()=>{
+ const e=env();await e.ctx.refresh();
+ vm.runInContext("driveJobs.push({funcionario_id:'linked',status:'failed'},{funcionario_id:'fresh',status:'waiting'});",e.ctx);
+ assert.deepEqual(Array.from(e.ctx.folderPeople('review'),p=>p.id),['linked','choice','retry']);
+ assert.deepEqual(Array.from(e.ctx.folderPeople('pending'),p=>p.id),['queued','fresh']);
+});
