@@ -779,6 +779,7 @@
             if (roleRule.calca_faixa_refletiva)
               allowed.push("CALÇA C/ FAIXA REFLETIVA");
             if (roleRule.bota_marluvas) allowed.push("BOTA");
+            if (/\b(VENDEDOR|PROMOTOR)\b/i.test(funcao)) allowed.push("LUVA");
             if (roleRule.oculos_policarbonato)
               allowed.push("OCULOS DE POLICARBONATO");
           } else if (tab === "fardamento") {
