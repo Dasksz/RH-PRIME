@@ -15,9 +15,19 @@ function bancoDocumentosRH(resource,method,query,body) {
 }
 function atualizarDocumentoRH(d,changes){return bancoDocumentosRH('rh_delivery_documents','patch','id=eq.'+d.id,Object.assign({updated_at:new Date().toISOString()},changes));}
 function subpastaDocumentoRH(parent,name){
- const matches=filhosDriveRH(parent).filter(f=>f.mimeType==='application/vnd.google-apps.folder'&&f.name===name);
- if(matches.length>1)throw Error('Subpastas duplicadas: '+name);
- return matches[0]||apiDriveRH('files','post',{name:name,mimeType:'application/vnd.google-apps.folder',parents:[parent]},{fields:'id'});
+ const folders=filhosDriveRH(parent).filter(f=>f.mimeType==='application/vnd.google-apps.folder');
+ // Preserva a estrutura antiga: HOLERITE e HOLERITES representam o mesmo tipo.
+ let names=['HOLERITE','HOLERITES'].includes(nomeDriveRH(name))?['HOLERITE','HOLERITES']:[name];
+ if(/^(0[1-9]|1[0-2])$/.test(name)){
+  const year=pastaDriveRH(parent).name;
+  if(/^20\d{2}$/.test(year))names=[name+'.'+year,name];
+ }
+ for(const candidate of names){
+  const matches=folders.filter(f=>nomeDriveRH(f.name)===nomeDriveRH(candidate));
+  if(matches.length>1)throw Error('Subpastas duplicadas: '+candidate);
+  if(matches.length===1)return matches[0];
+ }
+ return apiDriveRH('files','post',{name:names[0],mimeType:'application/vnd.google-apps.folder',parents:[parent]},{fields:'id'});
 }
 function hashDocumentoRH(bytes){
  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes).map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');
