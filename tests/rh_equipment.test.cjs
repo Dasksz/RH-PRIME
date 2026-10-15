@@ -24,3 +24,8 @@ for(const pattern of [/let pageContent = isFirstPage\s*\?\s*`([\s\S]*?)`\s*:\s*"
  assert.ok(original.match(pattern));
 }
 console.log('OK: cabeçalho, textos do termo e colunas idênticos ao código anterior');
+
+const checksReceipt={...receipt,id:'check-only',snapshot:{...receipt.snapshot,verificacoes:[{id:'v1',entrega_id:'c',operacao_id:'check-only',data_verificacao:'2026-10-15',created_at:'2026-10-15T12:00:00Z'}]}};
+const checkHtml=api.documentHtml(checksReceipt,false);assert.ok(checkHtml.includes('Verificado em 15/10/2026'));assert.ok(checkHtml.includes('Termo de Verificação'));assert.ok(!checkHtml.includes('Termo de Recebimento (Entrega)'));assert.equal(api.documentRows(checksReceipt,false).find(x=>x.nomeItem.includes('Verificado em')).dataEntrega,'2026-10-15');
+const oldReceipt={id:'old',snapshot:{...receipt.snapshot,movimentos:[{id:'a',tipo:'entrega',quantidade:1,descricao:'BOTA',data_movimento:'2026-01-02',operacao_id:'old'}],verificacoes:[{id:'v',entrega_id:'a',operacao_id:'check',data_verificacao:'2026-10-15'}]}};
+assert.equal(api.documentRows(oldReceipt,false)[0].dataEntrega,'2026-01-02');assert.ok(api.documentHtml(oldReceipt,false).includes('Verificado em 15/10/2026'));console.log('OK: conferência visível na ficha, termo adequado e data original preservada');

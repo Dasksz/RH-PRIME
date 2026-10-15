@@ -195,6 +195,14 @@
                         </div>
                     </div>
                 </div>
+              ` : "", !hasReturns && !hasDeliveries ? `
+                <div style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
+                  <strong style="font-size: 10px; color: #002060; text-transform: uppercase;">Termo de Verificação</strong>
+                  <p style="font-size: 9px;">Declaro ciência das movimentações e do saldo de equipamentos relacionados nesta ficha, conforme suas datas, motivos e quantidades. Baixas por perda ou extravio não representam devolução física.</p>
+                  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:25px;font-size:9px;">
+                    <span>Data: ____/____/________</span><div style="text-align:center;width:50%;border-top:1px solid black;padding-top:4px;">Assinatura do Colaborador</div>
+                  </div>
+                </div>
               ` : ""].filter(Boolean);
             const signaturesBlock = isLastPage ? signatures.join('') : "";
 
