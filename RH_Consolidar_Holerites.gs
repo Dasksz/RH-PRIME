@@ -104,7 +104,8 @@ function consolidarHoleritesRH(){
   dedup(target,archiveRoot,path);emptyTrash(source);
  }
  try{
-  const pairs=paresConsolidacaoRH();report.pendentes=pairs.length;prepararLeiturasConsolidacaoRH(pairs);
+  const pairs=paresConsolidacaoRH();report.pendentes=pairs.length;
+  if(pairs.length>10)prepararLeiturasConsolidacaoRH(pairs);else{cacheConsolidacaoRH={};comprovantesConsolidacaoRH={};}
   for(const pair of pairs){check();merge(pair.source,pair.target,pair.target,'');report.consolidadas++;report.pendentes--;console.log(JSON.stringify({pastaConsolidada:pair.target,progresso:report}));}
  }catch(e){report.erro=String(e.message);if(e.message!=='CONTINUAR')console.log('ERRO: '+e.message);}
  finally{console.log(JSON.stringify({resumo:report,movimentos:audit}));cacheConsolidacaoRH=null;comprovantesConsolidacaoRH=null;lock.releaseLock();}

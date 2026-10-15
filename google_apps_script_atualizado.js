@@ -43,13 +43,18 @@ SHEET_CONFIG['Movimentações de equipamentos'] = {
   fields: ['id','funcionario_nome','categoria','tipo','descricao','ca','quantidade','data_movimento','motivo','observacao','entrega_origem_id','operacao_id','comprovante','legado'],
   extra: ['funcionario_id','equipamento','complemento','created_by','created_at']
 };
+SHEET_CONFIG['Verificações de equipamentos'] = {
+  tableName: 'rh_equipment_checks', headerRow: 1, nameField: 'id', readOnlyAll: true,
+  fields: ['id','funcionario_nome','categoria','descricao','quantidade','data_verificacao','condicao','observacao','entrega_id','operacao_id'],
+  extra: ['funcionario_id','created_by','created_at']
+};
 // Equipamentos são lançados no sistema; estes campos são um resumo do saldo em posse.
 SHEET_CONFIG['Controle EPI e Fardamento'].readOnly = ['epi_itens','epi_data','epi_link','fardamento_itens','fardamento_data','fardamento_link'];
-const RH_DATES = ['data_movimento','admissao','nascimento','data_admissao','data_desligamento','data_inicio','data_fim','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','data_inicio_programada','data_fim_programada','data_retorno','epi_data','fardamento_data'];
+const RH_DATES = ['data_verificacao','data_movimento','admissao','nascimento','data_admissao','data_desligamento','data_inicio','data_fim','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','data_inicio_programada','data_fim_programada','data_retorno','epi_data','fardamento_data'];
 const RH_NUMBERS = ['carga_horaria','horas_previstas','horas_perdidas','dias_direito','dias_gozados','dias_abonados','dias_programados','dias_saldo'];
 const RH_JSON = ['itens_checked','historico_periodos'];
 
-const RH_VERSION = "2026-10-15-equipamentos1";
+const RH_VERSION = "2026-10-15-verificacoes2";
 const RH_CONFIG_INICIAL = {
   "SUPABASE_URL": "https://gcksbfstheavpfgcdndb.supabase.co",
   "SPREADSHEET_ID": "1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg",
@@ -286,6 +291,7 @@ function acharLinhaRH(sheet, config, map, record, oldRecord) {
 }
 function valorCelulaRH(field, value) {
   if (value == null) return '';
+  if (field === 'condicao' && value === 'boas_condicoes') return 'Em boas condições';
   if (RH_DATES.includes(field)) return formatarDataParaPlanilha(value);
   if (RH_JSON.includes(field)) return JSON.stringify(value);
   if (typeof value === 'boolean') return value ? 'SIM' : 'NÃO';
@@ -293,7 +299,7 @@ function valorCelulaRH(field, value) {
 }
 let RH_EQUIPMENT_EMPLOYEES = null;
 function escreverRegistroRH(sheet, config, map, row, record) {
-  if (config.tableName === 'rh_equipment_movements') {
+  if (['rh_equipment_movements','rh_equipment_checks'].includes(config.tableName)) {
     if (!RH_EQUIPMENT_EMPLOYEES) RH_EQUIPMENT_EMPLOYEES = requestRH('funcionarios_epi','get','select=id,nome&limit=1000');
     const employee = RH_EQUIPMENT_EMPLOYEES.find(e => e.id === record.funcionario_id);
     record = Object.assign({},record,{funcionario_nome: employee ? employee.nome : record.funcionario_id});
@@ -565,7 +571,7 @@ function prepararEquipamentosRH() {
   console.log('Aba de movimentações criada e histórico recebido. Backup preservado.');
  });
 }
-function sincronizarEquipamentosRH() { return comLockRH(() => receberTabelaRH(planilhaRH(),'Movimentações de equipamentos')); }
+function sincronizarEquipamentosRH() { return comLockRH(() => { const ss=planilhaRH(); return receberTabelaRH(ss,'Movimentações de equipamentos')+receberTabelaRH(ss,'Verificações de equipamentos'); }); }
 function testarEquipamentosRH() {
  const sample={nome:'TESTE',cpf:'12345678901',epi_itens:'BOTA - MARCA TESTE - TAMANHO 42 (CA: 12345, Qtd: 1 - 2026-10-15)',epi_data:'15/10/2026'};
  const payload=buildPayload('Controle EPI e Fardamento',sample);

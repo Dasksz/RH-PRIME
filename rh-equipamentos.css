@@ -28,3 +28,22 @@ html[data-rh-theme=dark] .rh-equip input,html[data-rh-theme=dark] .rh-equip sele
 .rh-equipment-standard-pdf table{table-layout:auto}.rh-equipment-standard-pdf td,.rh-equipment-standard-pdf th{border-color:#000!important;overflow-wrap:anywhere;vertical-align:middle}.rh-equipment-standard-pdf small{color:#111!important;font-size:8px}
 @media(pointer:coarse){.rh-equip button.rh-equip-action{min-height:40px;background:transparent;border-color:transparent}}
 @media(max-width:420px){.rh-equip-item-heading{gap:8px}.rh-equip button.rh-equip-return{font-size:11px;padding:4px 6px}.rh-equip-item-heading strong{font-size:13px}}
+
+/* Organização do Controle de Entregas anterior: abas, verificação e histórico por data. */
+.rh-equip-tabs{gap:24px;border-bottom:1px solid var(--rh-border,#dce5e9);margin-bottom:24px}
+.rh-equip-tabs button{border:0;border-radius:0;background:transparent;padding:8px 4px 12px;text-transform:uppercase;letter-spacing:.05em;color:var(--rh-muted,#64748b);font-size:12px}
+.rh-equip-tabs button[aria-pressed=true]{background:transparent;color:var(--rh-ink,#002060);border-bottom:3px solid #002060}
+.rh-equip .rh-equip-fields{grid-template-columns:minmax(180px,2fr) minmax(80px,1fr) minmax(65px,.6fr) minmax(140px,1fr) minmax(140px,1.4fr);align-items:end}
+.rh-equip .rh-equip-fields label{font-size:10px;text-transform:uppercase;letter-spacing:.035em;color:var(--rh-muted,#64748b)}
+.rh-equip .rh-equip-fields input,.rh-equip .rh-equip-fields select{padding:8px 10px;border-color:var(--rh-border,#dce5e9);font-size:13px;font-weight:400;border-radius:10px;background:var(--rh-soft,#f8fafc)}
+.rh-equip .rh-equip-open{background:#eff6ff;color:#2563eb;border-color:#dbeafe}
+.rh-equip .rh-equip-document{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.rh-equip-history-group h4{font-size:14px;font-weight:700;margin:0;color:var(--rh-ink,#002060)}
+.rh-equip-history-group>p{font-size:12px;color:var(--rh-muted,#64748b)}
+.rh-equip-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:32px;text-align:center;font-size:13px;color:var(--rh-muted,#64748b)}
+.rh-equip-verification{margin-bottom:28px}.rh-equip-verification>p{margin-bottom:20px}
+.rh-equip-prepared{font-size:11px;color:#047857}.rh-equip-finish{margin-top:20px;margin-bottom:0}
+.rh-equip button.rh-equip-primary{background:#002060;color:#fff;border-color:#002060}
+.rh-equip-check-date{max-width:220px;margin:16px 0}.rh-equip .rh-equip-check{font-weight:500;font-size:12px;margin:10px 0}.rh-equip .rh-equip-check input{min-height:18px;height:18px;width:18px;flex-shrink:0}.rh-equip .rh-equip-verified{color:#047857;font-size:11px}
+@media(max-width:1100px){.rh-equip .rh-equip-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.rh-equip .rh-equip-fields label:first-child{grid-column:1/-1}}
+@media(max-width:500px){.rh-equip .rh-equip-fields{grid-template-columns:minmax(0,1fr)}.rh-equip-actions{gap:8px}.rh-equip-finish button{width:100%}}
