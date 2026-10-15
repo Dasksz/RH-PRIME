@@ -41,13 +41,14 @@
       <link rel="stylesheet" href="rh-responsive.css">
     <script src="rh-core.js"></script><script src="rh-navigation.js?v=20261006"></script><script src="rh-search-focus.js?v=20261006"></script>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#102c38">
-<link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="rh-mobile-menus.css?v=20261006"><script src="rh-theme.js"></script>
+<link rel="stylesheet" href="rh-equipamentos.css?v=20261015"><link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="rh-mobile-menus.css?v=20261006"><script src="rh-theme.js"></script>
 </head>
   <body>
     <div id="root"></div>
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
+    <script src="rh-equipamentos.js?v=20261015"></script>
     <script type="text/babel" data-type="text/javascript" data-presets="react">
       const { useState, useMemo, useEffect, useRef } = React;
 
@@ -441,7 +442,7 @@
           if (!dateVal) return "-";
           const str = dateVal.toString().trim();
           if (!str) return "-";
-          
+
           if (str.includes("GMT") || str.includes("T")) {
             const d = new Date(str);
             if (!isNaN(d.getTime())) {
@@ -451,22 +452,31 @@
               return `${dia}/${mes}/${ano}`;
             }
           }
-          
+
           const partsDash = str.split("-");
           if (partsDash.length === 3) {
             if (partsDash[0].length === 4) {
               return `${partsDash[2].substring(0, 2)}/${partsDash[1]}/${partsDash[0]}`;
             }
           }
-          
+
           const partsSlash = str.split("/");
           if (partsSlash.length === 3) {
             return `${partsSlash[0].padStart(2, "0")}/${partsSlash[1].padStart(2, "0")}/${partsSlash[2]}`;
           }
-          
+
           return str;
         };
 
+
+        const equipmentStatus = (text, fallback, now) => {
+          if (!text || !text.trim()) return "pendente";
+          const statuses=text.split(";").filter(p=>p.trim()).map(part=>{
+            const match=part.match(/ - (\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4})\)$/);
+            return calculateStatus(match ? match[1] : fallback, now);
+          });
+          return statuses.includes("vencido") ? "vencido" : statuses.includes("pendente") ? "pendente" : "em_dia";
+        };
 
         const mapDataToState = (data) => {
           const nowTime = Date.now();
@@ -512,14 +522,14 @@
               admissao: row.admissao || "",
               avatar: initials.toUpperCase(),
               epi: {
-                status: calculateStatus(epiData, nowTime),
+                status: equipmentStatus(row.epi_itens, epiData, nowTime),
                 ultimaEntrega: epiDataTrimmed !== "" ? epiDataTrimmed : null,
                 validade: "180 dias",
                 link: row.epi_link || null,
                 itens: row.epi_itens || null,
               },
               fardamento: {
-                status: calculateStatus(fardamentoData, nowTime),
+                status: equipmentStatus(row.fardamento_itens, fardamentoData, nowTime),
                 ultimaEntrega:
                   fardamentoDataTrimmed !== "" ? fardamentoDataTrimmed : null,
                 validade: "1 ano",
@@ -767,7 +777,7 @@
             if (roleRule.protetor_dorsal) allowed.push("PROTETOR DORSAL");
             if (roleRule.calca_faixa_refletiva)
               allowed.push("CALÇA C/ FAIXA REFLETIVA");
-            if (roleRule.bota_marluvas) allowed.push("BOTA MARLUVAS");
+            if (roleRule.bota_marluvas) allowed.push("BOTA");
             if (roleRule.oculos_policarbonato)
               allowed.push("OCULOS DE POLICARBONATO");
           } else if (tab === "fardamento") {
@@ -1105,7 +1115,7 @@
                                 <div style="flex: 1;"><strong>UNIDADE:</strong> ${emp.unidade || ""}</div>
                             </div>
                         </div>
-                        
+
                         <div style="font-size: 9px; margin-bottom: 5px;">
                             NR 6.1 Para os fins de aplicação desta norma Regulamentadora – NR, considera-se <strong>Equipamento de proteção Individual – EPI</strong> é todo dispositivo de uso individual, de fabricação nacional ou estrangeira, destinado a proteger a saúde e a integridade física do trabalhador.
                         </div>
@@ -1822,7 +1832,7 @@
                       className="w-full pl-10 pr-4 py-3.5 md:py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#002060] shadow-sm text-[15px] md:text-sm transition-shadow focus:shadow-md"
                     />
                   </div>
-                  
+
                   {/* Status Dropdown and Devoluções Button side-by-side */}
                   <div className="flex items-center gap-2">
                     <select
@@ -2293,374 +2303,7 @@
                       </div>
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20">
-                    <div className="flex space-x-6 mb-6 border-b border-gray-200">
-                      <button
-                        onClick={() => setActiveTab("epi")}
-                        className={`pb-3 px-2 font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-colors ${activeTab === "epi" ? "text-[#002060] border-b-[3px] border-[#002060]" : "text-gray-400 hover:text-gray-600"}`}
-                      >
-                        <Shield size={18} /> EPIs
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("fardamento")}
-                        className={`pb-3 px-2 font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-colors ${activeTab === "fardamento" ? "text-[#002060] border-b-[3px] border-[#002060]" : "text-gray-400 hover:text-gray-600"}`}
-                      >
-                        <Shirt size={18} /> Fardas
-                      </button>
-                    </div>
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8">
-                      <h3 className="text-base font-bold text-[#002060] mb-4 flex items-center gap-2">
-                        <ListPlus size={18} className="text-[#E30613]" />{" "}
-                        Adicionar {activeTab === "epi" ? "EPI" : "Fardamento"}
-                      </h3>
-                      <form
-                        onSubmit={handleAddStagedItem}
-                        className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end"
-                      >
-                        <div className="md:col-span-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
-                            Item Entregue
-                          </label>
-                          <select
-                            required
-                            value={newItemName}
-                            onChange={(e) => setNewItemName(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
-                          >
-                            <option value="">Selecione um item</option>
-                            {selectedEmployee &&
-                              getAllowedItemsForRole(
-                                selectedEmployee.cargo,
-                                activeTab,
-                              ).map((item) => (
-                                <option key={item} value={item}>
-                                  {item}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
-                            C.A. (Opcional)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 12345"
-                            value={newItemCA}
-                            onChange={(e) => setNewItemCA(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
-                          />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
-                            Qtd.
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            required
-                            value={newItemQtd}
-                            onChange={(e) => setNewItemQtd(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
-                          />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
-                            Data da Entrega
-                          </label>
-                          <input
-                            type="date"
-                            required
-                            value={newDeliveryDate}
-                            onChange={(e) => setNewDeliveryDate(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
-                          />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
-                            Link Comprovante
-                          </label>
-                          <input
-                            type="url"
-                            placeholder="Opcional..."
-                            value={newLink}
-                            onChange={(e) => setNewLink(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] transition-colors text-sm"
-                          />
-                        </div>
-                        <div className="md:col-span-1 flex items-end">
-                          <button
-                            type="submit"
-                            disabled={
-                              !selectedEmployee ||
-                              getAllowedItemsForRole(
-                                selectedEmployee.cargo,
-                                activeTab,
-                              ).length === 0
-                            }
-                            className={`w-full ${!selectedEmployee || getAllowedItemsForRole(selectedEmployee.cargo, activeTab).length === 0 ? "bg-gray-300 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 active:bg-slate-300 active:scale-[0.98]"} text-[#002060] font-bold py-3 md:py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-200 text-[15px] md:text-sm`}
-                          >
-                            <Plus size={16} /> Incluir
-                          </button>
-                        </div>
-                      </form>
-                      {stagedItems.length > 0 && (
-                        <div className="mt-6 border-t border-gray-100 pt-5">
-                          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-                            Prontos para salvar ({stagedItems.length})
-                          </h4>
-                          <div className="space-y-2.5 mb-5">
-                            {stagedItems.map((item) => (
-                              <div
-                                key={item.id}
-                                className="flex items-center justify-between bg-blue-50/50 border border-blue-100 p-3 rounded-xl"
-                              >
-                                <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4">
-                                  <span className="font-bold text-[#002060] text-sm">
-                                    {item.nomeItem}
-                                    <span className="text-xs text-gray-500 font-normal ml-1">
-                                      (Qtd: {item.qtd}
-                                      {item.ca ? `, CA: ${item.ca}` : ""})
-                                    </span>
-                                  </span>
-                                  <span className="text-xs text-gray-500 font-medium">
-                                    Data:{" "}
-                                    {new Date(
-                                      item.dataEntrega + "T00:00:00",
-                                    ).toLocaleDateString("pt-BR")}
-                                  </span>
-                                </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleEditClick(item)}
-                                    className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                                  >
-                                    <Pencil size={16} />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleRemoveStagedItem(item.id)
-                                    }
-                                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
-                              Empresa Emissora do Comprovante
-                            </label>
-                            <div className="relative">
-                              <select
-                                className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#002060] transition-colors text-sm text-gray-800 appearance-none"
-                                value={selectedEmpresaId || ""}
-                                onChange={(e) =>
-                                  setSelectedEmpresaId(Number(e.target.value))
-                                }
-                              >
-                                <option value="" disabled>
-                                  Selecione uma empresa
-                                </option>
-                                {empresas &&
-                                  empresas.map((emp) => (
-                                    <option key={emp.id} value={emp.id}>
-                                      {emp.nome} - CNPJ: {emp.cnpj}
-                                    </option>
-                                  ))}
-                              </select>
-                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                <ChevronDown size={16} />
-                              </div>
-                            </div>
-                            {empresas.length === 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Carregando empresas...
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            onClick={handleRegisterAll}
-                            className="w-full bg-[#002060] hover:bg-[#001848] active:bg-[#001030] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0 text-[15px] active:scale-[0.98]"
-                          >
-                            <CheckCheck size={18} /> Salvar
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-bold text-[#002060]">
-                          Histórico Salvo
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          {((activeTab === "epi" &&
-                            selectedEmployee.epi.ultimaEntrega) ||
-                            (activeTab === "fardamento" &&
-                              selectedEmployee.fardamento.ultimaEntrega)) && (
-                            <>
-                              <button
-                                onClick={() => handlePrintEmployeeHistoryPDF()}
-                                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1.5 border border-emerald-200"
-                                title="Gerar Ficha em PDF dos itens entregues"
-                              >
-                                <FileText size={14} /> Gerar Ficha (PDF)
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setIsNewVerification(true);
-                                  loadHistoryIntoStaged();
-                                  window.scrollTo({ top: 0, behavior: "smooth" });
-                                  if (scrollContainerRef.current)
-                                    scrollContainerRef.current.scrollTop = 0;
-                                }}
-                                className="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-1"
-                              >
-                                <Activity size={14} /> Nova Entrega/Verificação
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {(activeTab === "epi" &&
-                        !selectedEmployee.epi.ultimaEntrega) ||
-                      (activeTab === "fardamento" &&
-                        !selectedEmployee.fardamento.ultimaEntrega) ? (
-                        <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-8 text-center text-gray-400 text-sm font-medium">
-                          Nenhum registro encontrado.
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-3">
-                          {(() => {
-                            const item =
-                              activeTab === "epi"
-                                ? selectedEmployee.epi
-                                : selectedEmployee.fardamento;
-                            const vencido = item.status === "vencido";
-
-                            const groupedItems = (() => {
-                              if (!item.itens) return {};
-                              const parsed = parseItemString(
-                                item.itens,
-                                item.ultimaEntrega,
-                                item.link,
-                              );
-                              const groups = {};
-                              parsed.forEach((p) => {
-                                const dt =
-                                  p.dataEntrega && p.dataEntrega.trim() !== ""
-                                    ? p.dataEntrega
-                                    : item.ultimaEntrega;
-                                if (!groups[dt]) groups[dt] = [];
-                                groups[dt].push(p);
-                              });
-                              return groups;
-                            })();
-
-                            const sortedDates = Object.keys(groupedItems).sort(
-                              (a, b) => new Date(b) - new Date(a),
-                            );
-
-                            return (
-                              <div className="flex flex-col gap-4">
-                                {sortedDates.length === 0 && (
-                                  <div className="bg-white p-4 rounded-2xl border border-gray-100">
-                                    <p className="text-sm text-gray-500 text-center">
-                                      Nenhum item salvo no histórico.
-                                    </p>
-                                  </div>
-                                )}
-                                {sortedDates.map((date, index) => {
-                                  const isLatest = index === 0;
-                                  const itemsForDate = groupedItems[date];
-                                  const isVencido = isLatest && vencido;
-
-                                  const linkForDate =
-                                    itemsForDate.find((i) => i.linkComprovante)
-                                      ?.linkComprovante ||
-                                    (isLatest ? item.link : null);
-
-                                  let formattedDate = date;
-                                  if (date.includes("-")) {
-                                    const parts = date.split("-");
-                                    if (parts.length === 3) {
-                                      formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                                    }
-                                  }
-
-                                  return (
-                                    <div
-                                      key={date}
-                                      className={`bg-white p-4 rounded-2xl border ${isVencido ? "border-red-300 shadow-sm bg-red-50/20" : "border-gray-100"} flex flex-col justify-between gap-3`}
-                                    >
-                                      <div className="flex items-start gap-3">
-                                        <div
-                                          className={`p-2.5 rounded-full mt-0.5 ${isVencido ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500"}`}
-                                        >
-                                          {isVencido ? (
-                                            <AlertCircle size={16} />
-                                          ) : (
-                                            <CheckCircle2 size={16} />
-                                          )}
-                                        </div>
-                                        <div>
-                                          <h4 className="text-sm font-bold text-gray-800">
-                                            {isLatest
-                                              ? "Última Entrega"
-                                              : "Entrega Anterior"}
-                                          </h4>
-                                          <p className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 font-medium">
-                                            <Calendar size={12} />{" "}
-                                            {formattedDate}
-                                          </p>
-                                          {isVencido && (
-                                            <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide">
-                                              Vencido
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="mt-2 text-sm text-gray-700">
-                                        <span className="font-bold mb-1 block">
-                                          Itens:{" "}
-                                        </span>
-                                        <ul className="list-disc pl-5 mt-1 space-y-1">
-                                          {itemsForDate.map((i, idx) => (
-                                            <li key={idx} className="text-xs">
-                                              {i.nomeItem}{" "}
-                                              {i.ca ? `(CA: ${i.ca})` : ""} -
-                                              Qtd: {i.qtd}
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                      {linkForDate && (
-                                        <a
-                                          href={
-                                            linkForDate.startsWith("http")
-                                              ? linkForDate
-                                              : `https://${linkForDate}`
-                                          }
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center justify-center gap-2 mt-2 w-full py-2 bg-gray-50 hover:bg-gray-100 text-blue-600 text-xs font-bold rounded-xl transition-colors border border-gray-200"
-                                        >
-                                          <LinkIcon size={14} /> Ver Comprovante
-                                        </a>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <RHEquipment.Control key={selectedEmpId} client={supabase} employee={selectedEmployee} suggestions={(tab) => getAllowedItemsForRole(selectedEmployee.cargo, tab)} onSaved={fetchEmployees} />
                 </React.Fragment>
               )}
 

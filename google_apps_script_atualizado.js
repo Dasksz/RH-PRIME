@@ -38,11 +38,18 @@ const SHEET_CONFIG = {
     fields: ['cpf','nome','funcao','setor','unidade','admissao','data_desligamento','motivo_saida','whatsapp','tamanho_farda','calcado','calca','sexo','carga_horaria','local_registro','epi_data','epi_itens','fardamento_data','fardamento_itens'], extra: ['id','funcionario_id'], readOnly: ['funcionario_id'], textDates: true
   }
 };
-const RH_DATES = ['admissao','nascimento','data_admissao','data_desligamento','data_inicio','data_fim','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','data_inicio_programada','data_fim_programada','data_retorno','epi_data','fardamento_data'];
+SHEET_CONFIG['Movimentações de equipamentos'] = {
+  tableName: 'rh_equipment_movements', headerRow: 1, nameField: 'id', readOnlyAll: true,
+  fields: ['id','funcionario_nome','categoria','tipo','descricao','ca','quantidade','data_movimento','motivo','observacao','entrega_origem_id','operacao_id','comprovante','legado'],
+  extra: ['funcionario_id','equipamento','complemento','created_by','created_at']
+};
+// Equipamentos são lançados no sistema; estes campos são um resumo do saldo em posse.
+SHEET_CONFIG['Controle EPI e Fardamento'].readOnly = ['epi_itens','epi_data','epi_link','fardamento_itens','fardamento_data','fardamento_link'];
+const RH_DATES = ['data_movimento','admissao','nascimento','data_admissao','data_desligamento','data_inicio','data_fim','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','data_inicio_programada','data_fim_programada','data_retorno','epi_data','fardamento_data'];
 const RH_NUMBERS = ['carga_horaria','horas_previstas','horas_perdidas','dias_direito','dias_gozados','dias_abonados','dias_programados','dias_saldo'];
 const RH_JSON = ['itens_checked','historico_periodos'];
 
-const RH_VERSION = "2026-10-04-rh3";
+const RH_VERSION = "2026-10-15-equipamentos1";
 const RH_CONFIG_INICIAL = {
   "SUPABASE_URL": "https://gcksbfstheavpfgcdndb.supabase.co",
   "SPREADSHEET_ID": "1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg",
@@ -180,6 +187,7 @@ function objetoLinhaRH(sheet, row, map) {
 function buildPayload(sheetName, rowData) {
   const config = SHEET_CONFIG[sheetName];
   if (!config) throw new Error('Aba não mapeada.');
+  if (config.readOnlyAll) throw new Error('Histórico somente leitura. Registre a movimentação no sistema RH.');
   const raw = Array.isArray(rowData) ? Object.fromEntries(config.fields.map((f,i)=>[f,rowData[i]])) : rowData;
   const payload = {};
   camposRH(config).forEach(field => {
@@ -283,7 +291,15 @@ function valorCelulaRH(field, value) {
   if (typeof value === 'boolean') return value ? 'SIM' : 'NÃO';
   return value;
 }
+let RH_EQUIPMENT_EMPLOYEES = null;
 function escreverRegistroRH(sheet, config, map, row, record) {
+  if (config.tableName === 'rh_equipment_movements') {
+    if (!RH_EQUIPMENT_EMPLOYEES) RH_EQUIPMENT_EMPLOYEES = requestRH('funcionarios_epi','get','select=id,nome&limit=1000');
+    const employee = RH_EQUIPMENT_EMPLOYEES.find(e => e.id === record.funcionario_id);
+    record = Object.assign({},record,{funcionario_nome: employee ? employee.nome : record.funcionario_id});
+    // Texto livre nunca deve virar fórmula na planilha.
+    Object.keys(record).forEach(f => { if (typeof record[f] === 'string' && /^[=+@-]/.test(record[f])) record[f] = "'" + record[f]; });
+  }
   // Grava somente campos mapeados. Preserva colunas auxiliares, fórmulas e formatação.
   const cells = Object.keys(map).filter(field => Object.prototype.hasOwnProperty.call(record,field))
     .map(field => ({field:field,col:map[field],value:valorCelulaRH(field,record[field])})).sort((a,b)=>a.col-b.col);
@@ -323,6 +339,7 @@ function obterCnpjLocalRegistro(local, empresas) {
   return ''; // local desconhecido não recebe automaticamente o CNPJ de outra empresa
 }
 function sincronizarLinhaRH(sheet, row, config, map) {
+  if (config.readOnlyAll) return 'somente_leitura';
   const raw = objetoLinhaRH(sheet,row,map);
   const required = config.tableName === 'epi_funcao' ? 'funcao' : config.tableName === 'empresas' ? 'nome' : ['funcionarios_epi','rh_desligados'].includes(config.tableName) ? 'nome' : 'funcionario_nome';
   if (!raw[required]) return 'vazia';
@@ -336,15 +353,19 @@ function syncToSupabaseOnEdit(e) {
   return comLockRH(() => {
     const sheet = e.range.getSheet(), config = SHEET_CONFIG[sheet.getName()];
     if (!config) return;
+    if (config.readOnlyAll) { receberTabelaRH(sheet.getParent(),sheet.getName()); sheet.getParent().toast('Histórico somente leitura. Use Devolver / Trocar no sistema RH.','Equipamentos',10); return; }
     if (sheet.getParent().getId() !== propriedadesRH().getProperty('SPREADSHEET_ID')) throw new Error('Planilha diferente da configurada.');
     const map = layoutRH(sheet,config,false), first = Math.max(config.headerRow+1,e.range.getRow()), last = e.range.getLastRow();
+    const equipmentSummary = ['epi_itens','epi_data','epi_link','fardamento_itens','fardamento_data','fardamento_link'];
+    const editedSummary = config.tableName === 'funcionarios_epi' && equipmentSummary.some(f => map[f] >= e.range.getColumn() && map[f] <= e.range.getLastColumn());
     const editable = Object.keys(map).filter(f => f !== 'id' && !(config.readOnly || []).includes(f));
-    if (!editable.some(f => map[f] >= e.range.getColumn() && map[f] <= e.range.getLastColumn())) return;
+    if (!editable.some(f => map[f] >= e.range.getColumn() && map[f] <= e.range.getLastColumn())) { if (editedSummary) receberTabelaRH(sheet.getParent(),sheet.getName()); return; }
     const errors = [];
     for (let row = first; row <= last; row++) {
       try { sincronizarLinhaRH(sheet,row,config,map); }
       catch (err) { errors.push('Linha ' + row + ': ' + err.message); }
     }
+    if (editedSummary) receberTabelaRH(sheet.getParent(),sheet.getName());
     if (errors.length) { sheet.getParent().toast(errors.join('\n'),'Sincronização não concluída',15); throw new Error(errors.join('\n')); }
   });
 }
@@ -357,7 +378,8 @@ function onOpen() {
     .addItem('Ativar webhooks após implantação','ativarWebhooksRH')
     .addSeparator().addItem('Enviar planilha para banco','syncAllToSupabase')
     .addItem('Receber banco na planilha','sincronizarBancoParaPlanilha')
-    .addItem('Atualizar apenas EPI e fardamento','sincronizarControleEPI').addToUi();
+    .addItem('Atualizar apenas EPI e fardamento','sincronizarControleEPI')
+    .addItem('Atualizar histórico de equipamentos','sincronizarEquipamentosRH').addToUi();
 }
 function prepararEstruturaRH() {
   return comLockRH(() => {
@@ -405,6 +427,28 @@ function receberTabelaRH(ss, name) {
   const config = SHEET_CONFIG[name], sheet = ss.getSheetByName(name);
   if (!sheet) throw new Error('Aba ausente: ' + name);
   const map = layoutRH(sheet,config,false), records = lerTabelaRH(config.tableName);
+  if (config.readOnlyAll) {
+    const people = lerTabelaRH('funcionarios_epi');
+    const names = Object.fromEntries(people.map(e => [e.id,e.nome]));
+    const columns = Math.max.apply(null,Object.values(map));
+    const values = records.map(record => {
+      const data=Object.assign({},record,{funcionario_nome:names[record.funcionario_id]||record.funcionario_id});
+      const row=Array(columns).fill('');
+      Object.keys(map).forEach(field => {
+        let value=valorCelulaRH(field,data[field]);
+        if(typeof value==='string' && /^[=+@-]/.test(value)) value="'"+value;
+        row[map[field]-1]=value;
+      });
+      return row;
+    });
+    if(values.length) {
+      const required=config.headerRow+values.length;
+      if(sheet.getMaxRows()<required) sheet.insertRowsAfter(sheet.getMaxRows(),required-sheet.getMaxRows());
+      sheet.getRange(config.headerRow+1,1,values.length,columns).setValues(values);
+    }
+    return records.length;
+  }
+
   const errors = [];
   records.forEach(record => {
     if (config.tableName === 'epi_funcao' && normalizarNomeRH(record.funcao) === 'FUNCAO') return;
@@ -504,4 +548,30 @@ function verificarConexaoSupabaseRH() {
   if(typeof bancoDriveRH==='function') bancoDriveRH('rh_automation_settings','get','select=id&limit=0');
   if(typeof bancoDocumentosRH==='function') bancoDocumentosRH('rh_delivery_documents','get','select=id&limit=0');
   console.log('Conexão REST com a nova chave secreta validada. Nenhum dado foi alterado.');
+}
+
+// Prepara somente a nova aba; não envia linhas antigas ao banco.
+function prepararEquipamentosRH() {
+ return comLockRH(() => {
+  const ss=planilhaRH();
+  const backup=DriveApp.getFileById(ss.getId()).makeCopy(ss.getName()+' — backup equipamentos '+Utilities.formatDate(new Date(),RH_TZ,'yyyy-MM-dd HH-mm-ss'));
+  propriedadesRH().setProperty('ULTIMO_BACKUP_EQUIPAMENTOS_RH',backup.getId());
+  const name='Movimentações de equipamentos',config=SHEET_CONFIG[name];
+  const sheet=ss.getSheetByName(name)||ss.insertSheet(name);
+  const map=layoutRH(sheet,config,true);
+  sheet.setFrozenRows(1);
+  sheet.getRange(2,1,Math.max(1,sheet.getMaxRows()-1),Math.max.apply(null,Object.values(map))).setNumberFormat('@');
+  receberTabelaRH(ss,name);
+  console.log('Aba de movimentações criada e histórico recebido. Backup preservado.');
+ });
+}
+function sincronizarEquipamentosRH() { return comLockRH(() => receberTabelaRH(planilhaRH(),'Movimentações de equipamentos')); }
+function testarEquipamentosRH() {
+ const sample={nome:'TESTE',cpf:'12345678901',epi_itens:'BOTA - MARCA TESTE - TAMANHO 42 (CA: 12345, Qtd: 1 - 2026-10-15)',epi_data:'15/10/2026'};
+ const payload=buildPayload('Controle EPI e Fardamento',sample);
+ if ('epi_itens' in payload || 'epi_data' in payload) throw Error('Resumo de equipamentos não pode ser reenviado ao banco.');
+ const config=SHEET_CONFIG['Movimentações de equipamentos'];
+ if (!config.readOnlyAll) throw Error('Histórico deve ser somente leitura.');
+ requestRH('rh_equipment_movements','get','select=id&limit=0');
+ console.log('Equipamentos: consulta ao banco e proteção do histórico validadas. Nenhum dado alterado.');
 }
