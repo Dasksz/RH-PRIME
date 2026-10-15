@@ -6,19 +6,37 @@
  const date=v=>!v?'Não informada':String(v).includes('T')?new Date(v).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):String(v).slice(0,10).split('-').reverse().join('/');
  function nameParts(v){const [base,...rest]=String(v).replace(/\s+-\s*$/,'').trim().split(/\s+-\s+/);return {equipamento:base.trim(),complemento:rest.join(' - ').trim()};}
  function balances(rows){return rows.filter(m=>m.tipo==='entrega').map(m=>({...m,saldo:m.quantidade-rows.filter(r=>r.entrega_origem_id===m.id&&r.tipo!=='entrega').reduce((n,r)=>n+r.quantidade,0)}));}
+ function documentRows(receipt,onlyOperation){
+  const all=receipt.snapshot.movimentos,rows=[];
+  for(const m of all.filter(x=>x.tipo==='entrega')){
+   const movements=all.filter(r=>r.entrega_origem_id===m.id&&r.tipo!=='entrega');
+   const selected=onlyOperation?movements.filter(r=>r.operacao_id===receipt.id):movements;
+   const origin=all.find(r=>r.id===m.entrega_origem_id);
+   const description=esc(m.descricao)+(origin?'<br><small>Reposição referente à entrega de '+date(origin.data_movimento)+'</small>':'');
+   for(const r of selected){
+    const partial=r.quantidade<m.quantidade?' (devolução parcial: '+r.quantidade+' de '+m.quantidade+')':'';
+    rows.push({nomeItem:description,ca:esc(m.ca),qtd:r.quantidade,dataEntrega:m.data_movimento,
+     dataDevolucao:r.tipo==='devolucao'?r.data_movimento:null,
+     motivoDevolucao:esc((r.tipo==='baixa'?'Baixa sem devolução física em '+date(r.data_movimento)+': ':'')+r.motivo+partial+(r.observacao?' — '+r.observacao:''))});
+   }
+   if(!onlyOperation||m.operacao_id===receipt.id){
+    const remaining=m.quantidade-movements.reduce((n,r)=>n+r.quantidade,0);
+    if(remaining>0)rows.push({nomeItem:description,ca:esc(m.ca),qtd:remaining,dataEntrega:m.data_movimento,dataDevolucao:null,motivoDevolucao:''});
+   }
+  }
+  return rows;
+ }
  function documentHtml(receipt,onlyOperation){
-  const s=receipt.snapshot,e=s.colaborador,company=s.empresa||{},all=s.movimentos;
-  const selected=onlyOperation?all.filter(m=>m.operacao_id===receipt.id):all;
-  const rows=selected.map(m=>{
-   const origin=all.find(x=>x.id===m.entrega_origem_id);
-   const balance=balances(all).find(x=>x.id===m.id);
-   return `<tr><td>${date(m.data_movimento)}</td><td>${m.tipo==='entrega'?'Entrega':m.tipo==='baixa'?'Baixa sem devolução':'Devolução'}</td><td>${esc(m.descricao)}${m.legado?'<br><small>Registro importado do histórico anterior</small>':''}</td><td>${esc(m.ca)}</td><td>${m.quantidade}</td><td>${esc(m.motivo)}${m.observacao?'<br>'+esc(m.observacao):''}${origin?'<br>Ref. entrega '+esc(origin.id.slice(0,8))+' de '+date(origin.data_movimento):''}</td><td>${m.tipo==='entrega'?'Em posse: '+balance.saldo:'Ref.: '+esc(m.entrega_origem_id.slice(0,8))}</td></tr>`;
-  }).join('');
-  return `<article class="rh-equipment-pdf"><h1>${onlyOperation?'COMPROVANTE DE MOVIMENTAÇÃO / TROCA':'FICHA COMPLETA DE EQUIPAMENTOS'}</h1><p><b>${esc(company.nome||e.local_registro)}</b>${company.cnpj?' · CNPJ: '+esc(company.cnpj):''}</p><p><b>${esc(e.nome)}</b> · CPF: ${esc(e.cpf)}<br>Função: ${esc(e.funcao)} · Setor: ${esc(e.setor)} · Unidade: ${esc(e.unidade)}</p><p>Categoria: ${s.categoria==='epi'?'EPI':'Fardamento'} · Documento: ${esc(receipt.id)}<br>Emitido em: ${esc(new Date(receipt.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}))}</p><table><thead><tr><th>Data</th><th>Movimentação</th><th>Equipamento / complemento</th><th>CA</th><th>Qtd.</th><th>Motivo / observações</th><th>Situação nesta emissão</th></tr></thead><tbody>${rows}</tbody></table><p>${onlyOperation?'Declaro o recebimento e/ou a devolução dos itens expressamente relacionados acima, conforme os tipos de movimentação e as observações registrados. Baixa sem devolução não representa entrega física do item à empresa.':'Esta ficha apresenta o histórico registrado até a emissão. Não substitui os comprovantes de cada movimentação.'}</p>${onlyOperation?'<div class="signatures"><span>Colaborador: _________________________</span><span>Responsável pela entrega / recebimento: _________________________</span></div>':''}<p class="foot">Entregas anteriores permanecem no histórico. Datas não informadas no legado não foram presumidas.</p></article>`;
+  const s=receipt.snapshot,e=s.colaborador,company=s.empresa||{};
+  const relevant=onlyOperation?s.movimentos.filter(m=>m.operacao_id===receipt.id):s.movimentos;
+  const employee=Object.fromEntries(Object.entries({...e,cargo:e.funcao}).map(([k,v])=>[k,esc(v)]));
+  const empresa=Object.fromEntries(Object.entries({...company,nome:company.nome||e.local_registro}).map(([k,v])=>[k,esc(v)]));
+  const hasReturns=onlyOperation&&relevant.some(m=>m.tipo==='devolucao'),hasDeliveries=relevant.some(m=>m.tipo==='entrega');
+  return RHFichaPadrao.render(employee,documentRows(receipt,onlyOperation),empresa,hasReturns,hasDeliveries);
  }
  async function pdf(receipt,onlyOperation){
   const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.innerHTML=documentHtml(receipt,onlyOperation);document.body.appendChild(container);
-  try{await html2pdf().set({margin:10,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+receipt.id+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy'],avoid:['tr','.signatures']}}).from(container.firstChild).save();}finally{container.remove();}
+  try{await html2pdf().set({margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+receipt.id+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy'],avoid:['tr','.signatures']}}).from(container.firstElementChild).save();}finally{container.remove();}
  }
  function Control({client,employee,suggestions,onSaved}){
   const [tab,setTab]=React.useState('epi'),[rows,setRows]=React.useState([]),[receipts,setReceipts]=React.useState([]),[loading,setLoading]=React.useState(true),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[notice,setNotice]=React.useState('');
@@ -80,13 +98,12 @@
     reason==='Perda / extravio'&&h('p',null,'Será registrada uma baixa sem devolução física.'),
     h('label',{className:'rh-equip-check'},h('input',{type:'checkbox',checked:substitute,onChange:e=>setSubstitute(e.target.checked)}),'Entregar um substituto'),
     substitute&&equipmentFields,h('div',{className:'rh-equip-actions'},h('button',{type:'submit'},busy?'Salvando…':substitute?'Salvar devolução e nova entrega':'Salvar devolução / baixa'),h('button',{type:'button',onClick:blankOperation},'Cancelar'))))),
-   h('section',{className:'rh-equip-card'},h('div',{className:'rh-equip-actions'},h('h3',null,'Histórico de equipamentos'),h('button',{disabled:busy||!rows.length,onClick:()=>issue(false)},'Gerar ficha completa (PDF)')),
+   h('section',{className:'rh-equip-card'},h('div',{className:'rh-equip-actions'},h('h3',null,'Histórico de equipamentos'),h('button',{className:'rh-equip-action rh-equip-document',disabled:busy||!rows.length,onClick:()=>issue(false)},'Gerar ficha (PDF)')),
     !items.length&&h('p',null,'Nenhuma entrega registrada.'),
-    items.slice().reverse().map(m=>h('article',{key:m.id,className:'rh-equip-item'},h('strong',null,m.descricao),h('p',null,'Entrega: '+date(m.data_movimento)+' · CA: '+(m.ca||'—')+' · Entregues: '+m.quantidade+' · Em posse: '+m.saldo),m.legado&&h('small',null,'Importado do histórico anterior'),m.entrega_origem_id&&h('p',null,'Substitui a entrega '+m.entrega_origem_id.slice(0,8)),
-     rows.filter(r=>r.entrega_origem_id===m.id&&r.tipo!=='entrega').map(r=>h('p',{key:r.id},(r.tipo==='baixa'?'Baixa sem devolução':'Devolução')+': '+date(r.data_movimento)+' · Qtd. '+r.quantidade+' · '+r.motivo+(r.observacao?' — '+r.observacao:''))),
-     m.saldo>0&&h('button',{disabled:busy,onClick:()=>startReturn(m)},'Devolver / Trocar')))),
+    items.slice().reverse().map(m=>h('article',{key:m.id,className:'rh-equip-item'},h('div',{className:'rh-equip-item-heading'},h('strong',null,m.descricao),m.saldo>0&&h('button',{className:'rh-equip-action rh-equip-return',disabled:busy,onClick:()=>startReturn(m),'aria-label':'Devolver ou trocar '+m.descricao},'Devolver / Trocar')),h('p',null,'Entrega: '+date(m.data_movimento)+' · CA: '+(m.ca||'—')+' · Entregues: '+m.quantidade+' · Em posse: '+m.saldo),m.legado&&h('small',null,'Importado do histórico anterior'),m.entrega_origem_id&&h('p',null,'Substitui a entrega '+m.entrega_origem_id.slice(0,8)),
+     rows.filter(r=>r.entrega_origem_id===m.id&&r.tipo!=='entrega').map(r=>h('p',{key:r.id},(r.tipo==='baixa'?'Baixa sem devolução':'Devolução')+': '+date(r.data_movimento)+' · Qtd. '+r.quantidade+' · '+r.motivo+(r.observacao?' — '+r.observacao:'')))))),
    receipts.length>0&&h('section',{className:'rh-equip-card'},h('h3',null,'Documentos emitidos'),receipts.map(r=>h('div',{className:'rh-equip-actions',key:r.id},h('span',null,date(r.created_at)+' · '+r.id.slice(0,8)),h('button',{disabled:busy,onClick:()=>issue(false,r)},'Ficha desta emissão'),rows.some(m=>m.operacao_id===r.id)&&h('button',{disabled:busy,onClick:()=>issue(true,r)},'Comprovante da movimentação'))))
   );
  }
- global.RHEquipment={Control,nameParts,balances,documentHtml};
+ global.RHEquipment={Control,nameParts,balances,documentRows,documentHtml};
 })(window);

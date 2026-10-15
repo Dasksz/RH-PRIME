@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const code=fs.readFileSync('RH_Documentos_N8N.gs','utf8');
+const fn=code.slice(code.indexOf('function subpastaDocumentoRH'),code.indexOf('function hashDocumentoRH'));
+let folders=[],created=[];
+const ctx={filhosDriveRH:()=>folders,nomeDriveRH:s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim(),apiDriveRH:(p,m,b)=>{created.push(b);return {id:'new'}}};
+vm.createContext(ctx);vm.runInContext(fn,ctx);
+const folder=(name,id)=>({name,id,mimeType:'application/vnd.google-apps.folder'});
+folders=[folder('HOLERITE','old')];assert.equal(ctx.subpastaDocumentoRH('p','HOLERITES').id,'old');assert.equal(created.length,0);
+folders=[folder('HOLERITES','recent')];assert.equal(ctx.subpastaDocumentoRH('p','HOLERITES').id,'recent');
+folders=[folder('HOLERITES','recent'),folder('HOLERITE','old')];assert.equal(ctx.subpastaDocumentoRH('p','HOLERITES').id,'old');assert.equal(created.length,0);
+folders=[];ctx.subpastaDocumentoRH('p','HOLERITES');assert.equal(created[0].name,'HOLERITE');
+folders=[folder('HOLERITE','a'),folder('HOLERITE','b')];assert.throws(()=>ctx.subpastaDocumentoRH('p','HOLERITES'),/duplicadas/);
+folders=[folder('2026','year')];assert.equal(ctx.subpastaDocumentoRH('p','2026').id,'year');
+console.log('OK: singular, plural, ambas, criação, duplicadas e pasta de ano');

@@ -17,3 +17,14 @@ html[data-rh-theme=dark] .rh-equip input,html[data-rh-theme=dark] .rh-equip sele
 @media(max-width:500px){.rh-equip{padding:14px}.rh-equip-fields{grid-template-columns:1fr}.rh-equip-card{padding:14px}}
 
 .rh-equipment-pdf th:nth-child(1){width:9%}.rh-equipment-pdf th:nth-child(2){width:12%}.rh-equipment-pdf th:nth-child(3){width:22%}.rh-equipment-pdf th:nth-child(4){width:7%}.rh-equipment-pdf th:nth-child(5){width:5%}.rh-equipment-pdf th:nth-child(6){width:29%}.rh-equipment-pdf th:nth-child(7){width:16%}
+
+/* Ações secundárias acompanham a linha, sem o destaque dos botões de salvar. */
+.rh-equip-item-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rh-equip-item-heading strong{min-width:0;overflow-wrap:anywhere}
+.rh-equip button.rh-equip-action{min-height:30px;padding:4px 8px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--rh-muted,#526e7b);font-size:12px;font-weight:500;line-height:20px;box-shadow:none;white-space:nowrap;flex-shrink:0}
+.rh-equip button.rh-equip-action:hover{background:var(--rh-soft,#eaf1f3);border-color:var(--rh-border,#dce5e9);color:var(--rh-ink,#183440)}
+.rh-equip button.rh-equip-document{border-color:var(--rh-border,#dce5e9)}
+.rh-equip-actions h3{margin:0;flex:1}.rh-equip-item{padding:14px 0}.rh-equip-item p{margin:6px 0}.rh-equip-item small{display:block;font-size:11px}
+.rh-equipment-standard-pdf table{table-layout:auto}.rh-equipment-standard-pdf td,.rh-equipment-standard-pdf th{border-color:#000!important;overflow-wrap:anywhere;vertical-align:middle}.rh-equipment-standard-pdf small{color:#111!important;font-size:8px}
+@media(pointer:coarse){.rh-equip button.rh-equip-action{min-height:40px;background:transparent;border-color:transparent}}
+@media(max-width:420px){.rh-equip-item-heading{gap:8px}.rh-equip button.rh-equip-return{font-size:11px;padding:4px 6px}.rh-equip-item-heading strong{font-size:13px}}

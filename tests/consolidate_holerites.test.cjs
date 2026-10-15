@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const folder='application/vnd.google-apps.folder';let rows=[
+{id:'employee',name:'Colaborador',mimeType:folder,parents:['active']},
+{id:'old',name:'HOLERITE',mimeType:folder,parents:['employee']},{id:'new',name:'HOLERITES',mimeType:folder,parents:['employee']},
+{id:'y1',name:'2026',mimeType:folder,parents:['old']},{id:'y2',name:'2026',mimeType:folder,parents:['new']},
+{id:'m1',name:'09.2026',mimeType:folder,parents:['y1']},{id:'m2',name:'09',mimeType:folder,parents:['y2']},
+{id:'sent',name:'HOLERITE - TESTE 09-2026.pdf',mimeType:'application/pdf',parents:['m1'],modifiedTime:'2026-10-08T00:00:00Z'},
+{id:'recent',name:'TESTE_HOLERITES_09-2026.pdf',mimeType:'application/pdf',parents:['m2'],modifiedTime:'2026-10-10T00:00:00Z'},
+{id:'proof',name:'COMPROVANTE - HOLERITE.txt',mimeType:'text/plain',parents:['m1'],size:'100',modifiedTime:'2026-10-08T00:00:00Z'}];let n=0;
+const ctx={console:{log(){}},Date,LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},ScriptApp:{getOAuthToken:()=>''},idDriveRH:x=>x,nomeDriveRH:s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim(),bancoDocumentosRH:()=>[{active_folder_id:'active',former_folder_id:'former'}],UrlFetchApp:{fetch:()=>({getResponseCode:()=>200,getContentText:()=> 'COMPROVANTE DE ENVIO DE DOCUMENTO\nStatus HTTP: 200\nID Oficial da Transmissão: x\ndoc=sent'})},apiDriveRH:(path,method,body,params)=>{
+ if(path==='files'&&method==='get'){const p=params.q.match(/^'([^']+)'/)[1];return {files:rows.filter(f=>!f.trashed&&f.parents.includes(p)).map(f=>({...f}))};}
+ if(path==='files'&&method==='post'){const f={...body,id:'created'+(++n)};rows.push(f);return f;}
+ const f=rows.find(f=>f.id===path.split('/')[1]);if(body?.trashed)f.trashed=true;if(params?.addParents)f.parents=[...f.parents.filter(x=>x!==params.removeParents),params.addParents];return {...f};
+ }};ctx.listarDriveRH=()=>rows.filter(f=>!f.trashed&&["HOLERITE","HOLERITES"].includes(f.name));vm.createContext(ctx);vm.runInContext(fs.readFileSync('RH_Consolidar_Holerites.gs','utf8'),ctx);const r=ctx.consolidarHoleritesRH();assert.equal(r.consolidadas,1);assert.equal(r.arquivados,1);assert.equal(r.erro,undefined);assert.ok(rows.find(f=>f.id==='new').trashed);assert.deepEqual(rows.find(f=>f.id==='sent').parents,['m1']);assert.equal(rows.find(f=>f.id==='proof').trashed,undefined);assert.equal(rows.find(f=>f.id==='recent').parents[0],'created1');assert.equal(ctx.paresConsolidacaoRH().length,0);console.log('OK: consolidação com meses equivalentes, comprovante vence edição recente, PDFs arquivados e pastas vazias recuperáveis');
