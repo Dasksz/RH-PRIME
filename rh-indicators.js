@@ -4,23 +4,24 @@
   const $=id=>document.getElementById(id),months=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const num=(v,d=0)=>v===null?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}),pct=v=>v===null?'—':num(v,2)+'%';
   const query=new URLSearchParams(location.search),requestedYear=query.get('ano'),requestedMonth=query.get('mes');
-  const series=[['turnover','Turnover',''],['volRate','Perda voluntária','6 3'],['involRate','Perda involuntária','2 3'],['absence','Absenteísmo¹','10 3 2 3']];
+  const series=[['turnover','Turnover'],['volRate','Perda voluntária'],['involRate','Perda involuntária'],['absence','Absenteísmo¹']];
   let movements=[],absences=[],rows=[],active=null,cutoff='',lastUpdate='',busy=false,stopWatch;
   function renderChart(){
     if(!rows.length||!$('annual-chart').clientWidth)return;
-    const width=$('annual-chart').clientWidth,height=$('annual-chart').clientHeight,left=34,right=12,top=14,bottom=30,plotW=width-left-right,plotH=height-top-bottom;
+    const {width,height}=$('annual-chart').getBoundingClientRect(),left=34,right=12,top=14,bottom=30,plotW=width-left-right,plotH=height-top-bottom;
     const values=rows.flatMap(r=>series.map(([key])=>r.kpis?.[key]).filter(v=>v!=null)),max=Math.max(1,...values),step=max<=2?.5:max<=10?2:max<=25?5:Math.ceil(max/4/5)*5,ceiling=Math.ceil(max/step)*step;
     const x=i=>left+i*plotW/11,y=value=>top+(1-value/ceiling)*plotH,selected=$('month').value;
     const readoutMonth=selected==='all'?rows.filter(r=>r.kpis).at(-1):rows[+selected];
-    $('chart-legend').innerHTML=series.map(([,label,dash],i)=>`<span class="legend-item"><svg aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--series-${i})" stroke-width="2.5" stroke-dasharray="${dash}"/></svg>${label}</span>`).join('');
+    $('chart-legend').innerHTML=series.map(([,label],i)=>`<span class="legend-item"><svg aria-hidden="true"><line x1="1" y1="4" x2="21" y2="4" stroke="var(--series-${i})" stroke-width="3" stroke-linecap="round"/></svg>${label}</span>`).join('');
     const grid=Array.from({length:Math.round(ceiling/step)+1},(_,i)=>{const v=i*step;return `<line class="chart-grid" x1="${left}" x2="${width-right}" y1="${y(v)}" y2="${y(v)}"/><text class="chart-axis" x="${left-7}" y="${y(v)+4}" text-anchor="end">${num(v,v%1?1:0)}%</text>`;}).join('');
     const bands=rows.map((r,i)=>`<g class="chart-point ${selected===String(i)?'is-selected':''}" role="button" tabindex="0" data-month="${i}" aria-label="${months[i]}: ${r.kpis?series.map(([key,label])=>`${label} ${pct(r.kpis[key])}`).join('; '):'não apurado'}"><title>${months[i]} · ${r.status}${r.kpis?' — '+series.map(([key,label])=>`${label}: ${pct(r.kpis[key])}`).join(' / '):''}</title><rect class="month-band" x="${Math.max(left-8,x(i)-plotW/22)}" y="${top}" width="${i===0||i===11?plotW/22+8:plotW/11}" height="${plotH+bottom}" rx="4"/><text class="chart-axis" x="${x(i)}" y="${height-8}" text-anchor="middle">${months[i].slice(0,3)}</text></g>`).join('');
-    const lines=series.map(([key,,dash],s)=>{
-      let previous=null,paths='',dots='';
+    const lines=series.map(([key],s)=>{
+      let previous=null,path='',partial='',dots='';
       rows.forEach((r,i)=>{const value=r.kpis?.[key];if(value==null){previous=null;return;}const point={x:x(i),y:y(value)};
-        if(previous)paths+=`<line x1="${previous.x}" y1="${previous.y}" x2="${point.x}" y2="${point.y}" stroke-dasharray="${r.status==='Parcial'?'3 4':dash}"/>`;
-        dots+=`<circle cx="${point.x}" cy="${point.y}" r="${selected===String(i)?4:2.5}"/>`;previous=point;
-      });return `<g aria-hidden="true" pointer-events="none" stroke="var(--series-${s})" stroke-width="2" fill="none">${paths}<g fill="var(--series-${s})" stroke="var(--rh-panel)">${dots}</g></g>`;
+        if(r.status==='Parcial'&&previous)partial+=`M ${previous.x} ${previous.y} L ${point.x} ${point.y} `;
+        else path+=`${previous?'L':'M'} ${point.x} ${point.y} `;
+        dots+=`<circle cx="${point.x}" cy="${point.y}" r="${selected===String(i)?4.5:3}" fill="${r.status==='Parcial'?'var(--rh-panel)':`var(--series-${s})`}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`;previous=point;
+      });return `<g aria-hidden="true" pointer-events="none" class="chart-series" stroke="var(--series-${s})" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="${path}" vector-effect="non-scaling-stroke"/><path d="${partial}" stroke-dasharray="7 5" vector-effect="non-scaling-stroke"/>${dots}</g>`;
     }).join('');
     $('annual-chart').innerHTML=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="Evolução mensal dos quatro indicadores em porcentagem. Selecione um mês para consultar os KPIs.">${grid}${bands}${lines}</svg>`;
     $('chart-readout').textContent=readoutMonth?`${months[readoutMonth.month]} · ${readoutMonth.status}${readoutMonth.kpis?' — '+series.map(([key,label])=>`${label}: ${pct(readoutMonth.kpis[key])}`).join(' · '):' — sem apuração'}`:'Sem meses apurados.';
