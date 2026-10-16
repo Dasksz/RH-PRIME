@@ -4,6 +4,7 @@
   const $=id=>document.getElementById(id),months=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const num=(v,d=0)=>v===null?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}),pct=v=>v===null?'—':num(v,2)+'%';
   const query=new URLSearchParams(location.search),requestedYear=query.get('ano'),requestedMonth=query.get('mes');
+  const landingAnchor=location.hash;let landingPending=true;
   const series=[['turnover','Turnover'],['volRate','Perda voluntária'],['involRate','Perda involuntária'],['absence','Absenteísmo¹']];
   let movements=[],absences=[],rows=[],active=null,cutoff='',lastUpdate='',busy=false,stopWatch;
   function renderChart(){
@@ -30,9 +31,10 @@
   function render(){
     const year=+$('year').value,month=$('month').value,today=RH.today();cutoff=today;rows=RHIndicators.annual(movements,absences,year,today);
     const state=`ano=${year}&mes=${month}`;
-    if($('details-link'))$('details-link').href=`detalhes_indicadores.html?${state}`;
-    $('back-link').href=`indicadores.html?${state}`;
-    history.replaceState(null,'',`${location.pathname}?${state}`);
+    if($('details-link'))$('details-link').href=`detalhes_indicadores.html?${state}#tabela`;
+    $('back-link').href=`indicadores.html?${state}#evolucao`;
+    if($('close-details'))$('close-details').href=`indicadores.html?${state}#evolucao`;
+    history.replaceState(null,'',`${location.pathname}?${state}${location.hash}`);
     const end=`${year}-12-31`<today?`${year}-12-31`:today;
     active=month==='all'?RHIndicators.calculate(movements,absences,`${year}-01-01`,end):rows[+month].kpis;
     const title=month==='all'?`Acumulado de ${year}`:`${months[+month]} de ${year}`,partial=year===+today.slice(0,4)&&(month==='all'||+month===+today.slice(5,7)-1);
@@ -59,6 +61,7 @@
       absences.forEach(r=>{const y=RHIndicators.date(r.data_inicio)?.slice(0,4)||/\/(\d{4})$/.exec(r.mes_ref||'')?.[1];if(y&&+y<=current)years.add(+y);});
       const selected=$('year').value||requestedYear;$('year').replaceChildren(...[...years].sort((a,b)=>b-a).map(y=>new Option(y,y)));$('year').value=years.has(+selected)?selected:current;
       lastUpdate=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date());$('dashboard').hidden=false;render();$('status').hidden=true;controls(false);
+      if(landingPending){landingPending=false;const target=landingAnchor==='#tabela'?$('tabela'):landingAnchor==='#evolucao'?$('evolucao'):null;if(target)requestAnimationFrame(()=>{target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:'instant'});});}
     }catch(error){console.error('Falha ao carregar indicadores',error);$('status').className='panel status error';$('status').textContent='Não foi possível carregar os indicadores. Use Atualizar para tentar novamente.';$('refresh').disabled=false;}finally{busy=false;}
   }
   function csv(){
