@@ -42,7 +42,7 @@
   return RHFichaPadrao.render(employee,documentRows(receipt,onlyOperation),empresa,hasReturns,hasDeliveries);
  }
  async function pdf(receipt,onlyOperation){
-  const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.innerHTML=documentHtml(receipt,onlyOperation);document.body.appendChild(container);
+  const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.setAttribute('aria-hidden','true');container.innerHTML=documentHtml(receipt,onlyOperation);document.body.appendChild(container);
   try{await html2pdf().set({margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+receipt.id+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy'],avoid:['tr','.signatures']}}).from(container.firstElementChild).save();}finally{container.remove();}
  }
  function Control({client,employee,suggestions,onSaved,onVerificationChange}){
@@ -124,7 +124,7 @@
    h('div',{className:'rh-equip-history-heading'},h('span',{className:'rh-equip-history-status'},icon('check',16)),h('div',null,h('h4',null,index===0?'Última Entrega':'Entrega Anterior'),h('p',null,icon('calendar',12),date(when)),expired&&h('span',{className:'rh-equip-expired-label'},'Verificação pendente · 180 dias'))),h('strong',{className:'rh-equip-items-label'},'Itens:'),
    h('ul',null,list.map(m=>h('li',{key:m.id},
     h('span',null,m.descricao+(m.ca?' (CA: '+m.ca+')':'')+' — Qtd: '+m.quantidade+(m.saldo!==m.quantidade?' · Em posse: '+m.saldo:'')),
-    h('button',{type:'button',className:'rh-equip-action rh-equip-date-edit',disabled:busy||!!editingDate,onClick:()=>startDateEdit(m),'aria-label':'Editar data da entrega de '+m.descricao},'Editar data'),auditLabel(m),
+    auditLabel(m),
     needsReview(m,verified,RH.today())&&h('small',{className:'rh-equip-review-note'},'Este item em posse completou 180 dias desde a entrega ou última conferência. Verifique suas condições.'),
     checks.filter(v=>v.entrega_id===m.id).sort((a,b)=>b.data_verificacao.localeCompare(a.data_verificacao)).map(v=>h('small',{key:v.id,className:'rh-equip-verified'},'Verificado em '+date(v.data_verificacao)+' — em boas condições')),
     m.entrega_origem_id&&h('small',null,'Reposição vinculada à entrega original'),
@@ -156,3 +156,4 @@
 
  global.RHEquipment={Control,nameParts,balances,latestChecks,latestCorrections,needsReview,documentRows,documentHtml};
 })(window);
+
