@@ -47,6 +47,14 @@
       <link rel="stylesheet" href="rh-responsive.css">
     <script src="rh-core.js"></script><script src="rh-search-focus.js?v=20261006"></script>
 <link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
+<style>
+  .rh-absence-action{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px}
+  [data-rh-theme=dark] .rh-absence-action{background:transparent!important;border-color:transparent!important;color:var(--rh-muted)!important}
+  [data-rh-theme=dark] .rh-absence-edit:hover{background:#203b4b!important;border-color:#3d6176!important;color:#a6cfff!important}
+  [data-rh-theme=dark] .rh-absence-delete:hover{background:#3a2c35!important;border-color:#714550!important;color:#f2adb5!important}
+  .rh-absence-action:focus-visible{outline:2px solid #6fbaa9;outline-offset:2px}
+  @media(max-width:767px),(pointer:coarse){.rh-absence-action{min-width:44px;min-height:44px}}
+</style>
 </head>
   <body>
     <div id="root"></div>
@@ -746,14 +754,16 @@
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   onClick={() => handleOpenEdit(item)}
-                                  className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                                  className="rh-absence-action rh-absence-edit p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                                  aria-label="Editar registro de ausência"
                                   title="Editar Registro"
                                 >
                                   <Pencil size={14} />
                                 </button>
                                 <button
                                   onClick={() => handleExcluirAbsenteismo(item.id)}
-                                  className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+                                  className="rh-absence-action rh-absence-delete p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+                                  aria-label="Excluir registro de ausência"
                                   title="Excluir Registro"
                                 >
                                   <Trash2 size={14} />

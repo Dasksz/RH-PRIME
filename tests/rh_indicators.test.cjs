@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const html=fs.readFileSync('indicadores.html','utf8'),source=html.match(/<script id="indicator-engine">([\s\S]*?)<\/script>/)[1];
+const html=fs.readFileSync('indicadores.html','utf8'),source=fs.readFileSync('rh-indicators-engine.js','utf8');
 const context={};vm.createContext(context);vm.runInContext(source+';globalThis.engine=RHIndicators;',context);const E=context.engine;
 const employee=(a,b=null,motivo=null,load=220)=>({data_admissao:a,data_desligamento:b,motivo_saida:motivo,carga_horaria:load});
 const staff=[employee('2025-06-01'),employee('2025-06-01','2026-01-01','voluntario'),employee('2026-01-01'),employee('2026-01-31','2026-01-31','involuntario'),employee('2026-02-01')];
@@ -22,4 +22,5 @@ const legacy=[{mes_ref:'10/2026',horas_perdidas:8}];assert.equal(E.calculate([],
 const sunday=E.calculate([],[{data_inicio:'2026-10-04',data_fim:'2026-10-04',horas_perdidas:4}],'2026-10-01','2026-10-31');assert.equal(sunday.lost,4);
 const acrossYears=E.calculate([employee('2024-01-01')],[],'2025-12-01','2026-01-31');assert.equal(acrossYears.expected,440);
 for(const script of html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g))new vm.Script(script[1]);
+new vm.Script(fs.readFileSync('rh-indicators.js','utf8'));
 console.log('Indicadores: limites de vínculo, quadro médio, taxas, horas ponderadas, corte de datas, legado, meses futuros e sintaxe verificados.');
