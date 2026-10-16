@@ -1,6 +1,11 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const ctx={window:{},React:{createElement(){}},console};vm.createContext(ctx);vm.runInContext(fs.readFileSync('rh-ficha-padrao.js','utf8'),ctx);ctx.RHFichaPadrao=ctx.window.RHFichaPadrao;vm.runInContext(fs.readFileSync('rh-equipamentos.js','utf8'),ctx);
 const api=ctx.window.RHEquipment;
+assert.equal(api.needsReview({id:'old',saldo:1,data_movimento:'2026-01-14'},{},'2026-10-16'),true);
+assert.equal(api.needsReview({id:'recent',saldo:2,data_movimento:'2026-09-18'},{},'2026-10-16'),false);
+assert.equal(api.needsReview({id:'old',saldo:0,data_movimento:'2026-01-14'},{},'2026-10-16'),false);
+assert.equal(api.needsReview({id:'old',saldo:1,data_movimento:'2026-01-14'},{old:{data_verificacao:'2026-10-01'}},'2026-10-16'),false);
+assert.equal(api.latestCorrections([{entrega_id:'a',created_at:'2026-10-15',primeiro_nome:'Ana'},{entrega_id:'a',created_at:'2026-10-16',primeiro_nome:'Daniel'}]).a.primeiro_nome,'Daniel');
 assert.equal(api.nameParts('BOTA - MARCA X - tamanho 42').equipamento,'BOTA');
 assert.equal(api.nameParts('BOTA - MARCA X - tamanho 42').complemento,'MARCA X - tamanho 42');
 const rows=[{id:'a',tipo:'entrega',quantidade:2,descricao:'BOTA <img>',data_movimento:'2026-08-04',ca:'123',operacao_id:'old'},{id:'b',tipo:'devolucao',quantidade:1,entrega_origem_id:'a',motivo:'Rasgo',data_movimento:'2026-10-15',operacao_id:'new'},{id:'c',tipo:'entrega',quantidade:1,entrega_origem_id:'a',descricao:'BOTA - NOVA',data_movimento:'2026-10-15',operacao_id:'new'}];
