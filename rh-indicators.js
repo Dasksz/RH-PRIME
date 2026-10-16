@@ -26,7 +26,7 @@
     $('annual-chart').innerHTML=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="Evolução mensal dos quatro indicadores em porcentagem. Selecione um mês para consultar os KPIs.">${grid}${bands}${lines}</svg>`;
     $('chart-readout').textContent=readoutMonth?`${months[readoutMonth.month]} · ${readoutMonth.status}${readoutMonth.kpis?' — '+series.map(([key,label])=>`${label}: ${pct(readoutMonth.kpis[key])}`).join(' · '):' — sem apuração'}`:'Sem meses apurados.';
   }
-  const controls=disabled=>['refresh','export','print'].forEach(id=>$(id).disabled=disabled);
+  const controls=disabled=>['refresh','export','print','help-open'].forEach(id=>$(id).disabled=disabled);
   function render(){
     const year=+$('year').value,month=$('month').value,today=RH.today();cutoff=today;rows=RHIndicators.annual(movements,absences,year,today);
     const state=`ano=${year}&mes=${month}`;
@@ -68,6 +68,11 @@
     const blob=new Blob(['\uFEFF'+[headings,...values].map(r=>r.map(cell).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`PRIME-RH-indicadores-${$('year').value}.csv`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   months.forEach((m,i)=>$('month').add(new Option(m,i)));$('year').addEventListener('change',render);$('month').addEventListener('change',render);$('refresh').addEventListener('click',load);$('export').addEventListener('click',csv);$('print').addEventListener('click',()=>window.print());
+  let previousOverflow='';
+  $('help-open').addEventListener('click',()=>{previousOverflow=document.body.style.overflow;$('indicator-help').showModal();document.body.style.overflow='hidden';});
+  $('help-close').addEventListener('click',()=>$('indicator-help').close());
+  $('indicator-help').addEventListener('close',()=>{document.body.style.overflow=previousOverflow;});
+  $('indicator-help').addEventListener('click',event=>{if(event.target!==$('indicator-help'))return;const rect=$('indicator-help').getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)$('indicator-help').close();});
   if(requestedMonth==='all'||/^(?:[0-9]|1[01])$/.test(requestedMonth||''))$('month').value=requestedMonth;
   new ResizeObserver(()=>renderChart()).observe($('annual-chart'));
   window.addEventListener('beforeprint',renderChart);window.addEventListener('afterprint',renderChart);
