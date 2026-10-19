@@ -38,8 +38,11 @@
   const empresa=Object.fromEntries(Object.entries({...company,nome:company.nome||e.local_registro}).map(([k,v])=>[k,esc(v)]));
   const current=s.movimentos.filter(m=>m.operacao_id===receipt.id);
   const currentChecks=(s.verificacoes||[]).filter(v=>v.operacao_id===receipt.id);
-  const hasReturns=current.some(m=>m.tipo==='devolucao'),hasDeliveries=(current.length?current:currentChecks.length?[]:relevant).some(m=>m.tipo==='entrega');
-  return RHFichaPadrao.render(employee,documentRows(receipt,onlyOperation),empresa,hasReturns,hasDeliveries);
+  const currentReturns=current.some(m=>m.tipo==='devolucao');
+  const hasReturns=(onlyOperation?current:s.movimentos).some(m=>m.tipo==='devolucao');
+  const returnMode=currentReturns?'current':hasReturns?'history':'none';
+  const hasDeliveries=(current.length?current:currentChecks.length?[]:relevant).some(m=>m.tipo==='entrega');
+  return RHFichaPadrao.render(employee,documentRows(receipt,onlyOperation),empresa,returnMode,hasDeliveries);
  }
  async function pdf(receipt,onlyOperation){
   const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.setAttribute('aria-hidden','true');container.innerHTML=documentHtml(receipt,onlyOperation);document.body.appendChild(container);

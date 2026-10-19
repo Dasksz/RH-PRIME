@@ -1,6 +1,6 @@
 /* Modelo de ficha/termo preservado do Controle de Entregas anterior. */
 (function(global){
- function render(emp, items, empresaInfo, hasReturns, hasDeliveries) {
+ function render(emp, items, empresaInfo, returnMode, hasDeliveries) {
           const formatShortDate = (rawDate) => {
             if (!rawDate) return "";
             const str = String(rawDate).trim();
@@ -54,6 +54,7 @@
 
           // Add the layout HTML
           // Pagination logic: first page max 5 items, subsequent pages max 15 items.
+          const hasReturns = returnMode !== "none";
           const firstPageLimit = hasReturns && hasDeliveries ? 3 : 5;
           const subsequentPageLimit = 15;
 
@@ -159,52 +160,41 @@
 
             const isLastPage = currentItemIndex + limit >= items.length || items.length === 0;
 
-            const signatures = [hasReturns ? `
-                <div style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
+            let termTitle = "Termo de Verificação";
+            let termText = "Declaro ciência das movimentações e do saldo de equipamentos relacionados nesta ficha, conforme suas datas, motivos e quantidades. Baixas por perda ou extravio não representam devolução física.";
+            if (returnMode === "current" && hasDeliveries) {
+              termTitle = "Termo de Movimentação e Responsabilidade de EPI";
+              termText = "Declaro que conferi os materiais relacionados nesta ficha e confirmo a devolução dos itens indicados para devolução e o recebimento dos itens indicados como entregues, conforme as datas, quantidades e demais informações registradas. Responsabilizo-me pela guarda e conservação dos itens recebidos.";
+            } else if (returnMode === "current") {
+              termTitle = "Termo de Movimentação e Responsabilidade de EPI";
+              termText = "Declaro que conferi os materiais relacionados nesta ficha e confirmo a devolução dos itens indicados, conforme as datas, quantidades e demais informações registradas.";
+            } else if (returnMode === "history" && hasDeliveries) {
+              termTitle = "Termo de Movimentação e Responsabilidade de EPI";
+              termText = "Declaro que conferi e estou de acordo com as movimentações registradas nesta ficha, incluindo o histórico de devoluções com suas respectivas datas e informações. Confirmo o recebimento dos itens registrados como entregues, nas quantidades e condições indicadas, e responsabilizo-me pela guarda e conservação dos itens que permanecem comigo.";
+            } else if (returnMode === "history") {
+              termTitle = "Termo de Movimentação e Responsabilidade de EPI";
+              termText = "Declaro ciência das movimentações registradas nesta ficha e do histórico de devoluções anteriormente realizadas, com suas respectivas datas, quantidades e motivos.";
+            } else if (hasDeliveries) {
+              termTitle = "Termo de Recebimento de EPI";
+              termText = "Declaro que conferi os materiais relacionados nesta ficha e confirmo o recebimento dos itens registrados como entregues, nas datas, quantidades e condições informadas. Responsabilizo-me pela guarda e conservação dos itens que permanecem comigo.";
+            }
+            const signaturesBlock = isLastPage ? `
+                <div class="signatures" style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
                     <div style="border: 1px solid #a0a0a0; padding: 10px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <strong style="font-size: 10px; color: #002060; display: block; margin-bottom: 4px; text-transform: uppercase;">Termo de Devolução</strong>
-                            <p style="font-size: 9px; margin: 0; line-height: 1.3; color: #111;">
-                                Declaro ter devolvido à empresa o(s) item(ns) acima relacionado(s) que possuem a data de devolução preenchida nesta ficha, no estado de conservação decorrente do seu uso regular.
-                            </p>
+                            <strong style="font-size: 10px; color: #002060; display: block; margin-bottom: 4px; text-transform: uppercase;">${termTitle}</strong>
+                            <p style="font-size: 9px; margin: 0; line-height: 1.3; color: #111;">${termText}</p>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px;">
                             <div style="font-size: 9px; font-weight: bold;">Data: ____/____/________</div>
                             <div style="text-align: center; width: 50%;">
                                 <div style="border-bottom: 1px solid black; width: 100%; margin-bottom: 4px;"></div>
-                                <span style="font-size: 8.5px; font-weight: bold; text-transform: uppercase;">Assinatura do Colaborador (Devolução)</span>
+                                <span style="font-size: 8.5px; font-weight: bold; text-transform: uppercase;">${hasReturns || hasDeliveries ? "Assinatura do Colaborador (Entrega e/ou Devolução)" : "Assinatura do Colaborador"}</span>
                             </div>
                         </div>
                     </div>
                 </div>
-              ` : "", hasDeliveries ? `
-                <div style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
-                    <div style="border: 1px solid #a0a0a0; padding: 10px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div>
-                            <strong style="font-size: 10px; color: #002060; display: block; margin-bottom: 4px; text-transform: uppercase;">Termo de Recebimento (Entrega)</strong>
-                            <p style="font-size: 9px; margin: 0; line-height: 1.3; color: #111;">
-                                Declaro ter recebido da empresa o(s) item(ns) acima relacionado(s) em perfeitas condições de uso, comprometendo-me a zelar pela sua guarda e conservação, assumindo total responsabilidade conforme os termos desta ficha.
-                            </p>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px;">
-                            <div style="font-size: 9px; font-weight: bold;">Data: ____/____/________</div>
-                            <div style="text-align: center; width: 50%;">
-                                <div style="border-bottom: 1px solid black; width: 100%; margin-bottom: 4px;"></div>
-                                <span style="font-size: 8.5px; font-weight: bold; text-transform: uppercase;">Assinatura do Colaborador</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-              ` : "", !hasReturns && !hasDeliveries ? `
-                <div style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
-                  <strong style="font-size: 10px; color: #002060; text-transform: uppercase;">Termo de Verificação</strong>
-                  <p style="font-size: 9px;">Declaro ciência das movimentações e do saldo de equipamentos relacionados nesta ficha, conforme suas datas, motivos e quantidades. Baixas por perda ou extravio não representam devolução física.</p>
-                  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:25px;font-size:9px;">
-                    <span>Data: ____/____/________</span><div style="text-align:center;width:50%;border-top:1px solid black;padding-top:4px;">Assinatura do Colaborador</div>
-                  </div>
-                </div>
-              ` : ""].filter(Boolean);
-            const signaturesBlock = isLastPage ? signatures.join('') : "";
+              ` : "";
 
             pagesHtml += `
                 <div style="${!isFirstPage ? "page-break-before: always; margin-top: 20px;" : ""}">
