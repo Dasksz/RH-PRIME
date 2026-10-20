@@ -282,7 +282,7 @@
       function rotuloEmpresaFiltro(empresa) {
         const cnpj = (empresa.cnpj || "").replace(/\D/g, "");
         const unidade = cnpj === "52522019000100" ? "ILHÉUS" : cnpj === "52522019000282" ? "JEQUIÉ" : "";
-        return `${empresa.nome}${unidade ? ` — ${unidade}` : ""}`;
+        return unidade ? `PRIME — ${unidade}` : empresa.nome;
       }
 
       function App() {
@@ -322,9 +322,6 @@
 
         const opcoesEmpresasFiltro = useMemo(() => {
           const opcoes = empresas.map((e) => ({ value: String(e.id), label: rotuloEmpresaFiltro(e) }));
-          if (colaboradores.some((c) => !empresaIdLegada(c, empresas) && c.local_registro?.trim())) {
-            opcoes.push({ value: "__sem_filial__", label: "PRIME DISTRIBUICAO LTDA — FILIAL NÃO IDENTIFICADA" });
-          }
           return opcoes.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
         }, [colaboradores, empresas]);
 
@@ -523,7 +520,7 @@
             if (filterStatus === "desligados" && !item.isDesligado) return false;
             if (filterFuncao && normalize(item.funcao) !== normalize(filterFuncao)) return false;
             if (filterSetor && normalize(item.setor) !== normalize(filterSetor)) return false;
-            if (filterEmpresa && filterEmpresa !== empresaIdLegada(item, empresas) && !(filterEmpresa === "__sem_filial__" && !empresaIdLegada(item, empresas) && normalize(item.local_registro).includes("PRIME DISTRIBUICAO"))) return false;
+            if (filterEmpresa && filterEmpresa !== empresaIdLegada(item, empresas)) return false;
 
             // Filtro de Busca (Nome, CPF, Função, Setor, Unidade)
             const matchNome = (item.nome || "").toLowerCase().includes(searchLower);

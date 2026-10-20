@@ -973,7 +973,7 @@
             if (!matchesSearch) return false;
             if (filterFuncao && normalize(emp.cargo) !== normalize(filterFuncao)) return false;
             if (filterSetor && normalize(emp.setor) !== normalize(filterSetor)) return false;
-            if (filterEmpresa && employeeCompanyId(emp) !== filterEmpresa && !(filterEmpresa === "__sem_filial__" && !employeeCompanyId(emp) && emp.local_registro?.toUpperCase().includes("PRIME DISTRIBUICAO"))) return false;
+            if (filterEmpresa && employeeCompanyId(emp) !== filterEmpresa) return false;
             if (statusFilter === "todos") return true;
             return getEmployeeStatus(emp) === statusFilter;
           });
@@ -986,12 +986,9 @@
         const empresaOptions = useMemo(() => {
           const options = empresas.map((empresa) => {
             const cnpj = (empresa.cnpj || "").replace(/\D/g, "");
-            const unidade = cnpj === "52522019000100" ? " — ILHÉUS" : cnpj === "52522019000282" ? " — JEQUIÉ" : "";
-            return { value: String(empresa.id), label: `${empresa.nome}${unidade}` };
+            const unidade = cnpj === "52522019000100" ? "ILHÉUS" : cnpj === "52522019000282" ? "JEQUIÉ" : "";
+            return { value: String(empresa.id), label: unidade ? `PRIME — ${unidade}` : empresa.nome };
           });
-          if (employees.some((employee) => !employeeCompanyId(employee) && employee.local_registro?.toUpperCase().includes("PRIME DISTRIBUICAO"))) {
-            options.push({ value: "__sem_filial__", label: "PRIME DISTRIBUICAO LTDA — FILIAL NÃO IDENTIFICADA" });
-          }
           return options;
         }, [empresas, employees]);
 
@@ -1972,7 +1969,7 @@
                       if (filterSetor && normalize(d.setor) !== normalize(filterSetor)) return false;
                       const cpfDevolucao = (d.cpf || "").replace(/\D/g, "");
                       const employee = employees.find((emp) => (emp.cpf || "").replace(/\D/g, "") === cpfDevolucao);
-                      if (filterEmpresa && filterEmpresa !== employeeCompanyId(employee || d) && !(filterEmpresa === "__sem_filial__" && !employeeCompanyId(employee || d) && (employee || d).local_registro?.toUpperCase().includes("PRIME DISTRIBUICAO"))) return false;
+                      if (filterEmpresa && filterEmpresa !== employeeCompanyId(employee || d)) return false;
                       return (
                         !search ||
                         (d.funcionario_nome && d.funcionario_nome.toLowerCase().includes(search)) ||
