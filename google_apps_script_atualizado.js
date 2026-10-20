@@ -9,7 +9,7 @@ const SHEET_CONFIG = {
   'Controle EPI e Fardamento': {
     tableName: 'funcionarios_epi', headerRow: 1, nameField: 'cpf',
     fields: ['admissao','nome','cpf','funcao','setor','unidade','epi_data','epi_itens','epi_link','fardamento_data','fardamento_itens','fardamento_link','validacao','local_registro','whatsapp','nascimento','carga_horaria','sexo','tamanho_farda','calca','calcado'],
-    extra: ['id','data_desligamento','motivo_saida'], textDates: true
+    extra: ['id','data_desligamento','motivo_saida','carga_horaria_semanal','jornada_diaria_minutos','dias_trabalho_semana','data_desligamento_programada','cumprindo_aviso_previo'], textDates: true
   },
   movimentacoes: {
     tableName: 'rh_movimentacoes', headerRow: 1, nameField: 'funcionario_nome',
@@ -40,7 +40,7 @@ const SHEET_CONFIG = {
 };
 SHEET_CONFIG['Movimentações de equipamentos'] = {
   tableName: 'rh_equipment_movements', headerRow: 1, nameField: 'id', readOnlyAll: true,
-  fields: ['id','funcionario_nome','categoria','tipo','descricao','ca','quantidade','data_movimento','motivo','observacao','entrega_origem_id','operacao_id','comprovante','legado'],
+  fields: ['id','funcionario_nome','categoria','tipo','descricao','ca','tamanho','quantidade','data_movimento','motivo','observacao','entrega_origem_id','operacao_id','comprovante','legado'],
   extra: ['funcionario_id','equipamento','complemento','created_by','created_at']
 };
 SHEET_CONFIG['Verificações de equipamentos'] = {
@@ -50,11 +50,11 @@ SHEET_CONFIG['Verificações de equipamentos'] = {
 };
 // Equipamentos são lançados no sistema; estes campos são um resumo do saldo em posse.
 SHEET_CONFIG['Controle EPI e Fardamento'].readOnly = ['epi_itens','epi_data','epi_link','fardamento_itens','fardamento_data','fardamento_link'];
-const RH_DATES = ['data_verificacao','data_movimento','admissao','nascimento','data_admissao','data_desligamento','data_inicio','data_fim','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','data_inicio_programada','data_fim_programada','data_retorno','epi_data','fardamento_data'];
-const RH_NUMBERS = ['carga_horaria','horas_previstas','horas_perdidas','dias_direito','dias_gozados','dias_abonados','dias_programados','dias_saldo'];
+const RH_DATES = ['data_verificacao','data_movimento','admissao','nascimento','data_admissao','data_desligamento','data_desligamento_programada','data_inicio','data_fim','data_inicio_aquisitivo','data_fim_aquisitivo','data_vencimento','data_inicio_programada','data_fim_programada','data_retorno','epi_data','fardamento_data'];
+const RH_NUMBERS = ['carga_horaria','carga_horaria_semanal','jornada_diaria_minutos','dias_trabalho_semana','horas_previstas','horas_perdidas','dias_direito','dias_gozados','dias_abonados','dias_programados','dias_saldo'];
 const RH_JSON = ['itens_checked','historico_periodos'];
 
-const RH_VERSION = "2026-10-15-verificacoes2";
+const RH_VERSION = "2026-10-20-rh-final2";
 const RH_CONFIG_INICIAL = {
   "SUPABASE_URL": "https://gcksbfstheavpfgcdndb.supabase.co",
   "SPREADSHEET_ID": "1wJJu3N-lehjZaQw2JtfWLXdss6YbVP1JbfveDzWkGRg",
@@ -115,7 +115,7 @@ function numeroRH(value, field) {
   if (value === '' || value === null || value === undefined) return null;
   const n = typeof value === 'number' ? value : Number(String(value).trim().replace(',','.'));
   if (!Number.isFinite(n) || n < 0) throw new Error('Valor inválido em ' + field);
-  if (!['horas_previstas','horas_perdidas'].includes(field) && !Number.isInteger(n)) throw new Error(field + ' precisa ser inteiro.');
+  if (!['horas_previstas','horas_perdidas','carga_horaria_semanal'].includes(field) && !Number.isInteger(n)) throw new Error(field + ' precisa ser inteiro.');
   return n;
 }
 function calcularHorasUteis(inicio, fim, carga) {
@@ -205,6 +205,11 @@ function buildPayload(sheetName, rowData) {
       const textDate = (config.textDates && ['admissao','nascimento','epi_data','fardamento_data'].includes(field)) || ['epi_data','fardamento_data'].includes(field);
       value = textDate ? (iso ? iso.split('-').reverse().join('/') : '') : iso;
     } else if (RH_NUMBERS.includes(field)) value = numeroRH(value,field);
+    else if (field === 'cumprindo_aviso_previo') {
+      if (value === true || value === false) {} else if (normalizarNomeRH(value) === 'SIM') value = true;
+      else if (['NÃO','NAO',''].includes(normalizarNomeRH(value))) value = false;
+      else throw new Error('Aviso prévio deve ser SIM ou NÃO.');
+    }
     else if (RH_JSON.includes(field)) value = value === '' || value == null ? null : typeof value === 'string' ? JSON.parse(value) : value;
     else if (config.tableName === 'epi_funcao' && field !== 'funcao') {
       if (value === true || value === false) {} else if (normalizarNomeRH(value) === 'SIM') value = true;
@@ -482,6 +487,27 @@ function sincronizarControleEPI() { return comLockRH(() => receberTabelaRH(plani
 // Mantém o nome antigo para botões existentes; não combina envio e recebimento.
 function sincronizarTudoSupabase() { return syncAllToSupabase(); }
 function respostaRH(data) { return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON); }
+function sincronizarLoteFuncionariosWebhook(ids) {
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 500 || ids.some(id => !/^[a-f0-9-]{36}$/i.test(String(id)))) throw new Error('Lote de colaboradores inválido.');
+  const target = configPorTabelaRH('funcionarios_epi'), config = target.config;
+  const ss = planilhaRH(), sheet = ss.getSheetByName(target.name);
+  if (!sheet) throw new Error('Aba ausente: ' + target.name);
+  const map = layoutRH(sheet,config,false), uniqueIds = Array.from(new Set(ids.map(String)));
+  let written = 0;
+  for (let offset = 0; offset < uniqueIds.length; offset += 100) {
+    const part = uniqueIds.slice(offset,offset+100);
+    const query = 'select=*&id=in.%28' + part.join(',') + '%29';
+    const records = requestRH('funcionarios_epi','get',query);
+    if (records.length !== part.length) throw new Error('O banco retornou ' + records.length + ' de ' + part.length + ' colaboradores do lote.');
+    records.forEach(record => {
+      let row = acharLinhaRH(sheet,config,map,record,null);
+      if (row === -1) row = sheet.getLastRow()+1;
+      escreverRegistroRH(sheet,config,map,row,record);
+      written++;
+    });
+  }
+  return written;
+}
 function doPost(e) {
   try {
     if (!e || !e.postData) throw new Error('Payload ausente.');
@@ -491,6 +517,10 @@ function doPost(e) {
     // Ative a propriedade somente após configurar o mesmo token na URL dos webhooks.
     if (token && (!e.parameter || e.parameter.token !== token)) throw new Error('Webhook não autorizado.');
     if (data.schema && data.schema !== 'public') throw new Error('Schema não permitido.');
+    if (data.type === 'BATCH') {
+      if (data.table !== 'funcionarios_epi' || !Array.isArray(data.ids)) throw new Error('Lote não permitido.');
+      return comLockRH(() => respostaRH({status:'success',action:'batch_updated',count:sincronizarLoteFuncionariosWebhook(data.ids)}));
+    }
     if (!['INSERT','UPDATE','DELETE'].includes(data.type)) throw new Error('Evento inválido.');
     return comLockRH(() => {
       const target = configPorTabelaRH(data.table), config = target.config;

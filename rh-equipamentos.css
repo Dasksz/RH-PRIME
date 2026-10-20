@@ -87,4 +87,9 @@ html[data-rh-theme=dark] .rh-equip input,html[data-rh-theme=dark] .rh-equip sele
 .rh-equip-expired-label{display:inline-flex;margin-top:8px;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;text-transform:uppercase}
 .rh-equip-authorship{display:grid;gap:4px;margin:8px 0 12px;line-height:1.5}.rh-equip-authorship small{font-size:12px}.rh-equip-date-edit{display:inline-flex!important;min-height:36px;padding:6px 10px!important;margin:4px 0 4px 12px;float:right}.rh-equip-review-note{display:block;color:var(--rh-muted);font-size:12px;margin:8px 0}.rh-equip-date-form{scroll-margin-top:100px}.rh-equip-date-form fieldset{border:0;padding:0;margin:0;display:grid;gap:16px}.rh-equip-date-form label{display:grid;gap:6px;font-weight:600;font-size:13px}.rh-equip-date-form textarea{min-height:80px;padding:12px;border:1px solid var(--rh-border);border-radius:8px;background:var(--rh-panel);color:var(--rh-ink);font:inherit}.rh-equip-date-note{font-size:12px;color:var(--rh-muted)}
 @media(max-width:650px){.rh-equip-date-edit{min-height:44px;margin:8px 0;float:none}.rh-equip-authorship small{font-size:11px}}
+.rh-equip-name-edit{max-width:520px;margin:10px 0}.rh-equip-name-edit input{background:var(--rh-soft,#f8fafc);border-color:var(--rh-border,#dce5e9);font-weight:500}
+.rh-equip .rh-equip-fields.rh-equip-correction-fields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.rh-equip .rh-equip-correction-fields label:first-child{grid-column:auto}
+@media(max-width:900px){.rh-equip .rh-equip-fields.rh-equip-correction-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:500px){.rh-equip .rh-equip-fields.rh-equip-correction-fields{grid-template-columns:minmax(0,1fr)}}
 
