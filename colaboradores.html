@@ -276,13 +276,14 @@
         if (registro.includes("JEQUIE")) return String(empresasLista.find((e) => (e.cnpj || "").replace(/\D/g, "") === "52522019000282")?.id || "");
         if (registro.includes("ILHEUS")) return String(empresasLista.find((e) => (e.cnpj || "").replace(/\D/g, "") === "52522019000100")?.id || "");
         if (registro.includes("NUNES")) return String(empresasLista.find((e) => (e.cnpj || "").replace(/\D/g, "") === "48986353000139")?.id || "");
+        if (registro.includes("PRIME DISTRIBUICAO")) return String(empresasLista.find((e) => (e.cnpj || "").replace(/\D/g, "") === "52522019000100")?.id || "");
         return "";
       }
 
       function rotuloEmpresaFiltro(empresa) {
         const cnpj = (empresa.cnpj || "").replace(/\D/g, "");
         const unidade = cnpj === "52522019000100" ? "ILHÉUS" : cnpj === "52522019000282" ? "JEQUIÉ" : "";
-        return unidade ? `PRIME — ${unidade}` : empresa.nome;
+        return unidade ? `${empresa.nome} - ${unidade}` : empresa.nome;
       }
 
       function App() {
