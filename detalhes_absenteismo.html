@@ -45,7 +45,7 @@
       }
     </style>
       <link rel="stylesheet" href="rh-responsive.css">
-    <script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020d"></script><script src="rh-search-focus.js?v=20261006"></script>
+    <script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020e"></script><script src="rh-search-focus.js?v=20261006"></script>
 <link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
 <style>
   .rh-absence-action{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px}
@@ -729,13 +729,13 @@
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
-                  <rh-search-select aria-label="Filtrar por função" value={funcaoFiltro} onInput={(e) => setFuncaoFiltro(e.target.value)} className="w-full">
+                  <rh-search-select aria-label="Filtrar por função" filter-label="Função" value={funcaoFiltro} onInput={(e) => setFuncaoFiltro(e.target.value)} className="w-full">
                     <option value="">Todas as funções</option>{opcoesFuncoes.map((value) => <option key={value} value={value}>{value}</option>)}
                   </rh-search-select>
-                  <rh-search-select aria-label="Filtrar por setor" value={setorFiltro} onInput={(e) => setSetorFiltro(e.target.value)} className="w-full">
+                  <rh-search-select aria-label="Filtrar por setor" filter-label="Setor" value={setorFiltro} onInput={(e) => setSetorFiltro(e.target.value)} className="w-full">
                     <option value="">Todos os setores</option>{opcoesSetores.map((value) => <option key={value} value={value}>{value}</option>)}
                   </rh-search-select>
-                  <rh-search-select aria-label="Filtrar por empresa" value={empresaFiltro} onInput={(e) => setEmpresaFiltro(e.target.value)} className="w-full">
+                  <rh-search-select aria-label="Filtrar por empresa" filter-label="Empresa" value={empresaFiltro} onInput={(e) => setEmpresaFiltro(e.target.value)} className="w-full">
                     <option value="">Todas as empresas</option>{opcoesEmpresas.map((value) => <option key={value} value={value}>{value}</option>)}
                   </rh-search-select>
                 </div>
