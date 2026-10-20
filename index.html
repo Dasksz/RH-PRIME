@@ -39,7 +39,7 @@
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
       <link rel="stylesheet" href="rh-responsive.css">
-    <script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020b"></script><script src="rh-navigation.js?v=20261006"></script><script src="rh-search-focus.js?v=20261006"></script>
+    <script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020c"></script><script src="rh-navigation.js?v=20261006"></script><script src="rh-search-focus.js?v=20261006"></script>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#102c38">
 <link rel="stylesheet" href="rh-equipamentos.css?v=20261016g"><link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="rh-mobile-menus.css?v=20261006"><script src="rh-theme.js"></script>
 </head>
@@ -1854,16 +1854,16 @@
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-                    <rh-search-select aria-label="Filtrar por função" value={filterFuncao} onInput={(e) => setFilterFuncao(e.target.value)} className="w-full">
+                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                    <rh-search-select aria-label="Filtrar por função" value={filterFuncao} onInput={(e) => setFilterFuncao(e.target.value)} className="w-full compact">
                       <option value="">Todas as funções</option>
                       {funcaoOptions.map((value) => <option key={value} value={value}>{value}</option>)}
                     </rh-search-select>
-                    <rh-search-select aria-label="Filtrar por setor" value={filterSetor} onInput={(e) => setFilterSetor(e.target.value)} className="w-full">
+                    <rh-search-select aria-label="Filtrar por setor" value={filterSetor} onInput={(e) => setFilterSetor(e.target.value)} className="w-full compact">
                       <option value="">Todos os setores</option>
                       {setorOptions.map((value) => <option key={value} value={value}>{value}</option>)}
                     </rh-search-select>
-                    <rh-search-select aria-label="Filtrar por empresa" value={filterEmpresa} onInput={(e) => setFilterEmpresa(e.target.value)} className="w-full">
+                    <rh-search-select aria-label="Filtrar por empresa" value={filterEmpresa} onInput={(e) => setFilterEmpresa(e.target.value)} className="w-full compact">
                       <option value="">Todas as empresas</option>
                       {empresaOptions.map((value) => <option key={value} value={value}>{value}</option>)}
                     </rh-search-select>

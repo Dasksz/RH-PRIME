@@ -44,6 +44,7 @@
           *{box-sizing:border-box}
           .trigger{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--rs-border);border-radius:12px;background:var(--rs-panel);color:var(--rs-ink);font:inherit;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
           .trigger:hover,.trigger:focus-visible{border-color:var(--rs-accent);outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--rs-accent) 25%,transparent)}
+          :host(.compact) .trigger{min-height:34px;padding:6px 8px;border-radius:9px;font-size:12px}
           .selected{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.chevron{width:9px;height:9px;flex:none;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-5px 3px 0;opacity:.75}
           .panel{position:absolute;z-index:1000;top:calc(100% + 5px);left:0;right:0;padding:8px;border:1px solid var(--rs-border);border-radius:12px;background:var(--rs-panel);box-shadow:0 14px 32px #0005}
           .search{display:block;width:100%;height:40px;padding:8px 10px;border:1px solid var(--rs-border);border-radius:8px;background:var(--rs-soft);color:var(--rs-ink);font:inherit;outline:none;margin-bottom:7px}
