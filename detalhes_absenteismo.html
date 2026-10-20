@@ -130,6 +130,9 @@
         const [isLoading, setIsLoading] = useState(true);
         const [mesFiltro, setMesFiltro] = useState("todos");
         const [funcFiltro, setFuncFiltro] = useState("todos");
+        const [funcaoFiltro, setFuncaoFiltro] = useState("");
+        const [setorFiltro, setSetorFiltro] = useState("");
+        const [empresaFiltro, setEmpresaFiltro] = useState("");
         const [searchTerm, setSearchTerm] = useState("");
         const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
 
@@ -202,6 +205,9 @@
           const urlParams = new URLSearchParams(window.location.search);
           const mesUrl = urlParams.get("mes");
           if (mesUrl) setMesFiltro(mesUrl);
+          setFuncaoFiltro(urlParams.get("funcao") || "");
+          setSetorFiltro(urlParams.get("setor") || "");
+          setEmpresaFiltro(urlParams.get("empresa") || "");
         }, []);
 
         // Lock background scroll when modal is open
@@ -249,7 +255,7 @@
 
             const { data: colabData, error: colabErr } = await supabase
               .from("funcionarios_epi")
-              .select("id, nome, cpf, carga_horaria")
+              .select("id, nome, cpf, carga_horaria, funcao, setor, local_registro")
               .order("nome", { ascending: true });
 
             if (colabErr) throw colabErr;
@@ -287,8 +293,17 @@
 
         // Dados Filtrados
         const dadosFiltrados = useMemo(() => {
+          const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+          const employeeFor = (item) => colaboradores.find((c) => c.id === item.funcionario_id) || colaboradores.find((c) => item.cpf && c.cpf && normalize(c.cpf.replace(/\D/g, "")) === normalize(item.cpf.replace(/\D/g, ""))) || colaboradores.find((c) => normalize(c.nome) === normalize(item.funcionario_nome));
           return (mesFiltro === "todos" ? absenteismo : RH.absByMonth(absenteismo)).filter((item) => {
             if (mesFiltro !== "todos" && item.mes_ref !== mesFiltro) return false;
+            if (funcaoFiltro || setorFiltro || empresaFiltro) {
+              const employee = employeeFor(item);
+              if (!employee) return false;
+              if (funcaoFiltro && normalize(employee.funcao) !== normalize(funcaoFiltro)) return false;
+              if (setorFiltro && normalize(employee.setor) !== normalize(setorFiltro)) return false;
+              if (empresaFiltro && normalize(employee.local_registro) !== normalize(empresaFiltro)) return false;
+            }
             if (funcFiltro !== "todos") {
               const cpfClean = (item.cpf || "").replace(/\D/g, "");
               const funcCpfClean = funcFiltro.replace(/\D/g, "");
@@ -308,7 +323,11 @@
             }
             return true;
           });
-        }, [absenteismo, mesFiltro, funcFiltro, searchTerm]);
+        }, [absenteismo, colaboradores, mesFiltro, funcFiltro, searchTerm, funcaoFiltro, setorFiltro, empresaFiltro]);
+
+        const opcoesFuncoes = useMemo(() => [...new Set(colaboradores.map((c) => (c.funcao || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")), [colaboradores]);
+        const opcoesSetores = useMemo(() => [...new Set(colaboradores.map((c) => (c.setor || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")), [colaboradores]);
+        const opcoesEmpresas = useMemo(() => [...new Set(colaboradores.map((c) => (c.local_registro || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")), [colaboradores]);
 
         
         // Colaboradores filtrados na modal de cadastro
@@ -707,6 +726,18 @@
                       ))}
                     </select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
+                  <select aria-label="Filtrar por função" className="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-xl p-2.5 outline-none w-full" value={funcaoFiltro} onChange={(e) => setFuncaoFiltro(e.target.value)}>
+                    <option value="">Todas as funções</option>{opcoesFuncoes.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <select aria-label="Filtrar por setor" className="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-xl p-2.5 outline-none w-full" value={setorFiltro} onChange={(e) => setSetorFiltro(e.target.value)}>
+                    <option value="">Todos os setores</option>{opcoesSetores.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <select aria-label="Filtrar por empresa" className="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-xl p-2.5 outline-none w-full" value={empresaFiltro} onChange={(e) => setEmpresaFiltro(e.target.value)}>
+                    <option value="">Todas as empresas</option>{opcoesEmpresas.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
                 </div>
               </div>
 

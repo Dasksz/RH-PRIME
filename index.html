@@ -705,6 +705,9 @@
         }, [isAuthChecking]);
 
         const [searchTerm, setSearchTerm] = useState("");
+        const [filterFuncao, setFilterFuncao] = useState("");
+        const [filterSetor, setFilterSetor] = useState("");
+        const [filterEmpresa, setFilterEmpresa] = useState("");
         const [selectedEmpId, setSelectedEmpIdState] = useState(null);
         const equipmentVerificationOpen = useRef(false);
         const setSelectedEmpId = (id) => {
@@ -950,13 +953,23 @@
 
         const filteredEmployees = useMemo(() => {
           const lowerSearch = searchTerm.toLowerCase();
+          const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
           return employees.filter((emp) => {
             const matchesSearch = emp.nomeLower.includes(lowerSearch);
             if (!matchesSearch) return false;
+            if (filterFuncao && normalize(emp.cargo) !== normalize(filterFuncao)) return false;
+            if (filterSetor && normalize(emp.setor) !== normalize(filterSetor)) return false;
+            if (filterEmpresa && normalize(emp.local_registro) !== normalize(filterEmpresa)) return false;
             if (statusFilter === "todos") return true;
             return getEmployeeStatus(emp) === statusFilter;
           });
-        }, [employees, searchTerm, statusFilter, dashboardFilter]);
+        }, [employees, searchTerm, statusFilter, dashboardFilter, filterFuncao, filterSetor, filterEmpresa]);
+
+        const optionEmployees = [...employees, ...devolucoes.map((item) => ({ ...item, cargo: item.funcao }))];
+        const optionsFor = (field) => [...new Set(optionEmployees.map((emp) => (emp[field] || "").toString().trim()).filter(Boolean).map((value) => value.toUpperCase()))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const funcaoOptions = useMemo(() => optionsFor("cargo"), [employees, devolucoes]);
+        const setorOptions = useMemo(() => optionsFor("setor"), [employees, devolucoes]);
+        const empresaOptions = useMemo(() => optionsFor("local_registro"), [employees, devolucoes]);
 
         const selectedEmployee = useMemo(() => {
           return employees.find((emp) => emp.id === selectedEmpId);
@@ -1841,6 +1854,21 @@
                     />
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                    <select aria-label="Filtrar por função" value={filterFuncao} onChange={(e) => setFilterFuncao(e.target.value)} className="w-full py-2.5 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700">
+                      <option value="">Todas as funções</option>
+                      {funcaoOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                    <select aria-label="Filtrar por setor" value={filterSetor} onChange={(e) => setFilterSetor(e.target.value)} className="w-full py-2.5 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700">
+                      <option value="">Todos os setores</option>
+                      {setorOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                    <select aria-label="Filtrar por empresa" value={filterEmpresa} onChange={(e) => setFilterEmpresa(e.target.value)} className="w-full py-2.5 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700">
+                      <option value="">Todas as empresas</option>
+                      {empresaOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </div>
+
                   {/* Status Dropdown and Devoluções Button side-by-side */}
                   <div className="flex items-center gap-2">
                     <select
@@ -1915,6 +1943,10 @@
                   devolucoes
                     .filter((d) => {
                       const search = searchTerm.toLowerCase();
+                      const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+                      if (filterFuncao && normalize(d.funcao) !== normalize(filterFuncao)) return false;
+                      if (filterSetor && normalize(d.setor) !== normalize(filterSetor)) return false;
+                      if (filterEmpresa && normalize(d.local_registro) !== normalize(filterEmpresa)) return false;
                       return (
                         !search ||
                         (d.funcionario_nome && d.funcionario_nome.toLowerCase().includes(search)) ||

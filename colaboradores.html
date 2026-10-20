@@ -279,6 +279,9 @@
         const [isLoading, setIsLoading] = useState(true);
         const [searchTerm, setSearchTerm] = useState("");
         const [filterStatus, setFilterStatus] = useState("ativos"); // "ativos", "desligados", "todos"
+        const [filterFuncao, setFilterFuncao] = useState("");
+        const [filterSetor, setFilterSetor] = useState("");
+        const [filterEmpresa, setFilterEmpresa] = useState("");
 
 // Listas dinâmicas de opções a partir dos colaboradores cadastrados no banco
         const opcoesFuncoes = useMemo(() => {
@@ -300,6 +303,14 @@
             if (c.setor && c.setor.trim()) set.add(c.setor.trim().toUpperCase());
           });
           return Array.from(set).sort();
+        }, [colaboradores]);
+
+        const opcoesEmpresasFiltro = useMemo(() => {
+          const set = new Set();
+          colaboradores.forEach((c) => {
+            if (c.local_registro && c.local_registro.trim()) set.add(c.local_registro.trim().toUpperCase());
+          });
+          return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
         }, [colaboradores]);
 
         const opcoesUnidades = useMemo(() => {
@@ -489,11 +500,15 @@
 
         const colaboradoresFiltrados = useMemo(() => {
           const searchLower = searchTerm.toLowerCase();
+          const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 
           return listaColaboradoresProcessada.filter((item) => {
             // Filtro de Status
             if (filterStatus === "ativos" && item.isDesligado) return false;
             if (filterStatus === "desligados" && !item.isDesligado) return false;
+            if (filterFuncao && normalize(item.funcao) !== normalize(filterFuncao)) return false;
+            if (filterSetor && normalize(item.setor) !== normalize(filterSetor)) return false;
+            if (filterEmpresa && normalize(item.local_registro) !== normalize(filterEmpresa)) return false;
 
             // Filtro de Busca (Nome, CPF, Função, Setor, Unidade)
             const matchNome = (item.nome || "").toLowerCase().includes(searchLower);
@@ -504,7 +519,7 @@
 
             return matchNome || matchCpf || matchFuncao || matchSetor || matchUnidade;
           });
-        }, [listaColaboradoresProcessada, searchTerm, filterStatus]);
+        }, [listaColaboradoresProcessada, searchTerm, filterStatus, filterFuncao, filterSetor, filterEmpresa]);
 
         // Handlers de formulários
         const handleOpenCadastrar = () => {
@@ -752,7 +767,7 @@
               </div>
 
               {/* Controles de Busca e Filtro */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 items-stretch">
                 <div className="relative w-full md:w-96">
                   <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -789,6 +804,21 @@
                   >
                     Todos ({listaColaboradoresProcessada.length})
                   </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
+                  <select aria-label="Filtrar por função" value={filterFuncao} onChange={(e) => setFilterFuncao(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-700">
+                    <option value="">Todas as funções</option>
+                    {opcoesFuncoes.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <select aria-label="Filtrar por setor" value={filterSetor} onChange={(e) => setFilterSetor(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-700">
+                    <option value="">Todos os setores</option>
+                    {opcoesSetores.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <select aria-label="Filtrar por empresa" value={filterEmpresa} onChange={(e) => setFilterEmpresa(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-700">
+                    <option value="">Todas as empresas</option>
+                    {opcoesEmpresasFiltro.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
                 </div>
               </div>
 
