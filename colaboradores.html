@@ -270,6 +270,21 @@
         return str;
       }
 
+      function empresaIdLegada(colaborador, empresasLista) {
+        if (colaborador?.empresa_id) return String(colaborador.empresa_id);
+        const registro = (colaborador?.local_registro || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+        if (registro.includes("JEQUIE")) return String(empresasLista.find((e) => (e.cnpj || "").replace(/\D/g, "") === "52522019000282")?.id || "");
+        if (registro.includes("ILHEUS")) return String(empresasLista.find((e) => (e.cnpj || "").replace(/\D/g, "") === "52522019000100")?.id || "");
+        if (registro.includes("NUNES")) return String(empresasLista.find((e) => (e.cnpj || "").replace(/\D/g, "") === "48986353000139")?.id || "");
+        return "";
+      }
+
+      function rotuloEmpresaFiltro(empresa) {
+        const cnpj = (empresa.cnpj || "").replace(/\D/g, "");
+        const unidade = cnpj === "52522019000100" ? "ILHÉUS" : cnpj === "52522019000282" ? "JEQUIÉ" : "";
+        return `${empresa.nome}${unidade ? ` — ${unidade}` : ""}`;
+      }
+
       function App() {
         const [isAuthChecking, setIsAuthChecking] = useState(true);
         const [colaboradores, setColaboradores] = useState([]);
@@ -306,12 +321,12 @@
         }, [colaboradores]);
 
         const opcoesEmpresasFiltro = useMemo(() => {
-          const set = new Set();
-          colaboradores.forEach((c) => {
-            if (c.local_registro && c.local_registro.trim()) set.add(c.local_registro.trim().toUpperCase());
-          });
-          return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
-        }, [colaboradores]);
+          const opcoes = empresas.map((e) => ({ value: String(e.id), label: rotuloEmpresaFiltro(e) }));
+          if (colaboradores.some((c) => !empresaIdLegada(c, empresas) && c.local_registro?.trim())) {
+            opcoes.push({ value: "__sem_filial__", label: "PRIME DISTRIBUICAO LTDA — FILIAL NÃO IDENTIFICADA" });
+          }
+          return opcoes.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+        }, [colaboradores, empresas]);
 
         const opcoesUnidades = useMemo(() => {
           const set = new Set(["FILIAL 1", "FILIAL 5", "FILIAL 8"]);
@@ -508,7 +523,7 @@
             if (filterStatus === "desligados" && !item.isDesligado) return false;
             if (filterFuncao && normalize(item.funcao) !== normalize(filterFuncao)) return false;
             if (filterSetor && normalize(item.setor) !== normalize(filterSetor)) return false;
-            if (filterEmpresa && normalize(item.local_registro) !== normalize(filterEmpresa)) return false;
+            if (filterEmpresa && filterEmpresa !== empresaIdLegada(item, empresas) && !(filterEmpresa === "__sem_filial__" && !empresaIdLegada(item, empresas) && normalize(item.local_registro).includes("PRIME DISTRIBUICAO"))) return false;
 
             // Filtro de Busca (Nome, CPF, Função, Setor, Unidade)
             const matchNome = (item.nome || "").toLowerCase().includes(searchLower);
@@ -519,10 +534,11 @@
 
             return matchNome || matchCpf || matchFuncao || matchSetor || matchUnidade;
           });
-        }, [listaColaboradoresProcessada, searchTerm, filterStatus, filterFuncao, filterSetor, filterEmpresa]);
+        }, [listaColaboradoresProcessada, searchTerm, filterStatus, filterFuncao, filterSetor, filterEmpresa, empresas]);
 
         // Handlers de formulários
         const handleOpenCadastrar = () => {
+          const empresaPadrao = empresas.find((e) => (e.cnpj || "").replace(/\D/g, "") === "48986353000139");
           setEditFormData({
             nome: "",
             cpf: "",
@@ -536,6 +552,7 @@
             setor: "",
             unidade: "FILIAL 5",
             local_registro: "NUNES & VIEIRA LOGISTICA LTDA",
+            empresa_id: empresaPadrao ? String(empresaPadrao.id) : "",
             whatsapp: "",
             carga_horaria: 220,
           });
@@ -571,6 +588,7 @@
             setor: colab.setor || "",
             unidade: colab.unidade || "FILIAL 5",
             local_registro: colab.local_registro || "NUNES & VIEIRA LOGISTICA LTDA",
+            empresa_id: empresaIdLegada(colab, empresas),
             whatsapp: colab.whatsapp || "",
             carga_horaria: colab.carga_horaria || 220,
             data_desligamento: colab.data_desligamento || "",
@@ -631,6 +649,7 @@
               setor: formData.setor.trim().toUpperCase(),
               unidade: formData.unidade,
               local_registro: formData.local_registro,
+              empresa_id: formData.empresa_id || null,
               whatsapp: formData.whatsapp.trim(),
               carga_horaria: Number(formData.carga_horaria) || 220,
               validacao: "☑ OK",
@@ -691,6 +710,7 @@
               setor: formData.setor.trim().toUpperCase(),
               unidade: formData.unidade,
               local_registro: formData.local_registro,
+              empresa_id: formData.empresa_id || null,
               whatsapp: formData.whatsapp.trim(),
               carga_horaria: Number(formData.carga_horaria) || 220,
             };
@@ -817,7 +837,7 @@
                   </rh-search-select>
                   <rh-search-select aria-label="Filtrar por empresa" filter-label="Empresa" value={filterEmpresa} onInput={(e) => setFilterEmpresa(e.target.value)} className="w-full">
                     <option value="">Todas as empresas</option>
-                    {opcoesEmpresasFiltro.map((value) => <option key={value} value={value}>{value}</option>)}
+                    {opcoesEmpresasFiltro.map((empresa) => <option key={empresa.value} value={empresa.value}>{empresa.label}</option>)}
                   </rh-search-select>
                 </div>
               </div>
@@ -1319,23 +1339,15 @@
                       <div className="md:col-span-2">
                         <label className="block font-bold text-slate-700 uppercase mb-1">Local do Registro (Empresa)</label>
                         <select
-                          value={formData.local_registro}
-                          onChange={(e) => setEditFormData({ ...formData, local_registro: e.target.value })}
+                          value={formData.empresa_id || ""}
+                          onChange={(e) => {
+                            const empresa = empresas.find((item) => String(item.id) === e.target.value);
+                            setEditFormData({ ...formData, empresa_id: e.target.value, local_registro: empresa?.nome || formData.local_registro });
+                          }}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                         >
-                          {empresas.length === 0 ? (
-                            <>
-                              <option value="NUNES & VIEIRA LOGISTICA LTDA">NUNES & VIEIRA LOGISTICA LTDA (Itabuna)</option>
-                              <option value="PRIME DISTRIBUICAO LTDA - ILHÉUS ">PRIME DISTRIBUICAO LTDA - ILHÉUS</option>
-                              <option value="PRIME DISTRIBUICAO LTDA - JEQUIÉ ">PRIME DISTRIBUICAO LTDA - JEQUIÉ</option>
-                            </>
-                          ) : (
-                            empresas.map((e) => (
-                              <option key={e.id} value={e.nome}>
-                                {e.nome} {e.cnpj ? `(CNPJ: ${e.cnpj})` : ""}
-                              </option>
-                            ))
-                          )}
+                          <option value="">{formData.local_registro || "Selecione a empresa"} — filial não identificada</option>
+                          {empresas.map((e) => <option key={e.id} value={String(e.id)}>{e.nome} {e.cnpj ? `(CNPJ: ${e.cnpj})` : ""}</option>)}
                         </select>
                       </div>
                     </div>
@@ -1555,23 +1567,15 @@
                       <div className="md:col-span-2">
                         <label className="block font-bold text-slate-700 uppercase mb-1">Local do Registro (Empresa)</label>
                         <select
-                          value={formData.local_registro}
-                          onChange={(e) => setEditFormData({ ...formData, local_registro: e.target.value })}
+                          value={formData.empresa_id || ""}
+                          onChange={(e) => {
+                            const empresa = empresas.find((item) => String(item.id) === e.target.value);
+                            setEditFormData({ ...formData, empresa_id: e.target.value, local_registro: empresa?.nome || formData.local_registro });
+                          }}
                           className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
                         >
-                          {empresas.length === 0 ? (
-                            <>
-                              <option value="NUNES & VIEIRA LOGISTICA LTDA">NUNES & VIEIRA LOGISTICA LTDA (Itabuna)</option>
-                              <option value="PRIME DISTRIBUICAO LTDA - ILHÉUS ">PRIME DISTRIBUICAO LTDA - ILHÉUS</option>
-                              <option value="PRIME DISTRIBUICAO LTDA - JEQUIÉ ">PRIME DISTRIBUICAO LTDA - JEQUIÉ</option>
-                            </>
-                          ) : (
-                            empresas.map((e) => (
-                              <option key={e.id} value={e.nome}>
-                                {e.nome} {e.cnpj ? `(CNPJ: ${e.cnpj})` : ""}
-                              </option>
-                            ))
-                          )}
+                          <option value="">{formData.local_registro || "Selecione a empresa"} — filial não identificada</option>
+                          {empresas.map((e) => <option key={e.id} value={String(e.id)}>{e.nome} {e.cnpj ? `(CNPJ: ${e.cnpj})` : ""}</option>)}
                         </select>
                       </div>
                     </div>

@@ -404,7 +404,9 @@
         };
 
 
-                const getEmpresaInfo = (localRegistro, empresasList = []) => {
+                const getEmpresaInfo = (localRegistro, empresasList = [], empresaId = null) => {
+          const byId = empresaId && empresasList.find((e) => String(e.id) === String(empresaId));
+          if (byId) return { nome: byId.nome, cnpj: byId.cnpj };
           if (!localRegistro) {
             const def = empresasList.find((e) => e.nome && e.nome.toUpperCase().includes("NUNES")) || empresasList[0];
             return def ? { nome: def.nome, cnpj: def.cnpj } : { nome: "NUNES & VIEIRA LOGISTICA LTDA", cnpj: "48.986.353/0001-39" };
@@ -520,6 +522,7 @@
               cpf: row.cpf || "Não informado",
               unidade: row.unidade || "Padrão",
               local_registro: row.local_registro || "",
+              empresa_id: row.empresa_id || null,
               admissao: row.admissao || "",
               tamanho_farda: row.tamanho_farda || "",
               calca: row.calca || "",
@@ -887,22 +890,26 @@
             let foundId = null;
 
             if (emp && emp.local_registro) {
+              if (emp.empresa_id) {
+                const associated = empresas.find((e) => String(e.id) === String(emp.empresa_id));
+                if (associated) foundId = associated.id;
+              }
               const regUpper = emp.local_registro.toUpperCase();
-              if (regUpper.includes("JEQUIÉ")) {
+              if (!foundId && regUpper.includes("JEQUIÉ")) {
                 const eq = empresas.find(
                   (e) =>
                     e.endereco.toUpperCase().includes("JEQUIÉ") ||
                     e.cnpj.includes("0002-82"),
                 );
                 if (eq) foundId = eq.id;
-              } else if (regUpper.includes("ILHÉUS")) {
+              } else if (!foundId && regUpper.includes("ILHÉUS")) {
                 const eq = empresas.find(
                   (e) =>
                     e.endereco.toUpperCase().includes("ILHÉUS") ||
                     e.cnpj.includes("0001-00"),
                 );
                 if (eq) foundId = eq.id;
-              } else if (regUpper.includes("NUNES")) {
+              } else if (!foundId && regUpper.includes("NUNES")) {
                 const eq = empresas.find((e) =>
                   e.nome.toUpperCase().includes("NUNES"),
                 );
@@ -951,6 +958,13 @@
           return "em_dia";
         };
 
+        const employeeCompanyId = (emp) => {
+          if (emp?.empresa_id) return String(emp.empresa_id);
+          const local = (emp?.local_registro || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+          const cnpj = local.includes("JEQUIE") ? "52522019000282" : local.includes("ILHEUS") ? "52522019000100" : local.includes("NUNES") ? "48986353000139" : "";
+          return String(empresas.find((e) => (e.cnpj || "").replace(/\D/g, "") === cnpj)?.id || "");
+        };
+
         const filteredEmployees = useMemo(() => {
           const lowerSearch = searchTerm.toLowerCase();
           const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
@@ -959,17 +973,27 @@
             if (!matchesSearch) return false;
             if (filterFuncao && normalize(emp.cargo) !== normalize(filterFuncao)) return false;
             if (filterSetor && normalize(emp.setor) !== normalize(filterSetor)) return false;
-            if (filterEmpresa && normalize(emp.local_registro) !== normalize(filterEmpresa)) return false;
+            if (filterEmpresa && employeeCompanyId(emp) !== filterEmpresa && !(filterEmpresa === "__sem_filial__" && !employeeCompanyId(emp) && emp.local_registro?.toUpperCase().includes("PRIME DISTRIBUICAO"))) return false;
             if (statusFilter === "todos") return true;
             return getEmployeeStatus(emp) === statusFilter;
           });
-        }, [employees, searchTerm, statusFilter, dashboardFilter, filterFuncao, filterSetor, filterEmpresa]);
+        }, [employees, searchTerm, statusFilter, dashboardFilter, filterFuncao, filterSetor, filterEmpresa, empresas]);
 
         const optionEmployees = [...employees, ...devolucoes.map((item) => ({ ...item, cargo: item.funcao }))];
         const optionsFor = (field) => [...new Set(optionEmployees.map((emp) => (emp[field] || "").toString().trim()).filter(Boolean).map((value) => value.toUpperCase()))].sort((a, b) => a.localeCompare(b, "pt-BR"));
         const funcaoOptions = useMemo(() => optionsFor("cargo"), [employees, devolucoes]);
         const setorOptions = useMemo(() => optionsFor("setor"), [employees, devolucoes]);
-        const empresaOptions = useMemo(() => optionsFor("local_registro"), [employees, devolucoes]);
+        const empresaOptions = useMemo(() => {
+          const options = empresas.map((empresa) => {
+            const cnpj = (empresa.cnpj || "").replace(/\D/g, "");
+            const unidade = cnpj === "52522019000100" ? " — ILHÉUS" : cnpj === "52522019000282" ? " — JEQUIÉ" : "";
+            return { value: String(empresa.id), label: `${empresa.nome}${unidade}` };
+          });
+          if (employees.some((employee) => !employeeCompanyId(employee) && employee.local_registro?.toUpperCase().includes("PRIME DISTRIBUICAO"))) {
+            options.push({ value: "__sem_filial__", label: "PRIME DISTRIBUICAO LTDA — FILIAL NÃO IDENTIFICADA" });
+          }
+          return options;
+        }, [empresas, employees]);
 
         const selectedEmployee = useMemo(() => {
           return employees.find((emp) => emp.id === selectedEmpId);
@@ -1316,7 +1340,7 @@
             return;
           }
 
-          const empInfo = getEmpresaInfo(selectedEmployee.local_registro, empresas);
+          const empInfo = getEmpresaInfo(selectedEmployee.local_registro, empresas, selectedEmployee.empresa_id);
           const dateStr = itemData.ultimaEntrega
             ? itemData.ultimaEntrega.includes("-")
               ? itemData.ultimaEntrega.split("-").reverse().join("/")
@@ -1865,7 +1889,7 @@
                     </rh-search-select>
                     <rh-search-select aria-label="Filtrar por empresa" filter-label="Empresa" value={filterEmpresa} onInput={(e) => setFilterEmpresa(e.target.value)} className="w-full compact">
                       <option value="">Todas as empresas</option>
-                      {empresaOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                      {empresaOptions.map((empresa) => <option key={empresa.value} value={empresa.value}>{empresa.label}</option>)}
                     </rh-search-select>
                   </div>
 
@@ -1946,7 +1970,9 @@
                       const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
                       if (filterFuncao && normalize(d.funcao) !== normalize(filterFuncao)) return false;
                       if (filterSetor && normalize(d.setor) !== normalize(filterSetor)) return false;
-                      if (filterEmpresa && normalize(d.local_registro) !== normalize(filterEmpresa)) return false;
+                      const cpfDevolucao = (d.cpf || "").replace(/\D/g, "");
+                      const employee = employees.find((emp) => (emp.cpf || "").replace(/\D/g, "") === cpfDevolucao);
+                      if (filterEmpresa && filterEmpresa !== employeeCompanyId(employee || d) && !(filterEmpresa === "__sem_filial__" && !employeeCompanyId(employee || d) && (employee || d).local_registro?.toUpperCase().includes("PRIME DISTRIBUICAO"))) return false;
                       return (
                         !search ||
                         (d.funcionario_nome && d.funcionario_nome.toLowerCase().includes(search)) ||
@@ -2296,7 +2322,7 @@
                               Empresa / Razão Social
                             </span>
                             <span className="text-xs font-bold text-[#002060] break-words leading-tight">
-                              {getEmpresaInfo(selectedEmployee.local_registro, empresas).nome}
+                              {getEmpresaInfo(selectedEmployee.local_registro, empresas, selectedEmployee.empresa_id).nome}
                             </span>
                           </div>
                           <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
@@ -2304,7 +2330,7 @@
                               CNPJ
                             </span>
                             <span className="text-xs font-semibold text-gray-800 break-words leading-tight">
-                              {getEmpresaInfo(selectedEmployee.local_registro, empresas).cnpj}
+                              {getEmpresaInfo(selectedEmployee.local_registro, empresas, selectedEmployee.empresa_id).cnpj}
                             </span>
                           </div>
                           <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
