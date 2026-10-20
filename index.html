@@ -521,6 +521,9 @@
               unidade: row.unidade || "Padrão",
               local_registro: row.local_registro || "",
               admissao: row.admissao || "",
+              tamanho_farda: row.tamanho_farda || "",
+              calca: row.calca || "",
+              calcado: row.calcado || "",
               avatar: initials.toUpperCase(),
               epi: {
                 status: equipmentStatus(row.epi_itens, epiData, nowTime),
@@ -2302,6 +2305,30 @@
                             </span>
                             <span className="text-xs font-semibold text-gray-800 break-words leading-tight">
                               {selectedEmployee.admissao || "--/--/----"}
+                            </span>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Camisa
+                            </span>
+                            <span className="text-xs font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.tamanho_farda || "-"}
+                            </span>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Calça
+                            </span>
+                            <span className="text-xs font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.calca || "-"}
+                            </span>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                              Calçado
+                            </span>
+                            <span className="text-xs font-semibold text-gray-800 break-words leading-tight">
+                              {selectedEmployee.calcado || "-"}
                             </span>
                           </div>
                         </div>
