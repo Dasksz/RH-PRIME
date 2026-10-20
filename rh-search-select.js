@@ -46,7 +46,7 @@
           .trigger:hover,.trigger:focus-visible{border-color:var(--rs-accent);outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--rs-accent) 25%,transparent)}
           :host(.compact) .trigger{min-height:34px;padding:6px 8px;border-radius:9px;font-size:12px}
           .selected{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.chevron{width:9px;height:9px;flex:none;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-5px 3px 0;opacity:.75}
-          .panel{position:absolute;z-index:1000;top:calc(100% + 5px);left:0;right:0;padding:8px;border:1px solid var(--rs-border);border-radius:12px;background:var(--rs-panel);box-shadow:0 14px 32px #0005}
+          .panel{position:absolute;z-index:1000;top:calc(100% + 5px);left:0;width:min(320px,calc(100vw - 16px));padding:8px;border:1px solid var(--rs-border);border-radius:12px;background:var(--rs-panel);box-shadow:0 14px 32px #0005}
           .search{display:block;width:100%;height:40px;padding:8px 10px;border:1px solid var(--rs-border);border-radius:8px;background:var(--rs-soft);color:var(--rs-ink);font:inherit;outline:none;margin-bottom:7px}
           .search:focus{border-color:var(--rs-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--rs-accent) 25%,transparent)}
           .list{max-height:220px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--rs-muted) var(--rs-soft)}
@@ -117,6 +117,11 @@
       this._panel.hidden = !open;
       this._trigger.setAttribute('aria-expanded', String(open));
       if (open) {
+        const rect = this.getBoundingClientRect();
+        const width = Math.min(320, Math.max(240, window.innerWidth - 16));
+        const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+        this._panel.style.width = `${width}px`;
+        this._panel.style.left = `${left - rect.left}px`;
         this._query = '';
         this._active = Math.max(0, this._options.findIndex(option => option.value === this._value));
         this._search.value = '';
