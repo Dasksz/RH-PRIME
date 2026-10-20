@@ -22,7 +22,7 @@
       }
     </style>
       <link rel="stylesheet" href="rh-responsive.css">
-    <script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020f"></script><script src="rh-navigation.js?v=20261006"></script><script src="rh-search-focus.js?v=20261006"></script>
+        <script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020f"></script><script src="rh-scheduled-notice-files.js?v=20261020a"></script><script src="rh-navigation.js?v=20261006"></script><script src="rh-search-focus.js?v=20261006"></script>
 <link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
 </head>
   <body class="bg-[#F8FAFC]">
@@ -366,6 +366,8 @@
         const [isEditarModalOpen, setIsEditarModalOpen] = useState(false);
         const [isDetalhesModalOpen, setIsDetalhesModalOpen] = useState(false);
         const [selectedColaborador, setSelectedColaborador] = useState(null);
+        const [driveFolderUrl, setDriveFolderUrl] = useState("");
+        const [noticeDriveStatus, setNoticeDriveStatus] = useState([]);
 
         // Form Cadastrar/Editar State
         const [formData, setEditFormData] = useState({
@@ -383,12 +385,22 @@
           local_registro: "NUNES & VIEIRA LOGISTICA LTDA",
           whatsapp: "",
           carga_horaria: 220,
+          carga_horaria_semanal: "44",
+          jornada_diaria: "08:48",
+          dias_trabalho_semana: "5",
+          data_desligamento_programada: "",
+          cumprindo_aviso_previo: false,
+          aviso_previo_file: null,
+          rescisao_file: null,
         });
 
         // Desligamento State
         const [desligamentoData, setDesligamentoData] = useState({
           data_desligamento: RH.today(),
           motivo_saida: "voluntario",
+          cumprindo_aviso_previo: false,
+          aviso_previo_file: null,
+          rescisao_file: null,
         });
 
         const [formErro, setFormErro] = useState("");
@@ -409,6 +421,19 @@
         useEffect(() => {
           checkAuth();
         }, []);
+
+        useEffect(() => {
+          let active = true;
+          setDriveFolderUrl("");
+          setNoticeDriveStatus([]);
+          if (isDetalhesModalOpen && selectedColaborador?.id) {
+            supabase.from("rh_drive_links").select("folder_id").eq("funcionario_id", selectedColaborador.id).maybeSingle()
+              .then(({ data, error }) => { if (active && !error && data?.folder_id) setDriveFolderUrl(`https://drive.google.com/drive/folders/${encodeURIComponent(data.folder_id)}`); });
+            supabase.rpc("rh_scheduled_notice_drive_status", { p_employee_id: selectedColaborador.id })
+              .then(({ data, error }) => { if (active && !error) setNoticeDriveStatus(Array.isArray(data) ? data : data?.records || []); });
+          }
+          return () => { active = false; };
+        }, [isDetalhesModalOpen, selectedColaborador?.id]);
 
         async function checkAuth() {
           try {
@@ -553,6 +578,13 @@
             empresa_id: empresaPadrao ? String(empresaPadrao.id) : "",
             whatsapp: "",
             carga_horaria: 220,
+            carga_horaria_semanal: "44",
+            jornada_diaria: "08:48",
+            dias_trabalho_semana: "5",
+            data_desligamento_programada: "",
+            cumprindo_aviso_previo: false,
+            aviso_previo_file: null,
+            rescisao_file: null,
           });
           setFormErro("");
           setIsCadastrarModalOpen(true);
@@ -589,6 +621,13 @@
             empresa_id: empresaIdLegada(colab, empresas),
             whatsapp: colab.whatsapp || "",
             carga_horaria: colab.carga_horaria || 220,
+            carga_horaria_semanal: colab.carga_horaria_semanal ?? "",
+            jornada_diaria: colab.jornada_diaria_minutos ? `${String(Math.floor(colab.jornada_diaria_minutos / 60)).padStart(2, "0")}:${String(colab.jornada_diaria_minutos % 60).padStart(2, "0")}` : "",
+            dias_trabalho_semana: colab.dias_trabalho_semana ?? "",
+            data_desligamento_programada: colab.data_desligamento_programada || "",
+            cumprindo_aviso_previo: Boolean(colab.cumprindo_aviso_previo),
+            aviso_previo_file: null,
+            rescisao_file: null,
             data_desligamento: colab.data_desligamento || "",
             motivo_saida: colab.motivo_saida || "voluntario",
           });
@@ -608,6 +647,10 @@
 
           if (!formData.nome.trim()) {
             setFormErro("O Nome completo é obrigatório.");
+            return;
+          }
+          if (formData.cumprindo_aviso_previo && (!formData.data_desligamento_programada || !formData.aviso_previo_file)) {
+            setFormErro("Para marcar aviso prévio, informe a data programada e anexe o documento em PDF, JPG ou PNG.");
             return;
           }
 
@@ -633,8 +676,14 @@
               nascDisplay = `${p[2]}/${p[1]}/${p[0]}`;
             }
 
+            const employeeId = crypto.randomUUID();
+            const avisoMetadata = formData.cumprindo_aviso_previo
+              ? await RHScheduledNoticeFiles.upload(supabase, formData.aviso_previo_file, employeeId, formData.nome, formData.data_desligamento_programada, "aviso")
+              : {};
+
             // 1. Inserir em funcionarios_epi
             const payloadEpi = {
+              id: employeeId,
               cpf: cpfClean,
               nome: formData.nome.trim().toUpperCase(),
               admissao: admDisplay,
@@ -649,7 +698,13 @@
               local_registro: formData.local_registro,
               empresa_id: formData.empresa_id || null,
               whatsapp: formData.whatsapp.trim(),
-              carga_horaria: Number(formData.carga_horaria) || 220,
+              carga_horaria: formData.carga_horaria_semanal !== "" ? Math.round(Number(formData.carga_horaria_semanal) * 5) : (Number(formData.carga_horaria) || 220),
+              carga_horaria_semanal: formData.carga_horaria_semanal === "" ? null : Number(formData.carga_horaria_semanal),
+              jornada_diaria_minutos: formData.jornada_diaria ? (() => { const [h,m]=formData.jornada_diaria.split(":").map(Number); return h*60+m; })() : null,
+              dias_trabalho_semana: formData.dias_trabalho_semana === "" ? null : Number(formData.dias_trabalho_semana),
+              data_desligamento_programada: formData.data_desligamento_programada || null,
+              cumprindo_aviso_previo: Boolean(formData.cumprindo_aviso_previo),
+              ...avisoMetadata,
               validacao: "☑ OK",
             };
 
@@ -679,6 +734,10 @@
           if (colaboradores.some(c => c.id !== selectedColaborador.id && RH.cleanCpf(c.cpf) === cpfClean)) {
             setFormErro("Este CPF já pertence a outro colaborador."); return;
           }
+          if (formData.cumprindo_aviso_previo && (!(formData.data_desligamento_programada || formData.data_desligamento) || (!formData.aviso_previo_file && !selectedColaborador.aviso_previo_path))) {
+            setFormErro("Para marcar aviso prévio, informe a data de desligamento e anexe o documento.");
+            return;
+          }
           setIsSaving(true);
           try {
             let admDisplay = formData.admissao;
@@ -692,6 +751,13 @@
               const p = formData.nascimento.split("-");
               nascDisplay = `${p[2]}/${p[1]}/${p[0]}`;
             }
+
+            const avisoMetadata = formData.aviso_previo_file
+              ? await RHScheduledNoticeFiles.upload(supabase, formData.aviso_previo_file, selectedColaborador.id, formData.nome, formData.data_desligamento_programada || formData.data_desligamento, "aviso")
+              : {};
+            const rescisaoMetadata = formData.rescisao_file
+              ? await RHScheduledNoticeFiles.upload(supabase, formData.rescisao_file, selectedColaborador.id, formData.nome, formData.data_desligamento, "rescisao")
+              : {};
 
             const updatePayload = {
               cpf: cpfClean,
@@ -710,7 +776,20 @@
               local_registro: formData.local_registro,
               empresa_id: formData.empresa_id || null,
               whatsapp: formData.whatsapp.trim(),
-              carga_horaria: Number(formData.carga_horaria) || 220,
+              carga_horaria: formData.carga_horaria_semanal !== "" ? Math.round(Number(formData.carga_horaria_semanal) * 5) : (Number(formData.carga_horaria) || 220),
+              carga_horaria_semanal: formData.carga_horaria_semanal === "" ? null : Number(formData.carga_horaria_semanal),
+              jornada_diaria_minutos: formData.jornada_diaria ? (() => { const [h,m]=formData.jornada_diaria.split(":").map(Number); return h*60+m; })() : null,
+              dias_trabalho_semana: formData.dias_trabalho_semana === "" ? null : Number(formData.dias_trabalho_semana),
+              data_desligamento_programada: formData.data_desligamento ? null : (formData.data_desligamento_programada || null),
+              cumprindo_aviso_previo: Boolean(formData.cumprindo_aviso_previo),
+              aviso_previo_path: avisoMetadata.aviso_previo_path || selectedColaborador.aviso_previo_path || null,
+              aviso_previo_nome: avisoMetadata.aviso_previo_nome || selectedColaborador.aviso_previo_nome || null,
+              aviso_previo_mime: avisoMetadata.aviso_previo_mime || selectedColaborador.aviso_previo_mime || null,
+              aviso_previo_size: avisoMetadata.aviso_previo_size || selectedColaborador.aviso_previo_size || null,
+              rescisao_path: rescisaoMetadata.rescisao_path || selectedColaborador.rescisao_path || null,
+              rescisao_nome: rescisaoMetadata.rescisao_nome || selectedColaborador.rescisao_nome || null,
+              rescisao_mime: rescisaoMetadata.rescisao_mime || selectedColaborador.rescisao_mime || null,
+              rescisao_size: rescisaoMetadata.rescisao_size || selectedColaborador.rescisao_size || null,
             };
 
             await RH.result(supabase.from("funcionarios_epi")
@@ -732,15 +811,36 @@
           e.preventDefault();
           if (!selectedColaborador) return;
 
+          if (desligamentoData.cumprindo_aviso_previo && (!desligamentoData.aviso_previo_file && !selectedColaborador.aviso_previo_path)) {
+            alert("Para registrar aviso prévio, anexe o documento em PDF, JPG ou PNG.");
+            return;
+          }
+
           setIsSaving(true);
           try {
             const nomeColab = selectedColaborador.nome;
+            const avisoMetadata = desligamentoData.aviso_previo_file
+              ? await RHScheduledNoticeFiles.upload(supabase, desligamentoData.aviso_previo_file, selectedColaborador.id, selectedColaborador.nome, desligamentoData.data_desligamento, "aviso")
+              : {};
+            const rescisaoMetadata = desligamentoData.rescisao_file
+              ? await RHScheduledNoticeFiles.upload(supabase, desligamentoData.rescisao_file, selectedColaborador.id, selectedColaborador.nome, desligamentoData.data_desligamento, "rescisao")
+              : {};
             await RH.result(supabase.from("funcionarios_epi").update({
               data_desligamento: desligamentoData.data_desligamento,
               motivo_saida: desligamentoData.motivo_saida,
+              data_desligamento_programada: null,
+              cumprindo_aviso_previo: Boolean(desligamentoData.cumprindo_aviso_previo),
+              aviso_previo_path: avisoMetadata.aviso_previo_path || selectedColaborador.aviso_previo_path || null,
+              aviso_previo_nome: avisoMetadata.aviso_previo_nome || selectedColaborador.aviso_previo_nome || null,
+              aviso_previo_mime: avisoMetadata.aviso_previo_mime || selectedColaborador.aviso_previo_mime || null,
+              aviso_previo_size: avisoMetadata.aviso_previo_size || selectedColaborador.aviso_previo_size || null,
+              rescisao_path: rescisaoMetadata.rescisao_path || selectedColaborador.rescisao_path || null,
+              rescisao_nome: rescisaoMetadata.rescisao_nome || selectedColaborador.rescisao_nome || null,
+              rescisao_mime: rescisaoMetadata.rescisao_mime || selectedColaborador.rescisao_mime || null,
+              rescisao_size: rescisaoMetadata.rescisao_size || selectedColaborador.rescisao_size || null,
             }).eq("id", selectedColaborador.id).select(), true);
 
-            alert(`Desligamento de ${nomeColab} registrado com sucesso!`);
+            alert(`Desligamento de ${nomeColab} registrado. Os documentos anexados serão enviados à pasta RESCISÃO/RESCISAO no Drive.`);
             setIsDesligarModalOpen(false);
             setSelectedColaborador(null);
             fetchData();
@@ -990,6 +1090,9 @@
                                           setDesligamentoData({
                                             data_desligamento: RH.today(),
                                             motivo_saida: "voluntario",
+                                            cumprindo_aviso_previo: Boolean(item.cumprindo_aviso_previo),
+                                            aviso_previo_file: null,
+                                            rescisao_file: null,
                                           });
                                           setIsDesligarModalOpen(true);
                                         }
@@ -1045,10 +1148,19 @@
                       </div>
                       <div>
                         <span className="block text-[10px] font-bold uppercase text-slate-400">Carga Horária</span>
-                        <span className="font-bold text-slate-800">{selectedColaborador.carga_horaria || 220}h/mês</span>
+                        <span className="font-bold text-slate-800">{selectedColaborador.carga_horaria_semanal ? `${selectedColaborador.carga_horaria_semanal}h/semana` : `${selectedColaborador.carga_horaria || 220}h/mês`}</span>
                       </div>
                     </div>
 
+                    {(selectedColaborador.aviso_previo_path || selectedColaborador.rescisao_path) && <div className="space-y-2">
+                      {[["aviso_previo", "Aviso prévio", selectedColaborador.aviso_previo_path, selectedColaborador.aviso_previo_nome], ["rescisao", "Documento da rescisão", selectedColaborador.rescisao_path, selectedColaborador.rescisao_nome]].filter(row => row[2]).map(([kind,label,path,name]) => {
+                        const drive = noticeDriveStatus.find(item => item.kind === kind);
+                        return <div key={kind} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+                          <div className="min-w-0"><span className="block text-[10px] font-bold uppercase text-slate-400">{label}</span><span className="block truncate text-slate-700">{name}</span><span className="text-[10px] text-slate-500">{drive?.status === "completed" ? "Salvo no Drive" : drive?.status === "failed" ? "Falha ao sincronizar no Drive" : "Sincronizando com o Drive"}</span></div>
+                          <div className="flex gap-2 shrink-0"><button type="button" onClick={() => RHScheduledNoticeFiles.open(supabase,path).catch(err => alert(err.message))} className="px-3 py-2 rounded-lg bg-slate-200 text-slate-800 font-bold">Abrir</button>{drive?.link && <a href={drive.link} target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg bg-blue-700 text-white font-bold">Drive</a>}</div>
+                        </div>;
+                      })}
+                    </div>}
                     <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                       <div>
                         <span className="block text-[10px] font-bold uppercase text-slate-400">Nascimento</span>
@@ -1099,6 +1211,11 @@
                       )}
                     </div>
 
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+                      <div><span className="block text-[10px] font-bold uppercase text-slate-400">Pasta do colaborador no Drive</span><span className="text-slate-600">{driveFolderUrl ? "Pasta vinculada" : "Nenhuma pasta vinculada"}</span></div>
+                      {driveFolderUrl && <a href={driveFolderUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg bg-blue-700 text-white font-bold hover:bg-blue-800">Abrir pasta</a>}
+                    </div>
+
                     <div className="pt-4 flex items-center justify-between gap-2 border-t border-slate-100">
                       <button
                         type="button"
@@ -1129,6 +1246,9 @@
                                 setDesligamentoData({
                                   data_desligamento: RH.today(),
                                   motivo_saida: "voluntario",
+                                  cumprindo_aviso_previo: Boolean(selectedColaborador.cumprindo_aviso_previo),
+                                  aviso_previo_file: null,
+                                  rescisao_file: null,
                                 });
                                 setIsDesligarModalOpen(true);
                               }
@@ -1322,17 +1442,24 @@
                       )}
 
                       <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Carga Horária Mensal (Horas) *</label>
-                        <input
-                          type="number"
-                          required
-                          min="40"
-                          max="250"
-                          value={formData.carga_horaria}
-                          onChange={(e) => setEditFormData({ ...formData, carga_horaria: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        />
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Carga Horária Semanal</label>
+                        <input type="number" min="1" max="168" step="0.01" value={formData.carga_horaria_semanal} onChange={(e) => setEditFormData({ ...formData, carga_horaria_semanal: e.target.value })} placeholder="Ex: 44" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm" />
                       </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Jornada diária</label>
+                        <input type="time" value={formData.jornada_diaria} onChange={(e) => setEditFormData({ ...formData, jornada_diaria: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Dias de trabalho por semana</label>
+                        <select value={formData.dias_trabalho_semana} onChange={(e) => setEditFormData({ ...formData, dias_trabalho_semana: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm">
+                          <option value="">Não informado</option>{[1,2,3,4,5,6,7].map(d => <option key={d} value={d}>{d} {d === 1 ? "dia" : "dias"}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-bold text-red-700 uppercase mb-1">Desligamento programado</label>
+                        <input type="date" min={RH.today()} value={formData.data_desligamento_programada} onChange={(e) => setEditFormData({ ...formData, data_desligamento_programada: e.target.value })} className="w-full p-2.5 bg-red-50 border border-red-200 rounded-xl focus:ring-2 focus:ring-red-600 text-sm" />
+                      </div>
+                      {(formData.data_desligamento_programada || formData.data_desligamento) && <label className="md:col-span-2 flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={formData.cumprindo_aviso_previo} onChange={(e) => setEditFormData({ ...formData, cumprindo_aviso_previo: e.target.checked })} />Está cumprindo aviso prévio</label>}{formData.cumprindo_aviso_previo && <div className="md:col-span-2"><label className="block font-bold text-red-700 uppercase mb-1">Documento do aviso prévio *</label>{selectedColaborador?.aviso_previo_nome && <p className="mb-1 text-slate-600 text-xs">Documento atual: {selectedColaborador.aviso_previo_nome}</p>}<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e => setEditFormData({ ...formData, aviso_previo_file: e.target.files?.[0] || null })} className="w-full p-2.5 bg-red-50 border border-red-200 rounded-xl text-sm" />{formData.aviso_previo_file && <p className="mt-1 text-xs text-slate-600">Selecionado: {formData.aviso_previo_file.name}</p>}</div>}{formData.data_desligamento && <div className="md:col-span-2"><label className="block font-bold text-slate-700 uppercase mb-1">Documento da rescisão (opcional)</label>{selectedColaborador?.rescisao_nome && <p className="mb-1 text-slate-600 text-xs">Documento atual: {selectedColaborador.rescisao_nome}</p>}<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e => setEditFormData({ ...formData, rescisao_file: e.target.files?.[0] || null })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />{formData.rescisao_file && <p className="mt-1 text-xs text-slate-600">Selecionado: {formData.rescisao_file.name}</p>}</div>}
 
                       <div className="md:col-span-2">
                         <label className="block font-bold text-slate-700 uppercase mb-1">Local do Registro (Empresa)</label>
@@ -1550,17 +1677,24 @@
                       )}
 
                       <div>
-                        <label className="block font-bold text-slate-700 uppercase mb-1">Carga Horária Mensal (Horas) *</label>
-                        <input
-                          type="number"
-                          required
-                          min="40"
-                          max="250"
-                          value={formData.carga_horaria}
-                          onChange={(e) => setEditFormData({ ...formData, carga_horaria: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
-                        />
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Carga Horária Semanal</label>
+                        <input type="number" min="1" max="168" step="0.01" value={formData.carga_horaria_semanal} onChange={(e) => setEditFormData({ ...formData, carga_horaria_semanal: e.target.value })} placeholder="Ex: 44" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm" />
                       </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Jornada diária</label>
+                        <input type="time" value={formData.jornada_diaria} onChange={(e) => setEditFormData({ ...formData, jornada_diaria: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Dias de trabalho por semana</label>
+                        <select value={formData.dias_trabalho_semana} onChange={(e) => setEditFormData({ ...formData, dias_trabalho_semana: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm">
+                          <option value="">Não informado</option>{[1,2,3,4,5,6,7].map(d => <option key={d} value={d}>{d} {d === 1 ? "dia" : "dias"}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-bold text-red-700 uppercase mb-1">Desligamento programado</label>
+                        <input type="date" min={RH.today()} value={formData.data_desligamento_programada} onChange={(e) => setEditFormData({ ...formData, data_desligamento_programada: e.target.value })} className="w-full p-2.5 bg-red-50 border border-red-200 rounded-xl focus:ring-2 focus:ring-red-600 text-sm" />
+                      </div>
+                      {(formData.data_desligamento_programada || formData.data_desligamento) && <label className="md:col-span-2 flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={formData.cumprindo_aviso_previo} onChange={(e) => setEditFormData({ ...formData, cumprindo_aviso_previo: e.target.checked })} />Está cumprindo aviso prévio</label>}{formData.cumprindo_aviso_previo && <div className="md:col-span-2"><label className="block font-bold text-red-700 uppercase mb-1">Documento do aviso prévio *</label>{selectedColaborador?.aviso_previo_nome && <p className="mb-1 text-slate-600 text-xs">Documento atual: {selectedColaborador.aviso_previo_nome}</p>}<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e => setEditFormData({ ...formData, aviso_previo_file: e.target.files?.[0] || null })} className="w-full p-2.5 bg-red-50 border border-red-200 rounded-xl text-sm" />{formData.aviso_previo_file && <p className="mt-1 text-xs text-slate-600">Selecionado: {formData.aviso_previo_file.name}</p>}</div>}{formData.data_desligamento && <div className="md:col-span-2"><label className="block font-bold text-slate-700 uppercase mb-1">Documento da rescisão (opcional)</label>{selectedColaborador?.rescisao_nome && <p className="mb-1 text-slate-600 text-xs">Documento atual: {selectedColaborador.rescisao_nome}</p>}<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e => setEditFormData({ ...formData, rescisao_file: e.target.files?.[0] || null })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />{formData.rescisao_file && <p className="mt-1 text-xs text-slate-600">Selecionado: {formData.rescisao_file.name}</p>}</div>}
 
                       <div className="md:col-span-2">
                         <label className="block font-bold text-slate-700 uppercase mb-1">Local do Registro (Empresa)</label>
@@ -1652,6 +1786,9 @@
                       </select>
                     </div>
 
+                    <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={desligamentoData.cumprindo_aviso_previo} onChange={e => setDesligamentoData({ ...desligamentoData, cumprindo_aviso_previo: e.target.checked })} />Está cumprindo aviso prévio</label>
+                    {desligamentoData.cumprindo_aviso_previo && <div><label className="block font-bold text-red-700 uppercase mb-1">Documento do aviso prévio *</label>{selectedColaborador.aviso_previo_nome && <p className="mb-1 text-slate-600">Documento atual: {selectedColaborador.aviso_previo_nome}</p>}<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e => setDesligamentoData({ ...desligamentoData, aviso_previo_file: e.target.files?.[0] || null })} className="w-full p-2.5 bg-red-50 border border-red-200 rounded-xl text-sm" />{desligamentoData.aviso_previo_file && <p className="mt-1 text-slate-600">Selecionado: {desligamentoData.aviso_previo_file.name}</p>}</div>}
+                    <div><label className="block font-bold text-slate-700 uppercase mb-1">Documento da rescisão (opcional)</label>{selectedColaborador.rescisao_nome && <p className="mb-1 text-slate-600">Documento atual: {selectedColaborador.rescisao_nome}</p>}<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e => setDesligamentoData({ ...desligamentoData, rescisao_file: e.target.files?.[0] || null })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />{desligamentoData.rescisao_file && <p className="mt-1 text-slate-600">Selecionado: {desligamentoData.rescisao_file.name}</p>}</div>
                     <p className="text-[11px] text-slate-500 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-relaxed">
                       <strong>Aviso:</strong> O desligamento registrará a data na aba de movimentações, limpará o colaborador ativo de férias e, se houver EPIs ou fardamentos entregues, gerará uma pendência em devoluções.
                     </p>

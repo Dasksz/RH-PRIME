@@ -98,21 +98,26 @@
       );
 
       // Helper para calcular horas úteis
-      function calcularHorasUteisLocal(dataInicio, dataFim, cargaHoraria) {
+      function calcularHorasUteisLocal(dataInicio, dataFim, jornada) {
         if (!dataInicio || !dataFim) return 0;
         let dInicio = new Date(dataInicio + "T00:00:00");
         let dFim = new Date(dataFim + "T00:00:00");
 
         if (isNaN(dInicio.getTime()) || isNaN(dFim.getTime()) || dInicio > dFim) return 0;
 
-        const fatorCarga = (cargaHoraria && !isNaN(Number(cargaHoraria)) && Number(cargaHoraria) > 0) ? (Number(cargaHoraria) / 220) : 1;
+        const configurada = jornada && Number(jornada.jornada_diaria_minutos) > 0 && Number(jornada.dias_trabalho_semana) > 0;
+        const fatorCarga = (jornada && !configurada && Number(jornada.carga_horaria) > 0) ? (Number(jornada.carga_horaria) / 220) : 1;
 
         let totalHoras = 0;
         let current = new Date(dInicio);
 
         while (current <= dFim) {
           const diaSemana = current.getDay();
-          if (diaSemana >= 1 && diaSemana <= 5) {
+          if (configurada) {
+            const dias = Number(jornada.dias_trabalho_semana);
+            const trabalhado = dias === 7 || (diaSemana >= 1 && diaSemana <= Math.min(dias, 6));
+            if (trabalhado) totalHoras += Number(jornada.jornada_diaria_minutos) / 60;
+          } else if (diaSemana >= 1 && diaSemana <= 5) {
             totalHoras += 8 * fatorCarga;
           } else if (diaSemana === 6) {
             totalHoras += 4 * fatorCarga;
@@ -255,7 +260,7 @@
 
             const { data: colabData, error: colabErr } = await supabase
               .from("funcionarios_epi")
-              .select("id, nome, cpf, carga_horaria, funcao, setor, local_registro")
+              .select("id, nome, cpf, carga_horaria, carga_horaria_semanal, jornada_diaria_minutos, dias_trabalho_semana, funcao, setor, local_registro")
               .order("nome", { ascending: true });
 
             if (colabErr) throw colabErr;
@@ -358,8 +363,8 @@
         }, [colaboradores, selectedColabCpf]);
 
         const horasCalculadasAuto = useMemo(() => {
-          const carga = colabSelecionadoObj ? colabSelecionadoObj.carga_horaria || 220 : 220;
-          return calcularHorasUteisLocal(faltaForm.data_inicio, faltaForm.data_fim, carga);
+          const jornada = colabSelecionadoObj || { carga_horaria: 220 };
+          return calcularHorasUteisLocal(faltaForm.data_inicio, faltaForm.data_fim, jornada);
         }, [faltaForm.data_inicio, faltaForm.data_fim, colabSelecionadoObj]);
 
         const handleOpenEdit = (item) => {
@@ -473,6 +478,9 @@
               horas_perdidas: horasFinais,
               motivo: motivoCompleto,
               carga_horaria: colabSelecionadoObj.carga_horaria || 220,
+              carga_horaria_semanal: colabSelecionadoObj.carga_horaria_semanal || null,
+              jornada_diaria_minutos: colabSelecionadoObj.jornada_diaria_minutos || null,
+              dias_trabalho_semana: colabSelecionadoObj.dias_trabalho_semana || null,
             };
             if(faltaAttachment){
               const info=RHAbsenceFiles.documentInfo({nome:colabSelecionadoObj.nome,inicio:faltaForm.data_inicio,fim:faltaForm.data_fim,...faltaDocument,mime:(await RHAbsenceFiles.validate(faltaAttachment)).mime});
@@ -989,7 +997,7 @@
                       </select>
                       {colabSelecionadoObj && (
                         <p className="text-[10px] text-blue-700 font-bold mt-1">
-                          Carga horária padrão do colaborador: {colabSelecionadoObj.carga_horaria || 220}h/mês
+                          {colabSelecionadoObj.carga_horaria_semanal ? `Jornada: ${colabSelecionadoObj.carga_horaria_semanal}h/semana · ${String(Math.floor(colabSelecionadoObj.jornada_diaria_minutos / 60)).padStart(2,"0")}h${String(colabSelecionadoObj.jornada_diaria_minutos % 60).padStart(2,"0")}/dia · ${colabSelecionadoObj.dias_trabalho_semana} dias/semana` : `Carga horária padrão: ${colabSelecionadoObj.carga_horaria || 220}h/mês (jornada ainda não configurada)`}
                         </p>
                       )}
                     </div>
@@ -1040,7 +1048,7 @@
                         <span className="text-base font-black text-red-600">{horasCalculadasAuto} horas</span>
                       </div>
                       <p className="text-[10px] text-slate-500 mt-1">
-                        Considera 8h/dia (seg-sex) e 4h (sáb) proporcional à carga horária do colaborador.
+                        {colabSelecionadoObj?.jornada_diaria_minutos ? `Considera ${String(Math.floor(colabSelecionadoObj.jornada_diaria_minutos / 60)).padStart(2,"0")}h${String(colabSelecionadoObj.jornada_diaria_minutos % 60).padStart(2,"0")}/dia e ${colabSelecionadoObj.dias_trabalho_semana} dias por semana.` : "Considera a estimativa antiga de 8h nos dias úteis e 4h aos sábados até configurar a jornada."}
                       </p>
                     </div>
 
