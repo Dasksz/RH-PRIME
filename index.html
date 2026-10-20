@@ -961,7 +961,7 @@
         const employeeCompanyId = (emp) => {
           if (emp?.empresa_id) return String(emp.empresa_id);
           const local = (emp?.local_registro || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
-          const cnpj = local.includes("JEQUIE") ? "52522019000282" : local.includes("ILHEUS") ? "52522019000100" : local.includes("NUNES") ? "48986353000139" : "";
+          const cnpj = local.includes("JEQUIE") ? "52522019000282" : local.includes("ILHEUS") ? "52522019000100" : local.includes("NUNES") ? "48986353000139" : local.includes("PRIME DISTRIBUICAO") ? "52522019000100" : "";
           return String(empresas.find((e) => (e.cnpj || "").replace(/\D/g, "") === cnpj)?.id || "");
         };
 
@@ -987,7 +987,7 @@
           const options = empresas.map((empresa) => {
             const cnpj = (empresa.cnpj || "").replace(/\D/g, "");
             const unidade = cnpj === "52522019000100" ? "ILHÉUS" : cnpj === "52522019000282" ? "JEQUIÉ" : "";
-            return { value: String(empresa.id), label: unidade ? `PRIME — ${unidade}` : empresa.nome };
+            return { value: String(empresa.id), label: unidade ? `${empresa.nome} - ${unidade}` : empresa.nome };
           });
           return options;
         }, [empresas, employees]);
