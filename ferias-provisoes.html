@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RH PRIME · Provisões e vencimentos</title>
 <link rel="icon" href="LOGO_RH.jpeg"><meta name="theme-color" content="#102c38">
-<link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="ferias-provisoes.css?v=20261021h">
+<link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="ferias-provisoes.css?v=20261021i">
 <script src="rh-theme.js"></script><script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 <script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020f"></script><script src="rh-multi-select.js?v=20261021a"></script>
 <script src="rh-navigation.js?v=20261006"></script><script src="rh-ferias-core.js"></script>
@@ -12,7 +12,7 @@
 <body><rh-navigation active="ferias"></rh-navigation>
 <main><p id="notice" class="notice" role="status">Verificando acesso…</p><div id="app" hidden>
 <div class="page-head"><div><a class="back" href="ferias.html">← Voltar para férias</a><h1 id="title">Provisões e vencimentos</h1><p id="subtitle"></p></div><div class="page-actions"><button id="exportExcel" class="secondary" type="button">Exportar Excel</button><button id="newProvision" type="button">＋ Nova provisão</button></div></div>
-<section class="filter-card" aria-label="Filtros da tabela"><rh-multi-select id="filterFunction" filter-label="Função"></rh-multi-select><rh-multi-select id="filterSector" filter-label="Setor"></rh-multi-select><rh-multi-select id="filterUnit" filter-label="Filial"></rh-multi-select><rh-multi-select id="filterCompany" filter-label="Empresa"></rh-multi-select><rh-multi-select id="filterEmployee" filter-label="Colaborador"></rh-multi-select><button id="clearFilters" class="secondary" type="button">Limpar filtros</button></section>
+<section class="filter-card" aria-label="Filtros da tabela"><rh-multi-select id="filterFunction" filter-label="Função"></rh-multi-select><rh-multi-select id="filterSector" filter-label="Setor"></rh-multi-select><rh-multi-select id="filterUnit" filter-label="Filial"></rh-multi-select><rh-multi-select id="filterCompany" filter-label="Empresa"></rh-multi-select><rh-multi-select id="filterEmployee" filter-label="Colaborador"></rh-multi-select><rh-multi-select id="filterSituation" filter-label="Situação"><option value="gozadas">Férias já tiradas</option><option value="pendentes">Precisam tirar férias</option><option value="provisionadas">Provisionadas</option><option value="sem_provisao">Sem provisão</option></rh-multi-select><button id="clearFilters" class="secondary" type="button">Limpar filtros</button></section>
 <div class="table-meta"><strong id="rowCount">0 colaboradores</strong><span id="monthLabel"></span></div>
 <div class="table-wrap"><table><thead><tr><th>Colaborador</th><th>Função / setor</th><th>Filial</th><th>Empresa registrada</th><th>Período aquisitivo</th><th>Provisão / vencimento</th><th>Dias</th><th>Saldo hoje</th><th>Ação</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>Nenhum registro corresponde aos filtros.</div></div>
 <p class="footnote">A provisão é um planejamento: não reserva nem reduz o saldo real de férias. Os dias adquiridos são informativos e não impedem provisionar períodos futuros com o saldo esperado na data planejada.</p>
@@ -28,5 +28,5 @@
 <p id="formError" class="form-error wide" hidden></p>
 </div><div class="form-actions"><button id="cancelForm" class="secondary" type="button">Cancelar</button><button id="saveForm" type="submit">Salvar provisão</button></div></form></dialog>
 <dialog id="vacationDetailDialog" class="detail-dialog"><div class="dialog-head"><div><h2 id="vacationDetailTitle">Férias gozadas</h2><p id="vacationDetailSubtitle"></p></div><button id="closeVacationDetail" class="secondary" type="button">Fechar</button></div><div id="vacationDetail" class="vacation-detail"></div></dialog>
-<script src="ferias-provisoes.js?v=20261021h"></script><script src="rh-install.js"></script>
+<script src="ferias-provisoes.js?v=20261021i"></script><script src="rh-install.js"></script>
 </body></html>
