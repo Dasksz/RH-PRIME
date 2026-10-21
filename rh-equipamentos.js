@@ -36,8 +36,9 @@
   }
   return rows;
  }
- function documentHtml(receipt,onlyOperation){
-  const s=receipt.snapshot,e=s.colaborador,company=s.empresa||{};
+ function documentHtml(receipt,onlyOperation,companyFallback={}){
+  const s=receipt.snapshot,e=s.colaborador,savedCompany=s.empresa||{},company={...companyFallback,...savedCompany};
+  for(const key of ['nome','cnpj','endereco'])if(!company[key])company[key]=companyFallback[key]||'';
   const relevant=onlyOperation?s.movimentos.filter(m=>m.operacao_id===receipt.id):s.movimentos;
   const employee=Object.fromEntries(Object.entries({...e,cargo:e.funcao}).map(([k,v])=>[k,esc(v)]));
   const empresa=Object.fromEntries(Object.entries({...company,nome:company.nome||e.local_registro}).map(([k,v])=>[k,esc(v)]));
@@ -50,7 +51,10 @@
   return RHFichaPadrao.render(employee,documentRows(receipt,onlyOperation),empresa,returnMode,hasDeliveries);
  }
  async function pdf(receipt,onlyOperation){
-  const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.setAttribute('aria-hidden','true');container.innerHTML=documentHtml(receipt,onlyOperation);document.body.appendChild(container);
+  let companyFallback={};
+  const savedCompany=receipt.snapshot?.empresa||{};
+  if((!savedCompany.cnpj||!savedCompany.endereco)&&employee.empresa_id){const result=await client.from('empresas').select('id,nome,cnpj,endereco').eq('id',employee.empresa_id).maybeSingle();if(result.error)throw result.error;companyFallback=result.data||{};}
+  const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.setAttribute('aria-hidden','true');container.innerHTML=documentHtml(receipt,onlyOperation,companyFallback);document.body.appendChild(container);
   try{await html2pdf().set({margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+receipt.id+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy'],avoid:['tr','.signatures']}}).from(container.firstElementChild).save();}finally{container.remove();}
  }
  function Control({client,employee,suggestions,onSaved,onVerificationChange}){
