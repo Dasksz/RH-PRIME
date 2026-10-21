@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RH PRIME · Provisões e vencimentos</title>
+<link rel="icon" href="LOGO_RH.jpeg"><meta name="theme-color" content="#102c38">
+<link rel="stylesheet" href="rh-theme.css"><link rel="stylesheet" href="ferias-provisoes.css?v=20261021a">
+<script src="rh-theme.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+<script src="rh-core.js"></script><script src="rh-search-select.js?v=20261020f"></script><script src="rh-multi-select.js?v=20261021a"></script>
+<script src="rh-navigation.js?v=20261006"></script><script src="rh-ferias-core.js"></script>
+</head>
+<body><rh-navigation active="ferias"></rh-navigation>
+<main><p id="notice" class="notice" role="status">Verificando acesso…</p><div id="app" hidden>
+<div class="page-head"><div><a class="back" href="ferias.html">← Voltar para férias</a><h1 id="title">Provisões e vencimentos</h1><p id="subtitle"></p></div><button id="newProvision" type="button">＋ Nova provisão</button></div>
+<section class="filter-card" aria-label="Filtros da tabela"><rh-multi-select id="filterFunction" filter-label="Função"></rh-multi-select><rh-multi-select id="filterSector" filter-label="Setor"></rh-multi-select><rh-multi-select id="filterUnit" filter-label="Filial"></rh-multi-select><rh-multi-select id="filterCompany" filter-label="Empresa"></rh-multi-select><rh-multi-select id="filterEmployee" filter-label="Colaborador"></rh-multi-select><button id="clearFilters" class="secondary" type="button">Limpar filtros</button></section>
+<div class="table-meta"><strong id="rowCount">0 colaboradores</strong><span id="monthLabel"></span></div>
+<div class="table-wrap"><table><thead><tr><th>Colaborador</th><th>Função / setor</th><th>Filial</th><th>Empresa registrada</th><th>Período aquisitivo</th><th>Provisão / vencimento</th><th>Dias</th><th>Saldo hoje</th><th>Ação</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>Nenhum registro corresponde aos filtros.</div></div>
+<p class="footnote">A provisão é um planejamento: não reserva nem reduz o saldo real de férias. Os dias adquiridos são informativos e não impedem provisionar períodos futuros com o saldo esperado na data planejada.</p>
+</div></main>
+<dialog id="editDialog"><div class="dialog-head"><div><h2 id="dialogTitle">Nova provisão</h2><p id="dialogEmployeeInfo"></p></div><button id="closeDialog" class="secondary" type="button">Fechar</button></div>
+<form id="provisionForm"><input type="hidden" name="id"><div class="form-grid">
+<div class="field wide"><label for="employeeChoice">Colaborador</label><rh-search-select id="employeeChoice" filter-label="Colaborador"><option value="">Selecione um colaborador</option></rh-search-select></div>
+<div class="field"><label for="periodChoice">Período aquisitivo</label><select id="periodChoice" name="periodo_inicio" required></select></div>
+<div class="field"><label for="provisionDate">Data de início planejada</label><input id="provisionDate" name="data_inicio" type="date" required></div>
+<div class="field"><label for="provisionDays">Dias provisionados</label><input id="provisionDays" name="dias_provisionados" type="number" min="1" max="30" value="30" required></div>
+<div class="field wide"><label>Saldo do período</label><div id="accrualInfo" class="accrual-info">Selecione o colaborador e o período.</div></div>
+<div class="field wide"><label for="observation">Observação (opcional)</label><textarea id="observation" name="observacao" maxlength="2000" rows="3"></textarea></div>
+<p id="formError" class="form-error wide" hidden></p>
+</div><div class="form-actions"><button id="cancelForm" class="secondary" type="button">Cancelar</button><button id="saveForm" type="submit">Salvar provisão</button></div></form></dialog>
+<script src="ferias-provisoes.js?v=20261021a"></script><script src="rh-install.js"></script>
+</body></html>
