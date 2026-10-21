@@ -6,7 +6,7 @@
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const date=v=>!v?'Não informada':String(v).includes('T')?new Date(v).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):String(v).slice(0,10).split('-').reverse().join('/');
  function nameParts(v){const [base,...rest]=String(v).replace(/\s+-\s*$/,'').trim().split(/\s+-\s+/);return {equipamento:base.trim(),complemento:rest.join(' - ').trim()};}
- const sizeCatalog={shirt:['PP','P','M','G','GG','EXG'],pants:['PP','P','M','G','GG','EXG','36','38','40','42','44','46','48'],shoe:['35','36','37','38','39','40','41','42','43','44','45','46'],unique:['ÚNICO']};
+ const sizeCatalog={shirt:['PP','P','M','G','GG','EXG'],pants:['PP','P','M','G','GG','EXG'],shoe:['35','36','37','38','39','40','41','42','43','44','45','46'],unique:['ÚNICO']};
  function sizeType(name){const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();if(/\b(CALCA|CALCAS)\b/.test(n))return'pants';if(/\b(BOTA|BOTAS|CALCADO|CALCADOS)\b/.test(n))return'shoe';if(/\b(CAMISA|CAMISAS|BLUSA|BLUSAS|COLETE|COLETES|PROTETOR DORSAL)\b/.test(n))return'shirt';if(/\b(LUVA|LUVAS|PROTETOR AURICULAR|OCULOS|CAPACETE)\b/.test(n))return'unique';return'';}
  function sizeOptions(name){return sizeCatalog[sizeType(name)]||[];}
  function caLabel(m){return [m.tamanho?'Tamanho '+m.tamanho:'',m.ca?'C.A. '+m.ca:''].filter(Boolean).join(' - ');}
