@@ -117,15 +117,18 @@
   widget.year=year;widget.month=month;
  }
  function position(widget){
-  if(!widget.popover.isConnected)return;syncGeometry(widget);const rect=widget.trigger.getBoundingClientRect(),width=Math.min(340,innerWidth-20),height=Math.min(widget.popover.scrollHeight,innerHeight-20),left=Math.max(10,Math.min(rect.left,innerWidth-width-10));
-  const below=rect.bottom+8,top=below+height<=innerHeight-10?below:Math.max(10,rect.top-height-8);
+  if(!widget.popover.isConnected)return;syncGeometry(widget);const rect=widget.trigger.getBoundingClientRect(),width=Math.min(340,innerWidth-20),left=Math.max(10,Math.min(rect.left,innerWidth-width-10)),gap=8,margin=10;
+  const belowSpace=Math.max(0,innerHeight-rect.bottom-gap-margin),aboveSpace=Math.max(0,rect.top-gap-margin),naturalHeight=Math.min(widget.popover.scrollHeight,540);
+  if(!widget.placement)widget.placement=naturalHeight<=belowSpace?'below':naturalHeight<=aboveSpace?'above':belowSpace>=aboveSpace?'below':'above';
+  const available=widget.placement==='below'?belowSpace:aboveSpace;widget.popover.style.maxHeight=`${Math.min(540,available)}px`;
+  const height=widget.popover.getBoundingClientRect().height,top=widget.placement==='below'?rect.bottom+gap:rect.top-height-gap;
   widget.popover.style.left=`${left}px`;widget.popover.style.top=`${top}px`;
  }
  function open(widget){
   if(widget.input.disabled||widget.input.readOnly)return;widget.sync();
   if(active===widget){close(false);return;}close(false);
   const today=new Date(),start=validISO(widget.input.value)?widget.input.value:`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-  const [year,month]=start.split('-').map(Number),popover=doc.createElement('div');popover.className='rh-holiday-popover';if(typeof popover.showPopover==='function')popover.setAttribute('popover','manual');popover.setAttribute('role','dialog');popover.setAttribute('aria-label',`Calendário de ${widget.label}`);widget.popover=popover;
+  const [year,month]=start.split('-').map(Number),popover=doc.createElement('div');popover.className='rh-holiday-popover';if(typeof popover.showPopover==='function')popover.setAttribute('popover','manual');popover.setAttribute('role','dialog');popover.setAttribute('aria-label',`Calendário de ${widget.label}`);widget.popover=popover;widget.placement=null;
   renderPicker(widget,year,month);(widget.input.closest('dialog[open]')||doc.body).appendChild(popover);if(typeof popover.showPopover==='function')popover.showPopover();else popover.style.display='block';widget.trigger.setAttribute('aria-expanded','true');active=widget;position(widget);
   const focusDate=popover.querySelector(`[data-rh-day="${validISO(widget.input.value)&&widget.input.value.slice(0,7)===`${year}-${pad(month)}`?widget.input.value:start}"]`);
   (focusDate&&!focusDate.disabled?focusDate:popover.querySelector('.rh-holiday-day:not(:disabled)'))?.focus();
