@@ -147,9 +147,9 @@
   addStyles();const scan=node=>{if(node.nodeType!==1)return;const visit=input=>{if(input.dataset.rhHolidayEnhanced==='true')input.rhDateState?.sync();else enhance(input);};if(node.matches?.('input[type="date"]'))visit(node);node.querySelectorAll?.('input[type="date"]').forEach(visit);};
   doc.querySelectorAll('input[type="date"]').forEach(enhance);
   const observer=new MutationObserver(records=>records.forEach(record=>{
-   if(record.type==='attributes'){if(record.target.matches?.('input[type="date"]'))record.target.rhDateState?.sync();else if(record.target===doc.documentElement||record.target===doc.body)doc.querySelectorAll('input[data-rh-holiday-enhanced="true"]').forEach(input=>input.rhDateState?.sync());return;}
+   if(record.type==='attributes'){if(record.target.matches?.('input[type="date"]'))record.target.rhDateState?.sync();else if(record.target.matches?.('dialog[open]'))requestAnimationFrame(()=>record.target.querySelectorAll('input[type="date"]').forEach(input=>input.rhDateState?.sync()));else if(record.target===doc.documentElement||record.target===doc.body)doc.querySelectorAll('input[data-rh-holiday-enhanced="true"]').forEach(input=>input.rhDateState?.sync());return;}
    record.removedNodes.forEach(node=>{if(node.nodeType!==1)return;if(node.matches?.('input[data-rh-holiday-enhanced="true"]'))cleanup(node);node.querySelectorAll?.('input[data-rh-holiday-enhanced="true"]').forEach(cleanup);});record.addedNodes.forEach(scan);
-  }));observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','readonly','required','min','max','value','class','style']});
+  }));observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','readonly','required','min','max','value','class','style','open']});
   doc.addEventListener('click',event=>{
    if(event.target.closest?.('.rh-date-trigger'))return;
    const label=event.target.closest?.('label');if(label){const input=label.htmlFor?doc.getElementById(label.htmlFor):label.querySelector('input[type="date"]');if(input?.dataset.rhHolidayEnhanced==='true'){event.preventDefault();input.rhDateState?.trigger.click();return;}}
