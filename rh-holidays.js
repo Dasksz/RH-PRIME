@@ -64,7 +64,7 @@
  function addStyles(){
   if(doc.getElementById('rh-holiday-styles'))return;
   const style=doc.createElement('style');style.id='rh-holiday-styles';style.textContent=`
-   .rh-date-native{visibility:hidden!important;pointer-events:none!important}
+   .rh-date-native{display:none!important}
    .rh-date-trigger{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:9px 12px;border:1px solid var(--rh-border,#344b58);border-radius:10px;background:var(--rh-panel,#142630);color:var(--rh-ink,#e7f0f4);font:inherit;text-align:left;cursor:pointer}
    .rh-date-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rh-date-trigger:hover{border-color:#4c9b92}.rh-date-trigger:focus-visible,.rh-holiday-popover button:focus-visible{outline:3px solid #5de2b5;outline-offset:2px}.rh-date-trigger[disabled]{opacity:.55;cursor:not-allowed}.rh-date-placeholder{opacity:.65}.rh-date-icon{width:18px;height:18px;flex:none;color:currentColor}
    .rh-holiday-popover{position:fixed;inset:auto;margin:0;z-index:100000;width:min(340px,calc(100vw - 20px));max-height:min(540px,calc(100vh - 20px));overflow:auto;padding:14px;border:1px solid var(--rh-border,#344b58);border-radius:14px;background:var(--rh-panel,#142630);color:var(--rh-ink,#e7f0f4);box-shadow:0 18px 48px #0006;font:14px/1.4 system-ui,sans-serif}
@@ -86,13 +86,11 @@
  function syncGeometry(state){
   const {input,trigger}=state;if(!input.isConnected||!trigger.isConnected)return;
   const parent=input.parentElement;if(parent&&trigger.parentElement!==parent)parent.insertBefore(trigger,input.nextSibling);
-  if(parent&&(getComputedStyle(parent).position==='static'||parent.dataset.rhDatePosition)){
-   if(state.managedParent!==parent){releaseManagedParent(state);if(!parent.dataset.rhDatePosition){parent.dataset.rhDatePosition='managed';parent.__rhDateOriginalPosition=parent.style.position;parent.style.position='relative';}parent.__rhDateUsers=(parent.__rhDateUsers||0)+1;state.managedParent=parent;}
-  }else if(state.managedParent)releaseManagedParent(state);
-  const rect=input.getBoundingClientRect(),parentRect=parent?.getBoundingClientRect(),computed=getComputedStyle(input);
-  trigger.style.position='absolute';trigger.style.left=`${rect.left-(parentRect?.left||0)-(parent?.clientLeft||0)+(parent?.scrollLeft||0)}px`;trigger.style.top=`${rect.top-(parentRect?.top||0)-(parent?.clientTop||0)+(parent?.scrollTop||0)}px`;trigger.style.width=`${rect.width}px`;trigger.style.height=`${rect.height}px`;trigger.style.zIndex='100001';
+  const computed=getComputedStyle(input);
+  trigger.style.position='static';trigger.style.left='';trigger.style.top='';trigger.style.zIndex='';trigger.style.width='100%';trigger.style.height='auto';
   ['boxSizing','fontFamily','fontSize','fontWeight','fontStyle','lineHeight','letterSpacing','textTransform','textAlign','color','backgroundColor','border','borderRadius','boxShadow','padding','direction'].forEach(property=>{trigger.style[property]=computed[property];});
-  trigger.style.minHeight='0';trigger.style.cursor=input.disabled||input.readOnly?'not-allowed':'pointer';trigger.disabled=input.disabled||input.readOnly;
+  trigger.style.display='flex';trigger.style.minHeight=computed.minHeight&&computed.minHeight!=='0px'?computed.minHeight:'42px';trigger.style.cursor=input.disabled||input.readOnly?'not-allowed':'pointer';trigger.disabled=input.disabled||input.readOnly;
+  if(state.managedParent)releaseManagedParent(state);
  }
  function cleanup(input){
   const state=input?.rhDateState;if(!state)return;
