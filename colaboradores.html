@@ -1176,6 +1176,15 @@
                       <div className="col-span-2">
                         <span className="block text-[10px] font-bold uppercase text-slate-400">Local de Registro</span>
                         <span className="font-bold text-slate-800">{selectedColaborador.local_registro || "-"}</span>
+                        {(() => {
+                          const empresaId = empresaIdLegada(selectedColaborador, empresas);
+                          const empresa = empresas.find((item) => String(item.id) === empresaId);
+                          return (
+                            <span className="mt-1 block text-xs font-medium text-slate-500">
+                              CNPJ: {empresa?.cnpj || "não identificado no cadastro"}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
 
