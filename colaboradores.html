@@ -1173,6 +1173,12 @@
                         <span className="block text-[10px] font-bold uppercase text-slate-400">Data Admissão</span>
                         <span className="font-bold text-slate-800">{formatarDataDisplay(selectedColaborador.admissao)}</span>
                       </div>
+                      {(selectedColaborador.isDesligado || selectedColaborador.data_desligamento) && (
+                        <div className="col-span-2">
+                          <span className="block text-[10px] font-bold uppercase text-slate-400">Data de desligamento</span>
+                          <span className="font-bold text-red-700">{formatarDataDisplay(selectedColaborador.data_desligamento)}</span>
+                        </div>
+                      )}
                       <div className="col-span-2">
                         <span className="block text-[10px] font-bold uppercase text-slate-400">Local de Registro</span>
                         <span className="font-bold text-slate-800">{selectedColaborador.local_registro || "-"}</span>
