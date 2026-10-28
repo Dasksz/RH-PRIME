@@ -55,7 +55,8 @@
   const savedCompany=receipt.snapshot?.empresa||{};
   if((!savedCompany.cnpj||!savedCompany.endereco)&&employee.empresa_id){const result=await client.from('empresas').select('id,nome,cnpj,endereco').eq('id',employee.empresa_id).maybeSingle();if(result.error)throw result.error;companyFallback=result.data||{};}
   const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.setAttribute('aria-hidden','true');container.innerHTML=documentHtml(receipt,onlyOperation,companyFallback);document.body.appendChild(container);
-  try{await html2pdf().set({margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+receipt.id+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy'],avoid:['tr','.signatures']}}).from(container.firstElementChild).save();}finally{container.remove();}
+  const employeeName=String(receipt.snapshot?.colaborador?.nome||'Colaborador').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,120)||'Colaborador';
+  try{await html2pdf().set({margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+employeeName+'_'+receipt.id+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy'],avoid:['tr','.signatures']}}).from(container.firstElementChild).save();}finally{container.remove();}
  }
  function Control({client,employee,suggestions,onSaved,onVerificationChange}){
   const [tab,setTab]=React.useState('epi'),[rows,setRows]=React.useState([]),[receipts,setReceipts]=React.useState([]),[loading,setLoading]=React.useState(true),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[notice,setNotice]=React.useState('');
