@@ -18,7 +18,13 @@ O histórico começa em setembro/2026. Conforme orientação do RH, dias úteis 
 
 Após o corte, um dia encerrado, previsto na jornada e consultado com sucesso, sem marcações e sem justificativa, aparece como falta sem justificativa cadastrada. Se a consulta falhou ou nunca foi feita, o dia fica sem dados para conferência. Marcações pendentes/rejeitadas, entradas sem saída e lançamentos de absenteísmo conflitantes não são fechados automaticamente.
 
-O administrador pode usar Classificar dia no espelho para registrar justificada, injustificada ou pendente, com motivo. Abonar é uma opção separada: uma justificativa sem abono não apaga o débito; com abono, a jornada não realizada é compensada na meta semanal. Todas as revisões são auditadas com data e responsável, preservando batidas e lançamentos existentes.
+Os indicadores de faltas são botões: exibem as datas e, ao selecionar uma data, os colaboradores. A contagem representa colaborador/dia, respeitando setor, filial, período e demais filtros. Ao salvar uma classificação, os indicadores e a lista aberta são recalculados.
+
+O administrador pode classificar pelo indicador ou pelo espelho, como justificada, injustificada ou pendente. A observação é opcional; quando vazia, grava-se um texto explícito de classificação pelo RH. Abonar é uma opção separada: uma justificativa sem abono não apaga o débito; com abono, a jornada não realizada é compensada na meta semanal. Todas as revisões são auditadas com data e responsável, preservando batidas e lançamentos existentes.
+
+Comprovantes opcionais: até cinco fotos JPG/PNG/WebP ou PDFs por envio, com 10 MB cada. O bucket `rh-ponto-comprovantes` é privado e somente administradores podem enviar e baixar anexos. `rh_ponto_anexos` registra vínculo, nome, tipo, tamanho, data e autor; o banco valida a existência do upload e o vínculo com o colaborador/dia. Arquivos vinculados são imutáveis e não têm exclusão na interface. Downloads autenticados não geram links públicos. Não há alteração automática no absenteísmo.
+
+A classificação é salva antes dos anexos. Uma falha de upload é informada como gravação parcial, mantém o formulário aberto e permite conferir os arquivos já anexados antes de tentar os restantes. A estrutura complementar está em `../supabase/sql/rh_ponto_comprovantes.sql`.
 
 ## Persistência e proteção
 

@@ -63,6 +63,14 @@
   const visible=days.filter(d=>d.inCycle),assigned=weeks.filter(w=>w.assigned),closed=assigned.filter(w=>w.delta!==null);
   return {employee,plan,days:visible,weeks,worked:visible.reduce((s,d)=>s+d.worked,0),expected:visible.filter(d=>!d.future).reduce((s,d)=>s+d.expected,0),extra:closed.reduce((s,w)=>s+w.extra,0),negative:closed.reduce((s,w)=>s+w.negative,0),pending:visible.filter(d=>d.pending).length,possibleAbsences:visible.filter(d=>d.absenceClass==='injustificada').length,justified:visible.filter(d=>d.absenceClass==='justificada').length,unjustified:visible.filter(d=>d.absenceClass==='injustificada').length,provisional:visible.reduce((n,d)=>n+(d.delta||0),0),closedWeeks:closed.length,openWeeks:assigned.filter(w=>w.delta===null).length,marks:visible.reduce((s,d)=>s+d.punches.length,0)};
  }
- const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize};
+ function absenceGroups(summaries,kind){
+  const groups=new Map();
+  summaries.forEach(summary=>summary.days.filter(day=>day.absenceClass===kind).forEach(day=>{
+   if(!groups.has(day.date))groups.set(day.date,[]);
+   groups.get(day.date).push({employee:summary.employee,day});
+  }));
+  return [...groups].sort(([a],[b])=>b.localeCompare(a)).map(([date,items])=>({date,items:items.sort((a,b)=>a.employee.nome.localeCompare(b.employee.nome,'pt-BR'))}));
+ }
+ const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHPonto=api;
 })(typeof window==='undefined'?globalThis:window);
