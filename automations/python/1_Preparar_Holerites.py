@@ -78,6 +78,8 @@ import json
 import os
 from pathlib import Path
 import random
+import socket
+from urllib.parse import urlsplit
 import re
 import time
 from datetime import datetime, timezone
@@ -102,8 +104,9 @@ def telefone(value):
 
 
 def mensagem(nome, tipo, referencia):
-    return (f'Olá, {nome}!\n\nAqui é do RH. Seus documentos de {tipo}, referentes a '
-            f'{referencia}, estão disponíveis no Facilita Ponto para visualização e assinatura.\n\n'
+    assunto = (f'Sua folha de ponto, referente a {referencia}, está disponível' if tipo.strip().upper() == 'FOLHA DE PONTO'
+               else f'Seus documentos de {tipo}, referentes a {referencia}, estão disponíveis')
+    return (f'Olá, {nome}!\n\nAqui é do RH. {assunto} no Facilita Ponto para visualização e assinatura.\n\n'
             f'Acesse o Portal do Colaborador:\n{PORTAL}\n\n'
             f'Faça login com seu CPF (somente números) e o código da empresa: {EMPRESA}.\n'
             'Após entrar, abra os documentos disponíveis e conclua a assinatura.\n\n'
@@ -166,19 +169,32 @@ def enviar_aviso(person, url, log_path, state, post=requests.post):
         response = post(url, json={'chatId': person['phone'], 'caption': person['message'],
                                    'session': 'default'},
                         headers={'X-Idempotency-Key': key}, timeout=40, allow_redirects=False)
+        state[key]['http_status'] = response.status_code
         if 200 <= response.status_code < 300:
             try:
                 body = response.json()
             except ValueError:
                 body = None
             if isinstance(body, dict) and (body.get('error') or body.get('accepted') is False):
+                state[key]['error'] = 'O n8n respondeu com erro.'
+                salvar_estado(log_path, state)
                 return 'uncertain'
             state[key]['status'] = 'accepted'
             salvar_estado(log_path, state)
             return 'accepted'
-    except requests.RequestException:
-        pass
+    except requests.RequestException as error:
+        state[key]['error'] = type(error).__name__
+    salvar_estado(log_path, state)
     return 'uncertain'
+
+
+def verificar_conexao(url):
+    destino = urlsplit(url)
+    try:
+        with socket.create_connection((destino.hostname, destino.port or (443 if destino.scheme == 'https' else 80)), timeout=5):
+            pass
+    except OSError as error:
+        raise ValueError('Sem conexão com o servidor n8n. Conecte o Tailscale/rede privada e confira se o n8n está disponível. Nenhum novo aviso foi tentado nesta execução.') from error
 
 
 def iniciar_envio():
@@ -214,9 +230,13 @@ def iniciar_envio():
     url = os.environ.get('N8N_RH_WEBHOOK_URL', 'http://100.90.6.30:5679/webhook/holerites').strip() or input('URL do webhook n8n RH usado na etapa anterior: ').strip()
     if not re.fullmatch(r'https?://[^\s?#]+/webhook/[A-Za-z0-9_-]+', url):
         raise ValueError('URL de webhook inválida.')
+    verificar_conexao(url)
     for index, person in enumerate(selected):
         result = enviar_aviso(person, url, log_path, state)
         print(person['nome'] + ': ' + result)
+        if result == 'uncertain':
+            detail = state[person['id']]
+            print('Diagnóstico: HTTP ' + str(detail.get('http_status', 'sem resposta')) + ' · ' + detail.get('error', 'Resposta sem confirmação válida.'))
         if result == 'uncertain':
             print('Resultado incerto: confira o histórico do n8n. O envio foi interrompido para revisão.')
             break
