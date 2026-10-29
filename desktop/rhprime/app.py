@@ -1,10 +1,12 @@
 """Aplicativo de preparação e revisão. Integração Facilita Ponto ainda indisponível."""
+from datetime import date
 import queue
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import webbrowser
 from .batches import prepare_batch, select_documents
+from .filenames import document_context
 from .config import load_config
 from .database import Database
 from .providers import FacilitaPonto
@@ -45,6 +47,14 @@ class Application:
         ttk.Label(toolbar, text='Páginas por documento:').pack(side='left')
         self.pages = tk.StringVar(value='1')
         ttk.Spinbox(toolbar, from_=1, to=100, width=5, textvariable=self.pages).pack(side='left', padx=6)
+        context = ttk.Frame(batch)
+        context.pack(fill='x', pady=8)
+        self.document_type = tk.StringVar(value='HOLERITE')
+        self.period = tk.StringVar(value=date.today().strftime('%m/%Y'))
+        ttk.Label(context, text='Tipo do documento:').pack(side='left')
+        ttk.Combobox(context, textvariable=self.document_type, width=25, values=('HOLERITE', 'FOLHA DE PONTO', 'INFORME DE RENDIMENTOS', 'RECIBO', 'AVISO DE FERIAS', 'RECIBO DE FERIAS')).pack(side='left', padx=6)
+        ttk.Label(context, text='Competência (MM/AAAA ou AAAA):').pack(side='left')
+        ttk.Entry(context, textvariable=self.period, width=10).pack(side='left', padx=6)
         ttk.Button(toolbar, text='Escolher PDF e separar', command=self.prepare).pack(side='left', padx=8)
         ttk.Label(batch, text='Selecione linhas com Ctrl ou Shift. “Todos” considera apenas documentos identificados e prontos.\nPDFs sem texto ou com identificação ambígua ficam para revisão.', wraplength=850).pack(anchor='w', pady=10)
         frame = ttk.Frame(batch)
@@ -109,12 +119,18 @@ class Application:
         except ValueError:
             messagebox.showerror('Páginas', 'Informe um número inteiro positivo.')
             return
+        kind, period = self.document_type.get(), self.period.get()
+        try:
+            document_context(kind, period)
+        except ValueError as error:
+            messagebox.showerror('Documento', str(error))
+            return
         source = filedialog.askopenfilename(filetypes=[('Documentos PDF','*.pdf')])
         if not source: return
         def task():
             self.restore()
             employees = self.db.rows('funcionarios_epi', {'select':'id,nome,cpf,data_desligamento'})
-            return prepare_batch(source, employees, self.config['work_dir'], count)
+            return prepare_batch(source, employees, self.config['work_dir'], count, document_type=kind, period=period)
         self.run(task, self.show_batch)
 
     def show_batch(self, result):

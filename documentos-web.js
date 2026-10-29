@@ -12,7 +12,7 @@ function renderLocal(){el('preview').replaceChildren();localDocs.forEach(d=>{con
 el('analyze').onclick=()=>action(async()=>{
  const files=[...(el('pdfFiles').files.length?el('pdfFiles').files:el('pdfFolder').files)].filter(f=>/\.pdf$/i.test(f.name));const count=Number(el('pages').value);
  if(!files.length||!Number.isInteger(count)||count<1||count>100)throw Error('Escolha PDFs e uma quantidade válida de páginas.');
- if(!/^(0[1-9]|1[0-2])\/\d{4}$/.test(el('competence').value))throw Error('Informe a competência em MM/AAAA.');
+ if(!/^(0[1-9]|1[0-2])\/[0-9]{4}$/.test(el('competence').value))throw Error('Informe a competência em MM/AAAA.');
  resetLocal();const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs');pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
  for(const file of files){
   if(file.size>30*1024*1024)throw Error(file.name+': origem maior que 30 MB. Divida o lote.');
@@ -23,7 +23,9 @@ el('analyze').onclick=()=>action(async()=>{
    let identified=null,error='';
    try{const identities=[];for(let i=first;i<first+count;i++){const page=await readable.getPage(i+1),text=(await page.getTextContent()).items.map(v=>v.str).join(' ');identities.push(RHDocuments.identify(text,employees));}if(new Set(identities.map(e=>e.id)).size!==1)throw Error('Grupo contém colaboradores diferentes.');identified=identities[0];if(vacation&&identified.id!==vacation.funcionario_id)throw Error('PDF pertence a outro colaborador: revise o vínculo de férias.');if(vacation&&!['AVISO DE FERIAS','RECIBO DE FERIAS','COMPROVANTE ASSINADO'].includes(el('kind').value))throw Error('Selecione um tipo de documento de férias.');RHDocuments.phone(identified.whatsapp);}catch(e){error=e.message;}
    const out=await PDFLib.PDFDocument.create();const pages=await out.copyPages(source,Array.from({length:count},(_,i)=>first+i));pages.forEach(p=>out.addPage(p));out.setCreationDate(new Date('2000-01-01T00:00:00Z'));out.setModificationDate(new Date('2000-01-01T00:00:00Z'));const result=await out.save();
-   const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',result))].map(b=>b.toString(16).padStart(2,'0')).join('');const id=crypto.randomUUID();const filename=(identified?.nome||'REVISAR').replace(/[^\p{L}\p{N} ._-]/gu,'_').slice(0,100)+'_'+el('kind').value+'_'+el('competence').value.replace('/','-')+'.pdf';
+   const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',result))].map(b=>b.toString(16).padStart(2,'0')).join('');const id=crypto.randomUUID();let filename='REVISAR_'+id+'.pdf';
+   if(identified&&!error){try{filename=RHDocuments.documentFilename(identified,el('kind').value,el('competence').value);}catch(e){error=e.message;}}
+   const base=filename.slice(0,-4);let suffix=2;while(localDocs.some(d=>d.filename===filename)){filename=base+' ('+suffix+').pdf';suffix++;}
    localDocs.push({id,employee:identified,error:error||(result.byteLength>10485760?'PDF separado excede 10 MB':''),source:file.name,first:first+1,last:first+count,bytes:result,sha256:hash,filename,kind:el('kind').value,period:el('competence').value,objectUrl:URL.createObjectURL(new Blob([result],{type:'application/pdf'})),selected:false,imported:false});
   }
   await readable.destroy();
