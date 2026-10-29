@@ -63,7 +63,7 @@ begin
    continue;
   end if;
   update public.rh_delivery_documents set status='queued',link='https://sistema.facilitaponto.com.br/portal',phone=phone_value,
-   message_text='Olá, '||e.nome||E'!\n\nAqui é do RH. Seus documentos de '||d.document_type||', referentes a '||d.period||E', estão disponíveis no Facilita Ponto para visualização e assinatura.\n\nAcesse o Portal do Colaborador:\nhttps://sistema.facilitaponto.com.br/portal\n\nFaça login com seu CPF (somente números) e o código da empresa: 032612.\nApós entrar, abra os documentos disponíveis e conclua a assinatura.\n\nEm caso de dificuldade, procure o RH.',
+   message_text='Olá, '||e.nome||E'!\n\nAqui é do RH. '||case when upper(d.document_type)='FOLHA DE PONTO' then 'Sua folha de ponto, referente a '||d.period||', está disponível' else 'Seus documentos de '||d.document_type||', referentes a '||d.period||', estão disponíveis' end||E' no Facilita Ponto para visualização e assinatura.\n\nAcesse o Portal do Colaborador:\nhttps://sistema.facilitaponto.com.br/portal\n\nFaça login com seu CPF (somente números) e o código da empresa: 032612.\nApós entrar, abra os documentos disponíveis e conclua a assinatura.\n\nEm caso de dificuldade, procure o RH.',
    approved_by=auth.uid(),approved_at=now(),error=null,updated_at=now() where id=d.id;
   total=total+1;
  end loop;
