@@ -4,7 +4,7 @@
  const portal='https://sistema.facilitaponto.com.br/portal';
  const exportIds=new Map();let exports=[];
  function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
- function message(name,kind,period){return 'Olá, '+name+'!\n\nAqui é do RH. Seus documentos de '+kind+', referentes a '+period+', estão disponíveis no Facilita Ponto para visualização e assinatura.\n\nAcesse o Portal do Colaborador:\n'+portal+'\n\nFaça login com seu CPF (somente números) e o código da empresa: 032612.\nApós entrar, abra os documentos disponíveis e conclua a assinatura.\n\nEm caso de dificuldade, procure o RH.';}
+ function message(name,kind,period){const assunto=kind.trim().toUpperCase()==='FOLHA DE PONTO'?'Sua folha de ponto, referente a '+period+', está disponível':'Seus documentos de '+kind+', referentes a '+period+', estão disponíveis';return 'Olá, '+name+'!\n\nAqui é do RH. '+assunto+' no Facilita Ponto para visualização e assinatura.\n\nAcesse o Portal do Colaborador:\n'+portal+'\n\nFaça login com seu CPF (somente números) e o código da empresa: 032612.\nApós entrar, abra os documentos disponíveis e conclua a assinatura.\n\nEm caso de dificuldade, procure o RH.';}
  async function register(manifest){
   if(manifest?.format!=='rh-facilita-export-v1'||!Array.isArray(manifest.documents)||!manifest.documents.length)throw Error('Arquivo de controle de lote inválido.');
   return RH.result(client.rpc('rh_register_signature_export',{p_id:manifest.id,p_name:manifest.name,p_type:manifest.kind,p_period:manifest.period,p_documents:manifest.documents}));
