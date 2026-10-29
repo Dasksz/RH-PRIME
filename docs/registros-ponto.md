@@ -42,6 +42,10 @@ A função usa o contrato GET documentado e o hash SHA1 exigido pelo fornecedor.
 
 A integração não envia WhatsApp nem altera dados no Facilita Ponto. Somente consulta e grava no Supabase. Cada chamada autenticada aceita até três colaboradores e um período de até 63 dias; a tela divide os lotes, mostra progresso e limita consultas até hoje. O acesso ao fornecedor ocorre no servidor, sem depender do Tailscale do computador.
 
+O acompanhamento da sincronização fica junto aos filtros: botão com indicação de atividade, lote atual, barra de respostas confirmadas, sucessos/falhas, tempo decorrido e previsão aproximada após as primeiras respostas. A previsão depende do ritmo observado da API e não é uma garantia de duração. Ao finalizar, a própria tela relê o banco e recalcula os indicadores; não é necessário recarregar o navegador. É preciso manter a página aberta para enviar os lotes restantes.
+
+Falhas individuais são listadas. Uma chamada sem resposta por dois minutos interrompe os próximos lotes, sem repetição automática, e informa que o servidor ainda pode concluir o lote em andamento. Contagens sem confirmação são preservadas como tal; não são apresentadas como sucesso ou como falha individual confirmada. A última consulta concluída do período também aparece junto aos filtros.
+
 As credenciais são provisionadas no Vault pelos nomes `rh_facilita_empresa` e `rh_facilita_senha_sha1`; não coloque valores em código ou migrações. A Edge Function usa as chaves privadas do ambiente Supabase, nunca do navegador. A implantação mantém `verify_jwt=true` e valida novamente a sessão e o perfil administrativo.
 
 Scripts de estrutura: `../supabase/sql/rh_ponto.sql` e `../supabase/sql/rh_ponto_ocorrencias.sql`, nessa ordem, já aplicados no RH PRIME. Função: `../supabase/functions/ponto-sync/index.ts`.
