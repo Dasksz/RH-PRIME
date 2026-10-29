@@ -751,9 +751,7 @@ def preparar_lote():
             for j in range(i, min(i + paginas_por_funcionario, total_paginas)):
                 escritor_pdf.add_page(pdf_fatiador.pages[j])
 
-            if cpf_encontrado and len(cpf_encontrado) >= 5:
-                senha_pdf = cpf_encontrado[:5]
-                escritor_pdf.encrypt(senha_pdf)
+            # PDFs do lote são salvos sem senha para importação no Facilita Ponto.
 
             with open(caminho_salvar, "wb") as arquivo_saida:
                 escritor_pdf.write(arquivo_saida)
@@ -763,7 +761,7 @@ def preparar_lote():
             else:
                 wpp_status = "✅ Com WhatsApp" if whatsapp else "⚠️ SEM WHATSAPP NA PLANILHA"
 
-            print(f"✂️ Extraído e Protegido ({tipo_func}): {nome_arquivo_pdf} -> [{wpp_status}]")
+            print(f"✂️ Extraído sem senha ({tipo_func}): {nome_arquivo_pdf} -> [{wpp_status}]")
 
             if chave_rastreio not in cpfs_achados_no_pdf:
                 encontrados.append({
