@@ -3,8 +3,8 @@ const employee={id:'11111111-1111-1111-1111-111111111111',nome:'José da Silva',
 const query={employee_id:employee.id,access_token:'eyJ.test.signature'};
 function env({admin=true,authenticated=true,folders=[],linked}={}){
  const calls=[],c=vm.createContext({propriedadesRH:()=>({getProperty:k=>({SUPABASE_URL:'https://example.supabase.co',SUPABASE_KEY:'sb_secret_test_only'})[k]}),UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>url.includes('/auth/')&&!authenticated?401:200,getContentText:()=>JSON.stringify(url.includes('/auth/')?{id:userId}:[{status:admin?'admin':'aprovado'}])};}}});
- vm.runInContext(fs.readFileSync(path.join(__dirname,'../RH_Drive_Automacoes.gs'),'utf8'),c);
- vm.runInContext(fs.readFileSync(path.join(__dirname,'../RH_Drive_Busca.gs'),'utf8'),c);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../integrations/google-apps-script/RH_Drive_Automacoes.gs'),'utf8'),c);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../integrations/google-apps-script/RH_Drive_Busca.gs'),'utf8'),c);
  c.bancoDriveRH=(resource,method)=>{assert.equal(method,'get');calls.push({resource});if(resource==='funcionarios_epi')return [employee];if(resource==='rh_automation_settings')return [{active_folder_id:'active-root',former_folder_id:'former-root'}];if(resource==='rh_drive_links')return linked?[{folder_id:linked}]:[];throw Error('Mutação inesperada');};
  c.filhosDriveRH=id=>{calls.push({root:id});return folders.filter(f=>f.parents.includes(id));};
  return {c,calls};

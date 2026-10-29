@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const code=fs.readFileSync('RH_Documentos_N8N.gs','utf8');
+const code=fs.readFileSync('integrations/google-apps-script/RH_Documentos_N8N.gs','utf8');
 const fn=code.slice(code.indexOf('function subpastaDocumentoRH'),code.indexOf('function hashDocumentoRH'));
 let folders=[],created=[];
 const ctx={filhosDriveRH:()=>folders,nomeDriveRH:s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim(),apiDriveRH:(p,m,b)=>{created.push(b);return {id:'new'}}};

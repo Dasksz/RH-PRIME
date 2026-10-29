@@ -1,0 +1,25 @@
+/* Navegação compacta: somente telefone; estilos de desktop preservados. */
+@media (max-width: 767px) {
+  .rh-main-header { padding: 12px 16px; gap: 8px; }
+  .rh-main-header > div:first-child { min-width: 0; gap: 8px; }
+  .rh-main-header h1 { font-size: 18px; }
+  .rh-main-header p { font-size: 9px; letter-spacing: .06em; }
+  .rh-main-header > button { flex-shrink: 0; }
+  .rh-main-header .rh-theme-toggle { margin-left: 0; padding: 8px!important; font-size: 12px!important; }
+  #mobile-nav:not(.hidden) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 10px 16px; background: var(--rh-header); border-top: 1px solid #344b58; }
+  #mobile-nav > a, #mobile-nav > span, #mobile-nav > button { display: flex; align-items: center; min-height: 44px; margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.3; color: #e7f0f4; }
+  #mobile-nav > span { background: #244d57; border: 1px solid #587783; }
+  #mobile-nav > a { background: rgba(255, 255, 255, .04); }
+  #mobile-nav > a:hover { background: #244d57; }
+  #mobile-nav > hr { display: none; }
+  #mobile-nav > button { grid-column: 1 / -1; min-height: 44px; color: #fda4af; border-top: 1px solid #344b58; border-radius: 0; }
+  body.rh-admin header { padding: 12px 16px; gap: 10px; }
+  body.rh-admin header > div:first-child { width: 100%; min-width: 0; }
+  body.rh-admin header h1 { flex-wrap: wrap; font-size: 18px; }
+  body.rh-admin header p { font-size: 11px; line-height: 1.35; margin-top: 4px; }
+  body.rh-admin header .rh-admin-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 6px; padding: 6px; border-radius: 12px; }
+  body.rh-admin header .rh-admin-nav > a, body.rh-admin header .rh-admin-nav > button { display: flex; align-items: center; justify-content: flex-start; width: 100%; min-width: 0; min-height: 44px; height: 100%; padding: 8px 10px!important; margin: 0!important; font-size: 12px!important; line-height: 1.3; text-align: left; white-space: normal; border-radius: 8px!important; gap: 6px; }
+  body.rh-admin header .rh-admin-nav > :nth-child(4), body.rh-admin header .rh-admin-nav > :nth-child(5) { min-height: 50px; }
+  body.rh-admin header .rh-admin-nav svg { flex-shrink: 0; width: 16px; height: 16px; }
+  body.rh-admin header .rh-admin-nav span { min-width: 0; overflow-wrap: anywhere; }
+}

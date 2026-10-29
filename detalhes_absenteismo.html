@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PRIME RH - Detalhes de Absenteísmo</title>
-    <link rel="icon" href="LOGO_RH.jpeg" type="image/jpeg" />
+    <link rel="icon" href="assets/images/LOGO_RH.jpeg" type="image/jpeg" />
 
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- Tailwind CSS -->
-    <link rel="stylesheet" href="rh-utilities.css?v=20261006">
+    <link rel="stylesheet" href="assets/css/rh-utilities.css?v=20261006">
 
     <!-- React via CDN -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -44,9 +44,9 @@
         background: #94a3b8;
       }
     </style>
-      <link rel="stylesheet" href="rh-responsive.css">
-    <script src="rh-core.js"></script><script src="rh-holidays.js?v=20261022e"></script><script src="rh-search-select.js?v=20261020f"></script><script src="rh-search-focus.js?v=20261006"></script>
-<link rel="stylesheet" href="rh-theme.css"><script src="rh-theme.js"></script>
+      <link rel="stylesheet" href="assets/css/rh-responsive.css">
+    <script src="assets/js/rh-core.js"></script><script src="assets/js/rh-holidays.js?v=20261022e"></script><script src="assets/js/rh-search-select.js?v=20261020f"></script><script src="assets/js/rh-search-focus.js?v=20261006"></script>
+<link rel="stylesheet" href="assets/css/rh-theme.css"><script src="assets/js/rh-theme.js"></script>
 <style>
   .rh-absence-action{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px}
   [data-rh-theme=dark] .rh-absence-action{background:transparent!important;border-color:transparent!important;color:var(--rh-muted)!important}
@@ -62,7 +62,7 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <script src="rh-absence-files.js?v=20261006"></script>
+    <script src="assets/js/rh-absence-files.js?v=20261006"></script>
     <script type="text/babel">
       const { useState, useEffect, useMemo } = React;
 
@@ -634,7 +634,7 @@
                       </svg>
                     </button>
                     <div className="h-10 w-10 bg-white rounded flex items-center justify-center overflow-hidden">
-                      <img src="LOGO_RH.jpeg" alt="Logo" className="h-full w-full object-cover" />
+                      <img src="assets/images/LOGO_RH.jpeg" alt="Logo" className="h-full w-full object-cover" />
                     </div>
                     <h1 className="text-xl font-bold tracking-tight">
                       PRIME RH <span className="text-blue-300 font-normal">| Detalhes de Absenteísmo</span>

@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-const V=require('../rh-ferias-core.js'),source=fs.readFileSync(require.resolve('../ferias.js'),'utf8');
+const V=require('../assets/js/rh-ferias-core.js'),source=fs.readFileSync(require.resolve('../assets/js/ferias.js'),'utf8');
 function fixture(){
  const fields={},nodes={formFields:{append(){}},completedPeriodDialog:{open:true,close(){this.open=false;}}},calls=[];
  const employee={id:'employee',admissao:'06/01/2025'};
