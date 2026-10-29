@@ -1,5 +1,6 @@
 :root{--cal-national:#a63f4b;--cal-state:#987115;--cal-green:#137e71}
 *{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .holiday-page{max-width:1440px;margin:0 auto;padding:34px clamp(16px,4vw,56px) 56px}
 .holiday-page-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:24px}
 .holiday-page-heading h1{margin:0;color:var(--rh-ink);font-size:clamp(28px,3vw,40px);line-height:1.15}
@@ -28,5 +29,6 @@
 .month-day.is-bahia,.holiday-badge.bahia{background:var(--cal-state-bg);color:var(--cal-state-ink)}
 .month-day.is-facultativo,.holiday-badge.facultativo{background:var(--cal-optional-bg);color:var(--cal-optional-ink)}
 .calendar-card-heading h2{line-height:1.4}.holiday-calendar-card,.holiday-list-card{box-shadow:0 4px 16px #18344006}
+[data-rh-theme=dark] .holiday-page-heading .eyebrow{color:#73d4c2}
 @media(max-width:760px){.holiday-page-heading{padding:20px}.year-controls{align-self:flex-start}}
 
