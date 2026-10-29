@@ -3,10 +3,10 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 import hashlib
 import json
-import re
 import uuid
 from pypdf import PdfReader, PdfWriter
 from .identity import identify_text, ReviewRequired
+from .filenames import document_context, document_filename
 
 @dataclass
 class Document:
@@ -20,9 +20,10 @@ class Document:
     status: str
     reason: str = ''
 
-def prepare_batch(source, employees, output_root, pages_per_document=1, extract_text=None):
+def prepare_batch(source, employees, output_root, pages_per_document=1, extract_text=None, *, document_type=None, period=None):
     if not isinstance(pages_per_document, int) or pages_per_document < 1:
         raise ValueError('Informe um número inteiro positivo de páginas por documento.')
+    document_context(document_type, period)
     reader = PdfReader(source)
     if reader.is_encrypted:
         raise ReviewRequired('Desbloqueie o PDF de origem antes de preparar o lote.')
@@ -50,8 +51,18 @@ def prepare_batch(source, employees, output_root, pages_per_document=1, extract_
             reason = str(error)
         document_id = str(uuid.uuid4())
         label = employee['nome'] if employee else 'REVISAR'
-        safe_name = re.sub(r'[^\w .-]', '_', label).strip(' .')[:100] or 'documento'
-        filename = f'{safe_name}_{document_id}.pdf'
+        filename = f'REVISAR_{document_id}.pdf'
+        if employee and not reason:
+            try:
+                filename = document_filename(employee, document_type, period)
+            except ReviewRequired as error:
+                reason = str(error)
+        # Repetições no mesmo lote nunca sobrescrevem uma página anterior.
+        base = Path(filename).stem
+        suffix = 2
+        while (output / filename).exists():
+            filename = f'{base} ({suffix}).pdf'
+            suffix += 1
         writer = PdfWriter()
         for page in pages:
             writer.add_page(page)
@@ -61,7 +72,7 @@ def prepare_batch(source, employees, output_root, pages_per_document=1, extract_
         documents.append(Document(document_id, employee['id'] if employee else None,
             label, filename, first + 1, first + len(pages), digest,
             'review' if reason else 'prepared', reason))
-    manifest = {'version': 1, 'batch_id': output.name, 'documents': [asdict(d) for d in documents]}
+    manifest = {'version': 1, 'batch_id': output.name, 'document_type': document_type, 'period': period, 'documents': [asdict(d) for d in documents]}
     (output / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
     return output, documents
 

@@ -47,3 +47,17 @@ Testes não acessam contas reais nem enviam documentos. O executável Windows pr
 ## Instalação da prévia compilada
 
 No GitHub Actions, abra a execução concluída de **RH PRIME Windows preview**, baixe o artefato **RHPrime-Windows-preview** e extraia todo o ZIP. Execute `Instalar.cmd`. Ele copia os arquivos para `%LOCALAPPDATA%\Programs\RHPrime` e cria um atalho na área de trabalho, sem instalar Node ou Python globalmente. Não inicia serviços nem altera Docker/n8n. Feche o aplicativo antes de atualizar. O envio ao Facilita Ponto continua bloqueado nesta prévia.
+
+## Nomes dos PDFs preparados
+
+Informe o tipo e a competência antes de separar. Os novos PDFs usam o CPF do cadastro, apenas com os 11 dígitos, preservando zeros à esquerda:
+
+`CPF-TIPO - NOME DO COLABORADOR MM-AAAA.pdf`
+
+Exemplos: `52998224725-HOLERITE - ANA MARIA SILVA 09-2026.pdf`, `52998224725-FOLHA DE PONTO - ANA MARIA SILVA 09-2026.pdf`. O tipo é editável para outros documentos. No aplicativo Python, informes anuais também aceitam competência `AAAA`. Na página web, informe `MM/AAAA`, conforme a competência do lote.
+
+O CPF vem do colaborador identificado no cadastro, nunca do CNPJ da empresa. Cadastro sem CPF de 11 dígitos exige revisão: o PDF fica como `REVISAR_<id>.pdf` e não pode ser selecionado como pronto. Documentos repetidos na mesma preparação recebem ` (2)`, ` (3)` antes de `.pdf` para preservar todas as páginas. Arquivos antigos não são renomeados.
+
+Na página Documentos web, o mesmo padrão vale para o download da conferência e o nome enviado ao Drive. O caminho temporário privado continua usando o ID interno. O processador do Drive já utiliza o campo `filename`, sem precisar mudar o n8n ou o banco.
+
+O arquivo legado `../AUTOMACAO_ENVIO_DE_DOCUMENTOS/1_Preparar_Holerites.py` contém JSON n8n, não Python executável. Esta mudança atualiza o preparador em `rhprime/batches.py`; scripts Python externos precisam adotar a mesma função `document_filename`.
