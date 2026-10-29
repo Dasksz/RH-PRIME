@@ -14,3 +14,18 @@
 @media(max-width:760px){.holiday-page{padding-top:24px}.holiday-page-heading{align-items:flex-start;flex-direction:column}.year-controls{align-self:stretch;justify-content:flex-start}.months-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.holiday-list{grid-template-columns:1fr}.calendar-card-heading{flex-direction:column}}
 @media(max-width:420px){.months-grid{grid-template-columns:1fr 1fr;gap:8px}.month-card{padding:10px 8px}.month-day,.month-empty{min-height:28px}.holiday-list li{grid-template-columns:76px 1fr;gap:5px}.holiday-list .holiday-badge{grid-column:2;justify-self:start}}
 .calendar-legend .optional{background:#7489d5}.month-day.is-facultativo{background:#273958;color:#b8c7ff;font-weight:700}.holiday-badge.facultativo{background:#273958;color:#b8c7ff}
+
+/* Conteúdo da página não herda a faixa escura da navegação. */
+.holiday-page{font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.holiday-page-heading{padding:24px;border:1px solid var(--rh-border);border-radius:20px;background:var(--rh-panel);box-shadow:0 6px 20px #18344008;align-items:center}
+.year-controls{padding:6px;background:var(--rh-soft);border:1px solid var(--rh-border);border-radius:16px}
+.year-controls button{background:var(--rh-panel);color:var(--rh-ink);border-radius:10px;box-shadow:0 1px 3px #1834400a}
+.year-controls button:focus-visible{outline:3px solid var(--rh-accent);outline-offset:3px}
+.year-controls button:disabled{opacity:.45;cursor:default}.year-controls strong{color:var(--rh-ink)}
+:root{--cal-national-bg:#fce9ec;--cal-national-ink:#9c263d;--cal-state-bg:#fff0c4;--cal-state-ink:#795207;--cal-optional-bg:#e9edff;--cal-optional-ink:#344a91}
+:root[data-rh-theme=dark]{--cal-national-bg:#53282e;--cal-national-ink:#ffc0c5;--cal-state-bg:#493c20;--cal-state-ink:#ffe28a;--cal-optional-bg:#273958;--cal-optional-ink:#b8c7ff}
+.month-day.is-national,.holiday-badge.brasil{background:var(--cal-national-bg);color:var(--cal-national-ink)}
+.month-day.is-bahia,.holiday-badge.bahia{background:var(--cal-state-bg);color:var(--cal-state-ink)}
+.month-day.is-facultativo,.holiday-badge.facultativo{background:var(--cal-optional-bg);color:var(--cal-optional-ink)}
+.calendar-card-heading h2{line-height:1.4}.holiday-calendar-card,.holiday-list-card{box-shadow:0 4px 16px #18344006}
+@media(max-width:760px){.holiday-page-heading{padding:20px}.year-controls{align-self:flex-start}}
