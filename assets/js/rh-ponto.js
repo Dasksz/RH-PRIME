@@ -1,7 +1,7 @@
 'use strict';
 const pontoClient=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98');
 const P=RHPonto,$=id=>document.getElementById(id),today=RH.today();
-let people=[],marks=[],consultations=[],overrides=[],absences=[],vacations=[],config={disponivel_desde:'2026-10-26',historico_desde:'2026-09-01'},summaries=[],shown=[],profile,selected=null,busy=false,period,sector='',occurrences=[],occurrenceDay=null;
+let people=[],marks=[],consultations=[],overrides=[],absences=[],vacations=[],config={disponivel_desde:'2026-10-26',historico_desde:'2026-09-01'},summaries=[],shown=[],profile,selected=null,busy=false,period,sector='',occurrences=[],occurrenceDay=null,occurrenceEmployee=null,absenceKind=null,absenceDate=null;
 const fmt=d=>d.split('-').reverse().join('/');
 function node(tag,text,className){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 function notice(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
@@ -36,13 +36,13 @@ function setupFilters(){
  $('teamTabs').replaceChildren(...[['','Todas as equipes'],...sectors.map(s=>[s,labels[s]||s])].map(([value,label])=>{const button=node('button',label);button.type='button';button.setAttribute('role','tab');button.dataset.sector=value;button.setAttribute('aria-selected',String(value===sector));button.onclick=()=>{sector=value;$('teamTabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.sector===sector)));render();};return button;}));
  $('start').min=config.historico_desde;$('end').min=config.historico_desde;
 }
-function openOccurrence(day){
- occurrenceDay=day.date;const current=occurrences.find(o=>o.funcionario_id===selected&&o.dia===day.date);
- $('occurrenceTitle').textContent='Classificar dia · '+summaries.find(s=>s.employee.id===selected).employee.nome;
+function openOccurrence(day,employeeId=selected){
+ occurrenceEmployee=employeeId;occurrenceDay=day.date;const current=occurrences.find(o=>o.funcionario_id===employeeId&&o.dia===day.date);
+ $('occurrenceTitle').textContent='Classificar dia · '+summaries.find(s=>s.employee.id===employeeId).employee.nome;
  $('occurrenceDate').textContent=fmt(day.date);$('occurrenceClass').value=current?.classificacao||'justificada';$('occurrenceReason').value=current?.motivo||'';$('occurrenceCredit').checked=current?current.abonar:true;
  $('occurrenceNotice').textContent=day.historical?'Dia justificado automaticamente pelo corte de implantação. Uma decisão manual ficará registrada no histórico.':'';
- $('occurrenceHistory').textContent='Carregando histórico…';$('occurrence').showModal();
- action(async()=>{if(!current){$('occurrenceHistory').textContent='Nenhuma classificação manual registrada.';return;}
+ $('occurrenceFiles').value='';$('occurrenceAttachments').replaceChildren();$('occurrenceHistory').textContent='Carregando histórico…';$('occurrence').showModal();
+ action(async()=>{if(current)await drawAttachments(current.id);if(!current){$('occurrenceHistory').textContent='Nenhuma classificação manual registrada.';return;}
   const data=await RH.result(pontoClient.from('rh_ponto_ocorrencias_historico').select('id,antes,depois,criado_em').eq('ocorrencia_id',current.id).order('id',{ascending:false}).limit(10));
   $('occurrenceHistory').replaceChildren(...data.map(h=>{const item=node('p');item.textContent=new Date(h.criado_em).toLocaleString('pt-BR')+' · '+h.depois.classificacao+' · '+h.depois.motivo;return item;}));
  });
@@ -51,9 +51,11 @@ $('closeOccurrence').onclick=()=>$('occurrence').close();
 $('occurrenceClass').onchange=()=>{if($('occurrenceClass').value!=='justificada')$('occurrenceCredit').checked=false;};
 $('occurrenceForm').onsubmit=event=>{event.preventDefault();action(async()=>{
  try{
-  if(profile.status!=='admin'||!selected||!occurrenceDay)throw Error('Administrador obrigatório.');
-  const classification=$('occurrenceClass').value,reason=$('occurrenceReason').value.trim();if(reason.length<3)throw Error('Informe o motivo da classificação.');
-  await RH.result(pontoClient.from('rh_ponto_ocorrencias').upsert({funcionario_id:selected,dia:occurrenceDay,classificacao:classification,motivo:reason,abonar:classification==='justificada'&&$('occurrenceCredit').checked},{onConflict:'funcionario_id,dia'}).select(),true);
+  if(profile.status!=='admin'||!occurrenceEmployee||!occurrenceDay)throw Error('Administrador obrigatório.');
+  const classification=$('occurrenceClass').value,reason=$('occurrenceReason').value.trim()||({justificada:'Falta justificada pelo RH.',injustificada:'Falta mantida sem justificativa pelo RH.',pendente:'Aguardando conferência pelo RH.'}[classification]);
+  const files=[...$('occurrenceFiles').files];validateFiles(files);
+  const saved=await RH.result(pontoClient.from('rh_ponto_ocorrencias').upsert({funcionario_id:occurrenceEmployee,dia:occurrenceDay,classificacao:classification,motivo:reason,abonar:classification==='justificada'&&$('occurrenceCredit').checked},{onConflict:'funcionario_id,dia'}).select(),true);
+  try{await saveAttachments(saved[0],files);}catch(error){$('occurrenceFiles').value='';await load();await drawAttachments(saved[0].id);throw Error('A classificação foi salva, mas houve falha no anexo. '+error.message+' Confira os comprovantes abaixo e selecione novamente apenas os que faltam.');}
   $('occurrence').close();await load();notice('Classificação salva com histórico. Os horários originais foram preservados.');
  }catch(error){$('occurrenceNotice').textContent=error.message;throw error;}
  });};
@@ -67,7 +69,8 @@ function render(){
  $('balanceDescription').textContent=(hasClosed?'Após compensação em semanas fechadas.':'Variação dos dias completos; ainda sujeita à compensação e ao fechamento semanal.')+' '+P.hours(sum('worked'))+' realizadas no ciclo.';
  $('balanceStats').replaceChildren(...[[shown.filter(s=>(hasClosed?s.extra-s.negative:s.provisional)>0).length,'Com saldo +'],[shown.filter(s=>(hasClosed?s.extra-s.negative:s.provisional)<0).length,'Com saldo −']].map(([value,label])=>{const box=node('div');box.append(node('strong',String(value)),node('span',label));return box;}));
  $('overviewStats').textContent=shown.length+' colaboradores · '+sum('pending')+' dias para conferir · '+P.hours(sum('worked'))+' realizadas';
- makeCards($('cards'),[['Faltas justificadas',String(sum('justified')),'Dias justificados pelo RH ou pelo corte de implantação'],['Faltas injustificadas',String(sum('unjustified')),'Dias úteis consultados sem ponto e sem justificativa cadastrada']]);
+ $('cards').replaceChildren(...[['justificada','Faltas justificadas',sum('justified'),'Dias justificados pelo RH ou pelo corte de implantação'],['injustificada','Faltas injustificadas',sum('unjustified'),'Dias úteis sem ponto e sem justificativa cadastrada']].map(([kind,label,total,description])=>{const card=node('button',undefined,'card absence-kpi');card.type='button';card.setAttribute('aria-label',label+': '+total+' dias. Ver detalhes');card.append(node('span',label),node('strong',String(total)),node('span',description),node('span','Ver dias e colaboradores →','kpi-link'));card.onclick=()=>{absenceKind=kind;absenceDate=null;renderAbsences();$('absenceList').showModal();};return card;}));
+ if($('absenceList').open)renderAbsences();
  $('employees').replaceChildren(...shown.sort((a,b)=>a.employee.nome.localeCompare(b.employee.nome)).map(s=>{
   const row=node('tr'),name=node('td');row.tabIndex=0;row.setAttribute('aria-label','Abrir espelho de '+s.employee.nome);const open=()=>{selected=s.employee.id;drawDetail(s);$('detail').showModal();};row.onclick=event=>{if(!event.target.closest('button,a,input'))open();};row.onkeydown=event=>{if(event.target===row&&['Enter',' '].includes(event.key)){event.preventDefault();open();}};name.append(node('strong',s.employee.nome),node('small',[s.employee.setor,s.employee.unidade].filter(Boolean).join(' · ')));row.append(name,node('td',P.hours(s.worked)));
   const week=s.weeks.find(w=>w.start<=today&&w.end>=today),current=node('td');current.append(node('span',week?P.hours(week.worked)+' / '+P.hours(week.expected):'—'),node('small',week?.status||'Fora do período'));row.append(current,node('td',P.hours(s.extra),'positive'),node('td',P.hours(s.negative),'negative'));
@@ -107,4 +110,40 @@ $('sync').onclick=()=>action(async()=>{
  finally{await load();$('progress').textContent=success+' consulta(s) concluída(s) · '+failed+' com falha. Dados anteriores de consultas com falha foram preservados.';}
  notice('Sincronização concluída. Confira dias pendentes e as semanas em apuração.');
 });
+
+const attachmentBucket='rh-ponto-comprovantes';
+function validateFiles(files){if(files.length>5)throw Error('Selecione no máximo 5 comprovantes por envio.');for(const file of files){if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type))throw Error('Use fotos JPG, PNG, WebP ou PDF.');if(!file.size||file.size>10*1024*1024)throw Error('Cada comprovante deve ter entre 1 byte e 10 MB.');}}
+async function saveAttachments(occurrence,files){
+ for(const file of files){
+  const extension={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','application/pdf':'pdf'}[file.type];
+  const path=occurrence.funcionario_id+'/'+occurrence.dia+'/'+crypto.randomUUID()+'.'+extension;
+  const {error}=await pontoClient.storage.from(attachmentBucket).upload(path,file,{contentType:file.type,upsert:false});if(error)throw Error('Não foi possível enviar '+file.name+'.');
+  try{await RH.result(pontoClient.from('rh_ponto_anexos').insert({ocorrencia_id:occurrence.id,path,nome:file.name.slice(0,240),mime:file.type,tamanho:file.size}).select(),true);}
+  catch(error){await pontoClient.storage.from(attachmentBucket).remove([path]);throw Error('Não foi possível vincular '+file.name+'.');}
+ }
+ $('occurrenceFiles').value='';
+}
+async function drawAttachments(occurrenceId){
+ $('occurrenceAttachments').replaceChildren();if(profile.status!=='admin')return;
+ const attachments=await RH.result(pontoClient.from('rh_ponto_anexos').select('id,path,nome,criado_em').eq('ocorrencia_id',occurrenceId).order('criado_em'));
+ if(!attachments.length){$('occurrenceAttachments').append(node('p','Nenhum comprovante anexado.','muted'));return;}
+ $('occurrenceAttachments').append(node('h3','Comprovantes anexados'));
+ attachments.forEach(file=>{const button=node('button','Baixar '+file.nome,'attachment-button secondary');button.type='button';button.onclick=()=>action(async()=>{const {data,error}=await pontoClient.storage.from(attachmentBucket).download(file.path);if(error)throw Error('Não foi possível baixar o comprovante.');const url=URL.createObjectURL(data),link=node('a');link.href=url;link.download=file.nome;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);});$('occurrenceAttachments').append(button);});
+}
+function renderAbsences(){
+ const groups=P.absenceGroups(shown,absenceKind),total=groups.reduce((n,g)=>n+g.items.length,0),title=absenceKind==='justificada'?'Faltas justificadas':'Faltas injustificadas';
+ $('absenceTitle').textContent=title;$('absenceSubtitle').textContent=fmt(period.start)+' a '+fmt(period.end)+' · '+total+' dias de ausência em '+groups.length+' datas · filtros da página aplicados';
+ $('absenceBack').hidden=!absenceDate;$('absenceContent').replaceChildren();
+ $('absenceHelp').textContent=absenceKind==='injustificada'?'São dias úteis consultados sem marcação e sem justificativa cadastrada. Confira antes de confirmar uma falta. Cada ocorrência representa um colaborador em um dia.':'Inclui justificativas do RH e a regularização automática dos dias anteriores ao corte de implantação.';
+ if(!absenceDate){
+  if(!groups.length){$('absenceContent').append(node('p','Nenhuma falta nesta classificação e nos filtros selecionados.','empty-state'));return;}
+  const list=node('div',undefined,'absence-date-list');groups.forEach(group=>{const button=node('button',undefined,'absence-date secondary');button.type='button';button.append(node('strong',fmt(group.date)),node('span',group.items.length+' colaborador(es)'),node('span','Ver colaboradores →'));button.onclick=()=>{absenceDate=group.date;renderAbsences();};list.append(button);});$('absenceContent').append(list);return;
+ }
+ $('absenceContent').append(node('h3','Colaboradores · '+fmt(absenceDate)));
+ const group=groups.find(g=>g.date===absenceDate);if(!group){$('absenceContent').append(node('p','Todas as ocorrências desta data saíram desta classificação.','empty-state'));return;}
+ group.items.forEach(({employee,day})=>{const row=node('div',undefined,'absence-person'),info=node('div');info.append(node('strong',employee.nome),node('small',[employee.setor,employee.unidade].filter(Boolean).join(' · ')),node('small',day.historical?'Justificada automaticamente pelo corte de implantação':day.decision?.motivo||'Sem ponto e sem justificativa cadastrada'));row.append(info);
+  if(profile.status==='admin'){const button=node('button',absenceKind==='injustificada'?'Justificar / conferir':'Revisar justificativa');button.type='button';button.onclick=()=>openOccurrence(day,employee.id);row.append(button);}else row.append(node('small','Classificação disponível ao administrador do RH.'));$('absenceContent').append(row);});
+}
+$('closeAbsences').onclick=()=>$('absenceList').close();$('absenceBack').onclick=()=>{absenceDate=null;renderAbsences();};
+
 action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;if(profile.status!=='admin')$('sync').hidden=true;notice('Dados carregados do banco. As credenciais de integração ficam somente no servidor.');});
