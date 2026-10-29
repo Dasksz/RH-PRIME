@@ -12,9 +12,19 @@ function identify(text,employees){
  if(matches[0].data_desligamento)throw Error('Colaborador desligado: envio automático bloqueado.');
  return matches[0];
 }
+function documentFilename(employee,kind,period){
+ const cpf=digits(employee?.cpf);
+ if(!/^[0-9]{11}$/.test(cpf)||/^(\d)\1{10}$/.test(cpf))throw Error('CPF ausente ou inválido no cadastro. Corrija antes de importar.');
+ const safe=value=>String(value||'').normalize('NFC').toUpperCase().replace(/[^\p{L}\p{N}_ .-]/gu,'_').replace(/\s+/g,' ').replace(/^[ .]+|[ .]+$/g,'').slice(0,100).replace(/[ .]+$/g,'');
+ kind=safe(kind).slice(0,50).trim();kind=({HOLERITES:'HOLERITE',RECIBOS:'RECIBO'})[kind]||kind;
+ const name=safe(employee?.nome);period=String(period||'').trim();
+ if(!name||!kind)throw Error('Informe nome e tipo do documento.');
+ if(!/^(?:(?:0[1-9]|1[0-2])[/\-][0-9]{4}|[0-9]{4})$/.test(period))throw Error('Informe a competência em MM/AAAA ou AAAA.');
+ return cpf+'-'+kind+' - '+name+' '+period.replace('/','-')+'.pdf';
+}
 function phone(s){let p=digits(s);if([10,11].includes(p.length))p='55'+p;if(!/^55[1-9]\d\d{8,9}$/.test(p))throw Error('WhatsApp inválido no cadastro.');return p;}
 function message(template,values){return template.replace(/\{([^{}]+)\}/g,(_,key)=>{if(!['nome','tipo','competencia','link'].includes(key))throw Error('Variável desconhecida: '+key);return values[key]||'';});}
 const configurationError='Configure webhook HTTPS e token de autenticação nas propriedades do Apps Script';
 function retryableDelivery(d){return ['uncertain','failed'].includes(d.status)&&[configurationError,'N8N_CONFIG_MISSING: '+configurationError].includes(d.error);}
-const api={normalize,digits,validCpf,identify,phone,message,retryableDelivery};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHDocuments=api;
+const api={documentFilename,normalize,digits,validCpf,identify,phone,message,retryableDelivery};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHDocuments=api;
 })(typeof window==='undefined'?globalThis:window);

@@ -1,3 +1,27 @@
+# Preparar PDFs para assinatura no Facilita Ponto
+
+O fluxo principal da página Documentos agora é: separar e conferir → baixar ZIP → extrair e carregar os PDFs manualmente no Facilita Ponto → disponibilizar para assinatura → confirmar o lote e autorizar avisos. Os arquivos usam `CPF-TIPO - NOME MM-AAAA.pdf`, sem espaços junto ao hífen após o CPF. A competência anual aceita `AAAA`.
+
+O ZIP contém os PDFs selecionados na raiz e `_controle_do_lote/manifest.json`. Guarde o ZIP: os bytes ficam no computador, sem upload para Supabase ou Drive nesta etapa. O banco guarda somente os nomes, hashes, vínculos de colaboradores e histórico dos avisos. Se o registro falhar após o download, importe o `manifest.json` pelo campo de controle do lote. Baixar novamente a mesma seleção na sessão conserva o identificador do lote; reimportar o mesmo controle é idempotente.
+
+Depois de disponibilizar todos os documentos, marque a confirmação no lote e autorize os avisos. Um aviso por colaborador contém o portal `https://sistema.facilitaponto.com.br/portal`, login com CPF e código da empresa **032612**. A confirmação representa a declaração do operador, sem consultar a API do Facilita Ponto. Não há integração automática de upload ou consulta de assinatura. Telefones inválidos/desligados ficam bloqueados; após corrigir, use a mesma ação do lote, que não reenfileira avisos já aprovados.
+
+A nova tela usa `rh_documentos_facilita.sql` (já aplicado na instância RH PRIME em 29/10/2026). Mantém a fila e o processador Apps Script existentes, com `source=link` e link do portal. Assim, o processador não chama o upload ou a liberação de permissões de PDF para esses avisos. O histórico e as configurações antigas permanecem recolhidos para consulta. Nenhum envio antigo foi cancelado ou reenviado por esta atualização.
+
+O n8n recebe somente `chatId`, `caption`, `session` e `documentId`, no contrato já usado pelo fluxo web. **Aceito** não comprova entrega ou assinatura. Resultados incertos exigem conferência no n8n, sem repetição automática. A implementação usa o fluxo de texto existente; as ferramentas n8n RH disponíveis nesta sessão não oferecem leitura/edição de workflows, portanto não houve alteração nem disparo real no n8n.
+
+## Python separado
+
+O preparador foi recuperado da cópia anterior de 07/10/2026. A primeira etapa conserva o processamento original e acrescenta `CPF-` ao nome dos PDFs quando há CPF identificado; documentos sem CPF conservam o comportamento anterior e exibem aviso para revisão. Não se inventa matrícula. A proteção por senha do PDF foi preservada: confira no Facilita Ponto se o arquivo foi aceito antes de avisar o colaborador.
+
+A segunda etapa gerada como `2_Enviar_WhatsApp.py` envia exclusivamente avisos de disponibilidade do Facilita Ponto. Não faz upload, não altera permissões nem envia links do Drive ou anexos. Só inclui ativos no relatório com PDF existente; deduplica colaboradores e pede confirmação explícita de publicação e autorização de avisos. O histórico fica em `avisos_facilita.json`, separado dos logs antigos; não exclua esse arquivo para tentar novamente um resultado incerto.
+
+Para lotes já existentes, copie a versão nova de `2_Enviar_WhatsApp.py` para a pasta com `Relatorio_Mapeamento.xlsx`. O script público `2_Avisar_Facilita.py` pede o webhook existente ou lê `N8N_RH_WEBHOOK_URL`; o preparador preserva o webhook usado na versão anterior. Se faltarem referências de tipo ou competência, a etapa avulsa pede esses campos antes da confirmação.
+
+---
+
+## Referência do fluxo anterior (histórico)
+
 # Importação de PDFs e envio ao n8n pelo navegador
 
 ## Recursos disponíveis

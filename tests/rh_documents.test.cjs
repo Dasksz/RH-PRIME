@@ -47,3 +47,12 @@ test('processador pausa envio apos primeira falha de configuracao',()=>{
  };
  c.processarDocumentosWebRH();assert.equal(claims,1);assert.equal(paused,true);assert.equal(updates[0].status,'failed');assert.equal(core.retryableDelivery(updates[0]),true);
 });
+
+test('nomes usam CPF puro, tipo e competência, preservando zeros',()=>{
+ const e={nome:'José da Silva',cpf:'012.345.678-90'};
+ for(const kind of ['HOLERITE','FOLHA DE PONTO','INFORME DE RENDIMENTOS','OUTRO DOCUMENTO'])assert.equal(core.documentFilename(e,kind,'09/2026'),'01234567890-'+kind+' - JOSÉ DA SILVA 09-2026.pdf');
+ assert.equal(core.documentFilename(e,'HOLERITES','09/2026'),'01234567890-HOLERITE - JOSÉ DA SILVA 09-2026.pdf');
+ for(const cpf of ['', '12345678901234','00000000000'])assert.throws(()=>core.documentFilename({...e,cpf},'HOLERITE','09/2026'));
+ assert.throws(()=>core.documentFilename(e,'HOLERITE','13/2026'));
+ assert.doesNotMatch(core.documentFilename({...e,nome:'Ana/../Silva'},'RECIBO','09/2026'),/[\\/]/);
+});
