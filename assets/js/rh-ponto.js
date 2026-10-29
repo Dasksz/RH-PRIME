@@ -24,6 +24,7 @@ async function load(){
  $('periodLabel').textContent='Ciclo: '+fmt(period.start)+' a '+fmt(period.end)+' · Hoje: '+fmt(today)+' · Fuso: America/Sao_Paulo';
  const lastSuccess=consultations.filter(c=>c.sucesso).map(c=>c.consultado_em).sort().at(-1);
  const failures=consultations.filter(c=>!c.sucesso).length;
+ $('lastSync').textContent=lastSuccess?'Última consulta concluída neste período: '+new Date(lastSuccess).toLocaleString('pt-BR')+'.':'Este período ainda não foi sincronizado.';
  $('coverage').textContent='Histórico disponível a partir de setembro/2026. Corte de faltas: '+fmt(config.disponivel_desde)+'. Dias úteis sem registro anteriores ao corte são justificados por implantação; após o corte, só há falta inferida quando o período foi consultado com sucesso. '+(lastSuccess?'Última consulta concluída no banco: '+new Date(lastSuccess).toLocaleString('pt-BR')+'.':'Nenhuma consulta deste período foi registrada. Use Sincronizar para buscar os dados.')+(failures?' Há '+failures+' tentativa(s) com falha no histórico; os dados anteriores foram preservados.':'');
  setupFilters();render();if(selected){const s=summaries.find(s=>s.employee.id===selected);if(s)drawDetail(s);}
 }
@@ -98,17 +99,45 @@ $('scheduleForm').onsubmit=e=>{e.preventDefault();action(async()=>{
  if(!Number.isInteger(daily)||daily<1||daily>1440||!Number.isInteger(weekly)||weekly<1||weekly>10080||!days.length)throw Error('Informe uma jornada válida e ao menos um dia.');
  await RH.result(pontoClient.from('rh_ponto_jornadas').upsert({funcionario_id:selected,minutos_dia:daily,minutos_semana:weekly,dias:days,updated_at:new Date().toISOString()},{onConflict:'funcionario_id'}).select(),true);await load();notice('Jornada de apuração salva. Os horários originais foram preservados.');
 });};
+
 $('sync').onclick=()=>action(async()=>{
  if(profile.status!=='admin')throw Error('Administrador obrigatório para sincronizar.');
  const current=readPeriod();if(current.start!==period.start||current.end!==period.end)throw Error('Aplique o novo período antes de sincronizar.');
  if(!shown.length)throw Error('Nenhum colaborador exibido.');
  const first=P.monday(period.start),last=[P.sunday(period.end),today].sort()[0];if(first>last)throw Error('O período ainda não começou.');
- if(!confirm('Consultar o Facilita Ponto para '+shown.length+' colaboradores exibidos e armazenar as marcações de '+fmt(first)+' a '+fmt(last)+'? Os dias fora do ciclo são necessários à compensação semanal.'))return;
- const ids=shown.map(s=>s.employee.id),windows=[];for(let start=first;start<=last;){const end=[P.add(start,62),last].sort()[0];windows.push({start,end});start=P.add(end,1);}
- let success=0,failed=0;
- try{for(const window of windows){for(let i=0;i<ids.length;i+=3){$('progress').textContent='Consultando '+Math.min(i+3,ids.length)+' de '+ids.length+' colaboradores · '+fmt(window.start)+' a '+fmt(window.end)+'…';const {data,error}=await pontoClient.functions.invoke('ponto-sync',{body:{inicio:window.start,fim:window.end,funcionarios:ids.slice(i,i+3)}});if(error||data?.error)throw Error(data?.error||'Não foi possível chamar a integração. Entre novamente ou confira o processador.');for(const r of data.resultados){if(r.sucesso)success++;else failed++;}}}}
- finally{await load();$('progress').textContent=success+' consulta(s) concluída(s) · '+failed+' com falha. Dados anteriores de consultas com falha foram preservados.';}
- notice('Sincronização concluída. Confira dias pendentes e as semanas em apuração.');
+ const ids=shown.map(s=>s.employee.id),names=new Map(shown.map(s=>[s.employee.id,s.employee.nome])),windows=[];
+ for(let start=first;start<=last;){const end=[P.add(start,62),last].sort()[0];windows.push({start,end});start=P.add(end,1);}
+ const began=Date.now();let state={total:ids.length*windows.length,done:0,success:0,failed:0,issues:[]},timer;
+ const draw=()=>{
+  const elapsed=(Date.now()-began)/1000;
+  $('syncTimer').textContent='Tempo decorrido: '+RHPontoSync.duration(elapsed);
+  $('syncBar').max=state.total;$('syncBar').value=state.done;
+  $('syncCounts').textContent=state.done+' de '+state.total+' consultas confirmadas · '+state.success+' com sucesso · '+state.failed+' com falha';
+  $('syncHint').textContent=state.done>0&&state.done<state.total?'Previsão aproximada restante: '+RHPontoSync.duration(elapsed/state.done*(state.total-state.done))+'. Pode variar conforme a resposta da API. Não feche esta página.':'O tempo depende da API e da quantidade de colaboradores. Os indicadores serão atualizados ao terminar. Não feche esta página.';
+ };
+ $('syncPanel').hidden=false;$('syncPanel').classList.remove('error');$('syncPanel').setAttribute('aria-busy','true');$('syncIssues').replaceChildren();
+ $('syncTitle').textContent='Sincronização em andamento';$('sync').textContent='Sincronizando…';$('sync').classList.add('is-syncing');
+ notice('Buscando os registros de ponto. Acompanhe o progresso logo abaixo dos filtros.');
+ draw();timer=setInterval(draw,1000);
+ let reloadError=null;
+ try{
+  state=await RHPontoSync.run({ids,windows,invoke:body=>pontoClient.functions.invoke('ponto-sync',{body}),onProgress:next=>{
+   state=next;draw();
+   if(next.phase==='querying')$('syncStatus').textContent='Consultando: '+next.batch.map(id=>names.get(id)).join(', ')+' · '+fmt(next.window.start)+' a '+fmt(next.window.end)+'. Aguardando resposta deste lote…';
+   else if(next.phase==='received')$('syncStatus').textContent=next.done+' consultas já retornaram. Preparando a próxima etapa…';
+  }});
+  $('syncTitle').textContent='Atualizando os indicadores';$('syncStatus').textContent='Consultas encerradas. Recarregando os dados do banco…';
+  try{await load();}catch(error){reloadError=error.message||'Falha ao carregar os indicadores.';}
+ }finally{
+  clearInterval(timer);draw();$('syncPanel').setAttribute('aria-busy','false');$('sync').textContent='Sincronizar colaboradores exibidos';$('sync').classList.remove('is-syncing');
+ }
+ const interrupted=!!state.error,problem=interrupted||state.failed>0||reloadError;
+ $('syncPanel').classList.toggle('error',!!problem);
+ $('syncTitle').textContent=interrupted?'Sincronização interrompida':problem?'Sincronização concluída com pendências':'Sincronização concluída';
+ $('syncStatus').textContent=(state.error||'Respostas recebidas para todos os colaboradores selecionados.')+(reloadError?' Não foi possível recarregar os indicadores: '+reloadError:' Os indicadores foram atualizados com os dados confirmados no banco.');
+ $('syncHint').textContent=(state.total-state.done>0?(state.total-state.done)+' consultas sem confirmação nesta execução. ':'')+'Dados anteriores de consultas com falha foram preservados. '+(reloadError?'Recarregue a página para conferir os dados salvos.':interrupted?'Confira a última consulta antes de tentar novamente.':'Você já pode consultar os resultados.');
+ $('syncIssues').replaceChildren(...state.issues.map(issue=>node('li',(names.get(issue.id)||'Colaborador')+': '+issue.message)));
+ $('progress').textContent='';notice($('syncTitle').textContent+'. '+$('syncCounts').textContent,!!problem);
 });
 
 const attachmentBucket='rh-ponto-comprovantes';
