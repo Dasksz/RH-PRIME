@@ -228,28 +228,66 @@
         );
       };
 
-      // Função para calcular idade a partir da data de nascimento (YYYY-MM-DD ou DD/MM/YYYY)
-      function calcularIdade(dataNasc) {
-        if (!dataNasc) return null;
-        let d;
-        if (dataNasc.includes("-")) {
-          const parts = dataNasc.split("-");
-          d = new Date(parts[0], parts[1] - 1, parts[2]);
-        } else if (dataNasc.includes("/")) {
-          const parts = dataNasc.split("/");
-          d = new Date(parts[2], parts[1] - 1, parts[0]);
-        } else {
-          d = new Date(dataNasc);
-        }
-        if (isNaN(d.getTime())) return null;
+      function mascararNascimento(value) {
+        const raw = String(value || "");
+        const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const digits = (iso ? iso[3] + iso[2] + iso[1] : raw.replace(/\D/g, "")).slice(0, 8);
+        return digits.slice(0, 2) + (digits.length > 2 ? "/" + digits.slice(2, 4) : "") + (digits.length > 4 ? "/" + digits.slice(4) : "");
+      }
 
-        const hoje = new Date();
-        let idade = hoje.getFullYear() - d.getFullYear();
-        const m = hoje.getMonth() - d.getMonth();
-        if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) {
-          idade--;
-        }
-        return idade >= 0 ? idade : null;
+      function lerNascimento(value) {
+        const raw = String(value || "");
+        const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/) || raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return null;
+        const iso = raw.includes("/") ? match[3] + "-" + match[2] + "-" + match[1] : raw;
+        const date = new Date(iso + "T12:00:00Z");
+        return Number(iso.slice(0, 4)) > 0 && !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === iso ? iso : null;
+      }
+
+      function erroNascimento(value, today = RH.today()) {
+        if (!value) return "";
+        const iso = lerNascimento(value);
+        if (!iso) return "Informe uma data de nascimento válida no formato DD/MM/AAAA.";
+        return iso > today ? "A data de nascimento não pode ser futura." : "";
+      }
+
+      function calcularIdade(dataNasc) {
+        const iso = lerNascimento(dataNasc);
+        if (!iso || erroNascimento(dataNasc)) return null;
+        const [year, month, day] = iso.split("-").map(Number);
+        const [currentYear, currentMonth, currentDay] = RH.today().split("-").map(Number);
+        return currentYear - year - (currentMonth < month || (currentMonth === month && currentDay < day) ? 1 : 0);
+      }
+
+      function NascimentoDigitavel({ value, onChange }) {
+        return <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="bday"
+          aria-label="Data de nascimento"
+          placeholder="DD/MM/AAAA"
+          maxLength={10}
+          pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
+          title="Digite dia, mês e ano: DD/MM/AAAA"
+          value={mascararNascimento(value)}
+          onChange={(event) => {
+            const input = event.target;
+            const beforeCursor = input.value.slice(0, input.selectionStart ?? input.value.length).replace(/\D/g, "").length;
+            const masked = mascararNascimento(input.value);
+            input.setCustomValidity("");
+            onChange(masked);
+            let cursor = 0, digits = 0;
+            while (cursor < masked.length && digits < beforeCursor) {
+              if (/\d/.test(masked[cursor])) digits++;
+              cursor++;
+            }
+            requestAnimationFrame(() => {
+              if (document.activeElement === input) input.setSelectionRange(cursor, cursor);
+            });
+          }}
+          onBlur={(event) => event.target.setCustomValidity(erroNascimento(event.target.value))}
+          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
+        />;
       }
 
       // Função para formatar CPF (000.000.000-00)
@@ -638,6 +676,11 @@
         const handleCadastrarSubmit = async (e) => {
           e.preventDefault();
           setFormErro("");
+          const birthError = erroNascimento(formData.nascimento);
+          if (birthError) {
+            setFormErro(birthError);
+            return;
+          }
 
           const cpfClean = formData.cpf.replace(/\D/g, "");
           if (cpfClean.length !== 11) {
@@ -724,6 +767,11 @@
         const handleEditarSubmit = async (e) => {
           e.preventDefault();
           setFormErro("");
+          const birthError = erroNascimento(formData.nascimento);
+          if (birthError) {
+            setFormErro(birthError);
+            return;
+          }
 
           const cpfClean = formData.cpf.replace(/\D/g, "");
           if (cpfClean.length !== 11) {
@@ -1346,11 +1394,9 @@
                             </span>
                           )}
                         </div>
-                        <input
-                          type="date"
+                        <NascimentoDigitavel
                           value={formData.nascimento}
-                          onChange={(e) => setEditFormData({ ...formData, nascimento: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
+                          onChange={(nascimento) => setEditFormData({ ...formData, nascimento })}
                         />
                       </div>
 
@@ -1581,11 +1627,9 @@
                             </span>
                           )}
                         </div>
-                        <input
-                          type="date"
+                        <NascimentoDigitavel
                           value={formData.nascimento}
-                          onChange={(e) => setEditFormData({ ...formData, nascimento: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#002060] text-sm"
+                          onChange={(nascimento) => setEditFormData({ ...formData, nascimento })}
                         />
                       </div>
 
