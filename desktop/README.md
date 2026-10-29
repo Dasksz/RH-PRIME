@@ -47,3 +47,17 @@ Testes não acessam contas reais nem enviam documentos. O executável Windows pr
 ## Instalação da prévia compilada
 
 No GitHub Actions, abra a execução concluída de **RH PRIME Windows preview**, baixe o artefato **RHPrime-Windows-preview** e extraia todo o ZIP. Execute `Instalar.cmd`. Ele copia os arquivos para `%LOCALAPPDATA%\Programs\RHPrime` e cria um atalho na área de trabalho, sem instalar Node ou Python globalmente. Não inicia serviços nem altera Docker/n8n. Feche o aplicativo antes de atualizar. O envio ao Facilita Ponto continua bloqueado nesta prévia.
+
+## Nomes dos PDFs preparados
+
+Informe o tipo e a competência antes de separar. Os novos PDFs usam o CPF do cadastro, apenas com os 11 dígitos, preservando zeros à esquerda:
+
+`CPF-TIPO - NOME DO COLABORADOR MM-AAAA.pdf`
+
+Exemplos: `52998224725-HOLERITE - ANA MARIA SILVA 09-2026.pdf`, `52998224725-FOLHA DE PONTO - ANA MARIA SILVA 09-2026.pdf`. O tipo é editável para outros documentos. No aplicativo Python, informes anuais também aceitam competência `AAAA`. Na página web, a exportação para o Facilita Ponto também aceita competência anual `AAAA`.
+
+O CPF vem do colaborador identificado no cadastro, nunca do CNPJ da empresa. Cadastro sem CPF de 11 dígitos exige revisão: o PDF fica como `REVISAR_<id>.pdf` e não pode ser selecionado como pronto. Documentos repetidos na mesma preparação recebem ` (2)`, ` (3)` antes de `.pdf` para preservar todas as páginas. Arquivos antigos não são renomeados.
+
+Na página Documentos web, os selecionados são baixados em ZIP para carregamento manual no Facilita Ponto. Nenhum PDF dessa nova exportação é enviado ao Drive. Depois da publicação manual, um administrador confirma a disponibilidade e autoriza um aviso por colaborador com o portal, CPF e código da empresa `032612`.
+
+O script separado em `../AUTOMACAO_ENVIO_DE_DOCUMENTOS/1_Preparar_Holerites.py` foi recuperado da versão de trabalho anterior. Preserva a preparação original (incluindo OCR, relatório e proteção por senha), acrescentando CPF- ao nome e gerando uma segunda etapa que envia apenas avisos do portal. O arquivo `2_Avisar_Facilita.py` também pode ser usado em lotes existentes. O fluxo n8n antigo permanece arquivado em `RH PRIME.json`.
