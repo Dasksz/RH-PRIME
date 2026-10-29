@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const source = fs.readFileSync(process.argv[2] || 'google_apps_script_atualizado.js','utf8');
+const source = fs.readFileSync(process.argv[2] || 'integrations/google-apps-script/google_apps_script_atualizado.js','utf8');
 let checks = 0;
 function test(name, fn) { fn(); checks++; console.log('OK ' + name); }
 function environment() {
@@ -156,7 +156,7 @@ test('recebimento aceita entrada e remove validação herdada somente de coluna 
   assert.deepEqual(cleared,[6]);assert.deepEqual(expanded[0],['involuntario','voluntario','entrada']);assert.equal(sheet.rows[1][3],'entrada');
 });
 test('férias excluem Karina desligada apesar do acento e preservam CPF divergente',()=>{
-  const path=require('node:path');const html=fs.readFileSync(path.join(path.dirname(process.argv[2]||'google_apps_script_atualizado.js'),'ferias.html'),'utf8');
+  const path=require('node:path');const html=fs.readFileSync(path.join(path.dirname(process.argv[2]||'integrations/google-apps-script/google_apps_script_atualizado.js'),'ferias.html'),'utf8');
   const helper=html.match(/const isDesligado = \(f\) => \{[\s\S]*?\n        \};/)[0];
   const ctx={movimentacoes:[{funcionario_nome:'KARINA RIBEIRO MENDONCA',data_desligamento:'2026-07-27',cpf:null}]};vm.createContext(ctx);vm.runInContext(helper+'; this.check=isDesligado;',ctx);
   assert.equal(ctx.check({funcionario_nome:'KARINA RIBEIRO MENDONÇA'}),true);

@@ -32,7 +32,7 @@ const ctx={console,Date,Set,JSON,encodeURIComponent,
   return {...file};
  }
 };
-vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../RH_Atestados_Drive.gs'),'utf8'),ctx);
+vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../integrations/google-apps-script/RH_Atestados_Drive.gs'),'utf8'),ctx);
 ctx.bancoAtestadosRH=(table,method,query,body)=>{
  if(table==='funcionarios_epi')return [employee];
  if(table==='rh_drive_links'){if(method==='post'){link=body;return [body];}return link?[link]:[];}
