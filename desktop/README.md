@@ -54,10 +54,10 @@ Informe o tipo e a competência antes de separar. Os novos PDFs usam o CPF do ca
 
 `CPF-TIPO - NOME DO COLABORADOR MM-AAAA.pdf`
 
-Exemplos: `52998224725-HOLERITE - ANA MARIA SILVA 09-2026.pdf`, `52998224725-FOLHA DE PONTO - ANA MARIA SILVA 09-2026.pdf`. O tipo é editável para outros documentos. No aplicativo Python, informes anuais também aceitam competência `AAAA`. Na página web, informe `MM/AAAA`, conforme a competência do lote.
+Exemplos: `52998224725-HOLERITE - ANA MARIA SILVA 09-2026.pdf`, `52998224725-FOLHA DE PONTO - ANA MARIA SILVA 09-2026.pdf`. O tipo é editável para outros documentos. No aplicativo Python, informes anuais também aceitam competência `AAAA`. Na página web, a exportação para o Facilita Ponto também aceita competência anual `AAAA`.
 
 O CPF vem do colaborador identificado no cadastro, nunca do CNPJ da empresa. Cadastro sem CPF de 11 dígitos exige revisão: o PDF fica como `REVISAR_<id>.pdf` e não pode ser selecionado como pronto. Documentos repetidos na mesma preparação recebem ` (2)`, ` (3)` antes de `.pdf` para preservar todas as páginas. Arquivos antigos não são renomeados.
 
-Na página Documentos web, o mesmo padrão vale para o download da conferência e o nome enviado ao Drive. O caminho temporário privado continua usando o ID interno. O processador do Drive já utiliza o campo `filename`, sem precisar mudar o n8n ou o banco.
+Na página Documentos web, os selecionados são baixados em ZIP para carregamento manual no Facilita Ponto. Nenhum PDF dessa nova exportação é enviado ao Drive. Depois da publicação manual, um administrador confirma a disponibilidade e autoriza um aviso por colaborador com o portal, CPF e código da empresa `032612`.
 
-O arquivo legado `../AUTOMACAO_ENVIO_DE_DOCUMENTOS/1_Preparar_Holerites.py` contém JSON n8n, não Python executável. Esta mudança atualiza o preparador em `rhprime/batches.py`; scripts Python externos precisam adotar a mesma função `document_filename`.
+O script separado em `../AUTOMACAO_ENVIO_DE_DOCUMENTOS/1_Preparar_Holerites.py` foi recuperado da versão de trabalho anterior. Preserva a preparação original (incluindo OCR, relatório e proteção por senha), acrescentando CPF- ao nome e gerando uma segunda etapa que envia apenas avisos do portal. O arquivo `2_Avisar_Facilita.py` também pode ser usado em lotes existentes. O fluxo n8n antigo permanece arquivado em `RH PRIME.json`.

@@ -4,7 +4,7 @@ const el=id=>document.getElementById(id);let employees=[],settings,localDocs=[],
 const labels={prepared:'Aguardando upload',uploading:'Enviando ao Drive',ready:'Pronto para aprovação',queued:'Aprovado, aguardando envio',sending:'Chamando n8n',accepted:'Aceito pelo n8n',uncertain:'Resultado incerto — confira n8n',failed:'Falha — revisão necessária',cancelled:'Cancelado'};
 const workerUrl='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 function notice(text,error=false){el('notice').textContent=text;el('notice').classList.toggle('error',error);}
-async function action(fn){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){notice(e.message||String(e),true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
+async function action(fn){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){notice(e.message||String(e),true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=b.dataset.signatureReady==='false');}}
 const employee=id=>employees.find(e=>e.id===id);
 function td(row,text){const c=document.createElement('td');c.textContent=text||'—';row.append(c);return c;}
 function resetLocal(){localBatchId=null;localDocs.forEach(d=>d.objectUrl&&URL.revokeObjectURL(d.objectUrl));localDocs=[];el('preview').replaceChildren();}
@@ -12,7 +12,7 @@ function renderLocal(){el('preview').replaceChildren();localDocs.forEach(d=>{con
 el('analyze').onclick=()=>action(async()=>{
  const files=[...(el('pdfFiles').files.length?el('pdfFiles').files:el('pdfFolder').files)].filter(f=>/\.pdf$/i.test(f.name));const count=Number(el('pages').value);
  if(!files.length||!Number.isInteger(count)||count<1||count>100)throw Error('Escolha PDFs e uma quantidade válida de páginas.');
- if(!/^(0[1-9]|1[0-2])\/[0-9]{4}$/.test(el('competence').value))throw Error('Informe a competência em MM/AAAA.');
+ if(!/^(?:(0[1-9]|1[0-2])\/[0-9]{4}|[0-9]{4})$/.test(el('competence').value))throw Error('Informe a competência em MM/AAAA ou AAAA.');
  resetLocal();const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs');pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
  for(const file of files){
   if(file.size>30*1024*1024)throw Error(file.name+': origem maior que 30 MB. Divida o lote.');
@@ -21,7 +21,7 @@ el('analyze').onclick=()=>action(async()=>{
   if(readable.numPages>1000||readable.numPages%count)throw Error(file.name+': total de páginas incompatível com o agrupamento.');
   for(let first=0;first<readable.numPages;first+=count){
    let identified=null,error='';
-   try{const identities=[];for(let i=first;i<first+count;i++){const page=await readable.getPage(i+1),text=(await page.getTextContent()).items.map(v=>v.str).join(' ');identities.push(RHDocuments.identify(text,employees));}if(new Set(identities.map(e=>e.id)).size!==1)throw Error('Grupo contém colaboradores diferentes.');identified=identities[0];if(vacation&&identified.id!==vacation.funcionario_id)throw Error('PDF pertence a outro colaborador: revise o vínculo de férias.');if(vacation&&!['AVISO DE FERIAS','RECIBO DE FERIAS','COMPROVANTE ASSINADO'].includes(el('kind').value))throw Error('Selecione um tipo de documento de férias.');RHDocuments.phone(identified.whatsapp);}catch(e){error=e.message;}
+   try{const identities=[];for(let i=first;i<first+count;i++){const page=await readable.getPage(i+1),text=(await page.getTextContent()).items.map(v=>v.str).join(' ');identities.push(RHDocuments.identify(text,employees));}if(new Set(identities.map(e=>e.id)).size!==1)throw Error('Grupo contém colaboradores diferentes.');identified=identities[0];if(vacation&&identified.id!==vacation.funcionario_id)throw Error('PDF pertence a outro colaborador: revise o vínculo de férias.');if(vacation&&!['AVISO DE FERIAS','RECIBO DE FERIAS','COMPROVANTE ASSINADO'].includes(el('kind').value))throw Error('Selecione um tipo de documento de férias.');}catch(e){error=e.message;}
    const out=await PDFLib.PDFDocument.create();const pages=await out.copyPages(source,Array.from({length:count},(_,i)=>first+i));pages.forEach(p=>out.addPage(p));out.setCreationDate(new Date('2000-01-01T00:00:00Z'));out.setModificationDate(new Date('2000-01-01T00:00:00Z'));const result=await out.save();
    const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',result))].map(b=>b.toString(16).padStart(2,'0')).join('');const id=crypto.randomUUID();let filename='REVISAR_'+id+'.pdf';
    if(identified&&!error){try{filename=RHDocuments.documentFilename(identified,el('kind').value,el('competence').value);}catch(e){error=e.message;}}
@@ -30,7 +30,7 @@ el('analyze').onclick=()=>action(async()=>{
   }
   await readable.destroy();
  }
- renderLocal();notice(localDocs.length+' documentos preparados localmente. Confira os PDFs e selecione quem deseja importar.');
+ renderLocal();notice(localDocs.length+' documentos preparados localmente. Confira os PDFs e selecione quem deseja baixar para o Facilita Ponto.');
 });
 el('all').onclick=()=>{localDocs.forEach(d=>d.selected=!d.error&&!d.imported);renderLocal();};el('none').onclick=()=>{localDocs.forEach(d=>d.selected=false);renderLocal();};
 el('upload').onclick=()=>action(async()=>{
