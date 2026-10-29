@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-require('../rh-absence-files.js');
+require('../assets/js/rh-absence-files.js');
 const files=globalThis.RHAbsenceFiles;
 const employee='11111111-1111-4111-8111-111111111111';
 (async()=>{

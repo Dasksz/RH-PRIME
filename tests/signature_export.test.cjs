@@ -14,7 +14,7 @@ function setup(){
  const employee={id:'11111111-1111-4111-8111-111111111111',nome:'ANA SILVA',cpf:'01234567890'};
  const selected={id:'local-1',selected:true,error:'',employee,filename:'01234567890-HOLERITE - ANA SILVA 09-2026.pdf',kind:'HOLERITE',period:'09/2026',bytes:new Uint8Array([37,80,68,70]),sha256:'a'.repeat(64)};
  const context=vm.createContext({JSZip,Blob,crypto:require('node:crypto').webcrypto,setTimeout:()=>{},URL:{createObjectURL:blob=>{downloads.push(blob);return 'blob:test';},revokeObjectURL:()=>{}},document:{createElement:tag=>new Element(tag),createTextNode:s=>s},el,localDocs:[selected,{...selected,id:'local-2',selected:false},{...selected,id:'local-3',error:'CPF inválido'}],client:{rpc:(name,args)=>{calls.push({name,args});if(name==='rh_register_signature_export'){exported=[{id:args.p_id,documents:args.p_documents,created_at:'2026-10-29'}];context.batches=[{id:args.p_id,name:'Lote',document_type:'HOLERITE',period:'09/2026'}];context.queueDocs=[{id:'notice',batch_id:args.p_id,funcionario_id:employee.id,status:'ready'}];}return {data:name==='rh_confirm_signature_export'?1:args.p_id};}},RH:{result:async x=>x.data,fetchAll:async()=>exported},settings:null,batches:[],queueDocs:[],employee:()=>employee,labels:{ready:'Pronto'},action:async fn=>fn(),notice:()=>{},confirm:()=>true,refresh:async()=>{}});
- vm.runInContext(fs.readFileSync(path.join(__dirname,'../rh-signature-export.js'),'utf8'),context);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/js/rh-signature-export.js'),'utf8'),context);
  return {context,el,calls,downloads,zipFiles,JSZip,selected};
 }
 test('exporta somente a seleção elegível e registra apenas metadados, sem upload ou envio',async()=>{

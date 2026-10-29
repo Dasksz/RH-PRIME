@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 const employee={id:'employee1',nome:'ANA MARIA SILVA',cpf:'52998224725'};
 const settings={active_folder_id:'active',former_folder_id:'former',template_folder_id:'template'};
 function setup(folders,job={}){
- const calls=[],ctx=vm.createContext({});vm.runInContext(fs.readFileSync(require.resolve('../RH_Drive_Automacoes.gs'),'utf8'),ctx);
+ const calls=[],ctx=vm.createContext({});vm.runInContext(fs.readFileSync(require.resolve('../integrations/google-apps-script/RH_Drive_Automacoes.gs'),'utf8'),ctx);
  const full={id:'job1',funcionario_id:employee.id,revision:1,claimed_revision:1,...job};
  ctx.bancoDriveRH=(r,m,q,b)=>{calls.push({r,m,b});if(r==='funcionarios_epi')return [employee];if(r==='rpc/rh_request_folder_choice')return true;return [];};
  ctx.filhosDriveRH=id=>id==='active'?folders:[];

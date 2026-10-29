@@ -28,12 +28,12 @@ Demais campos do cadastro continuam com a sincronização existente.
 
 ## Publicação
 
-1. Aplicar `rh_equipamentos.sql` no projeto RH PRIME.
-2. Atualizar o arquivo principal do Apps Script com `google_apps_script_atualizado.js`.
+1. Aplicar `../supabase/sql/rh_equipamentos.sql` no projeto RH PRIME.
+2. Atualizar o arquivo principal do Apps Script com `../integrations/google-apps-script/google_apps_script_atualizado.js`.
 3. Executar `prepararEquipamentosRH` (backup e nova aba); receber os eventos com
    `sincronizarEquipamentosRH`. O recebimento é em lote para evitar limite de execução.
 4. Atualizar a implantação existente mantendo URL, conta executora e permissões.
-5. Aplicar `rh_equipamentos_webhook.sql`, que reutiliza a configuração do webhook existente.
+5. Aplicar `../supabase/sql/rh_equipamentos_webhook.sql`, que reutiliza a configuração do webhook existente.
 6. Publicar os arquivos web no GitHub Pages.
 
 ## Verificação

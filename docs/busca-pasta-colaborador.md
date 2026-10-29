@@ -6,9 +6,9 @@ Se o colaborador já possui vínculo, o ID aparece no campo com um link para con
 
 ## Instalar no Apps Script
 
-1. Substitua o conteúdo de AUTOMAÇÃO PL RH.gs pelo google_apps_script_atualizado.js deste pacote. Essa versão inclui o encaminhamento autenticado da busca e mantém a migração das chaves modernas.
+1. Substitua o conteúdo de AUTOMAÇÃO PL RH.gs pelo ../integrations/google-apps-script/google_apps_script_atualizado.js deste pacote. Essa versão inclui o encaminhamento autenticado da busca e mantém a migração das chaves modernas.
 2. Crie um novo arquivo de script chamado RH_Drive_Busca e cole RH_Drive_Busca.gs.
-3. Mantenha RH_Drive_Automacoes.gs, RH_Documentos_N8N.gs e as propriedades já configuradas, incluindo SUPABASE_KEY.
+3. Mantenha RH_Drive_Automacoes.gs, ../integrations/google-apps-script/RH_Documentos_N8N.gs e as propriedades já configuradas, incluindo SUPABASE_KEY.
 4. Salve. Em Implantar → Gerenciar implantações → Editar, escolha Nova versão e implante mantendo a mesma URL.
 5. Entre no site como administrador, escolha um colaborador sem vínculo e clique em Buscar pasta. Confira o link e só depois salve o vínculo.
 

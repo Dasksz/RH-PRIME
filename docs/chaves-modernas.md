@@ -8,8 +8,8 @@ Os três arquivos Apps Script do repositório foram ajustados para a nova chave 
 
 O código do repositório não atualiza automaticamente o projeto Apps Script instalado.
 
-1. Substitua o conteúdo de `AUTOMAÇÃO PL RH.gs` pelo arquivo `google_apps_script_atualizado.js` deste repositório.
-2. Substitua também `RH_Drive_Automacoes.gs` e `RH_Documentos_N8N.gs` pelos arquivos correspondentes deste repositório.
+1. Substitua o conteúdo de `AUTOMAÇÃO PL RH.gs` pelo arquivo `../integrations/google-apps-script/google_apps_script_atualizado.js` deste repositório.
+2. Substitua também `../integrations/google-apps-script/RH_Drive_Automacoes.gs` e `../integrations/google-apps-script/RH_Documentos_N8N.gs` pelos arquivos correspondentes deste repositório.
 3. Em Configurações do projeto → Propriedades do script → Editar propriedades, substitua somente o valor de `SUPABASE_KEY` pela chave secreta nova que começa com `sb_secret_`. Mantenha `SUPABASE_URL` e as demais propriedades.
 4. Salve e execute `verificarConexaoSupabaseRH`. Esse teste consulta as três conexões REST sem alterar registros nem enviar mensagens. Deve exibir: “Conexão REST com a nova chave secreta validada.”
 5. Em Implantar → Gerenciar implantações → Editar, selecione Nova versão e implante mantendo a URL existente. Não crie outra implantação.

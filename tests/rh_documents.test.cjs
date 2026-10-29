@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),core=require('../rh-documentos-core');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),core=require('../assets/js/rh-documentos-core');
 const people=[{id:'a',nome:'ANA MARIA SILVA',cpf:'52998224725',whatsapp:'11999999999'},{id:'b',nome:'BRUNO JOSE SANTOS',cpf:'11144477735',whatsapp:'21999999999'}];
 test('identifica CPF com pontuacao',()=>assert.equal(core.identify('CPF 529.982.247-25',people).id,'a'));
 test('nome sem CPF e unico',()=>assert.equal(core.identify('Ana Maria Silva',people).id,'a'));
@@ -9,7 +9,7 @@ test('bloqueia nomes duplicados',()=>assert.throws(()=>core.identify('ANA MARIA 
 test('telefone nao inventa digitos',()=>assert.equal(core.phone('11 99999-9999'),'5511999999999'));
 test('telefone invalido bloqueado',()=>assert.throws(()=>core.phone('123')));
 test('modelo nao executa campos desconhecidos',()=>assert.throws(()=>core.message('Olá {senha}',{})));
-const ctx=vm.createContext({});vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../RH_Documentos_N8N.gs'),'utf8'),ctx);
+const ctx=vm.createContext({});vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../integrations/google-apps-script/RH_Documentos_N8N.gs'),'utf8'),ctx);
 test('intervalo normal 15 a 25 segundos',()=>{assert.equal(ctx.intervaloMensagemRH(1,()=>0),15);assert.equal(ctx.intervaloMensagemRH(4,()=>.999),25);});
 test('pausa apos cinco mensagens 45 a 90 segundos',()=>{assert.equal(ctx.intervaloMensagemRH(5,()=>0),45);assert.equal(ctx.intervaloMensagemRH(10,()=>.999),90);});
 test('lista inclui somente falha conhecida e registros legados',()=>{
@@ -21,7 +21,7 @@ test('lista inclui somente falha conhecida e registros legados',()=>{
 });
 function sendingEnvironment(props,fetch){
  const updates=[],c=vm.createContext({PropertiesService:{getScriptProperties:()=>({getProperty:k=>props[k]})},UrlFetchApp:{fetch},LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})}});
- vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../RH_Documentos_N8N.gs'),'utf8'),c);
+ vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../integrations/google-apps-script/RH_Documentos_N8N.gs'),'utf8'),c);
  c.bancoDocumentosRH=(resource)=>resource==='funcionarios_epi'?[{whatsapp:'11999999999'}]:[];
  c.atualizarDocumentoRH=(_,change)=>updates.push(change);
  return {c,updates};

@@ -1,0 +1,17 @@
+@media(max-width:767px){
+ body.rh-admin .rh-admin-records{display:block;width:100%;table-layout:auto}
+ body.rh-admin .rh-admin-records thead,body.rh-admin .rh-admin-records thead tr{display:block}
+ body.rh-admin .rh-admin-records th{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%)}
+ body.rh-admin .rh-admin-records th:has(input[type=checkbox]){position:static;display:flex;align-items:center;gap:12px;width:auto;height:auto;padding:12px 16px;clip-path:none}
+ body.rh-admin .rh-admin-records th:has(input[type=checkbox])::after{content:'Selecionar todos';font-size:12px;text-transform:none}
+ body.rh-admin .rh-admin-records tbody{display:grid;gap:12px;padding:12px;background:var(--rh-page)}
+ body.rh-admin .rh-admin-records tbody tr{display:grid;gap:12px;padding:16px;background:var(--rh-panel);border:1px solid var(--rh-border)!important;border-radius:12px;min-width:0}
+ body.rh-admin .rh-admin-records tbody td{display:block;padding:0;text-align:left;width:auto;min-width:0;max-width:none;border:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;font-size:14px;line-height:1.5}
+ body.rh-admin .rh-admin-records td::before{content:attr(data-label);display:block;color:var(--rh-muted);font:600 11px system-ui;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+ body.rh-admin .rh-admin-records td:has(input[type=checkbox]){display:flex;align-items:center;gap:12px}
+ body.rh-admin .rh-admin-records td:has(input[type=checkbox])::before{margin-bottom:0}
+ body.rh-admin .rh-admin-records input[type=checkbox]{width:22px;height:22px;flex-shrink:0}
+ body.rh-admin .rh-admin-records td button{min-height:44px;white-space:nowrap;margin:0;padding:10px 14px;font-size:13px}
+ body.rh-admin .rh-admin-records td pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+ body.rh-admin .rh-admin-records td .truncate{white-space:normal;overflow:visible;max-width:none}
+}

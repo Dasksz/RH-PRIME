@@ -18,7 +18,7 @@ O worker do Supabase executa a cada minuto e entrega eventos ao workflow [RH PRI
 
 ## Banco e implantação
 
-As migrações aplicadas são `profile_area_access_management`, `admin_whatsapp_notifications` e `admin_notification_events_refinement`. As fontes correspondentes estão em `rh_perfis_acessos.sql`, `rh_notificacoes_admin.sql` e `rh_notificacoes_refinamentos.sql`. A Edge Function `admin-notifications` usa a chave anônima do próprio ambiente, com autorização por evento validada no Postgres; não usa chave privilegiada no navegador ou workflow.
+As migrações aplicadas são `profile_area_access_management`, `admin_whatsapp_notifications` e `admin_notification_events_refinement`. As fontes correspondentes estão em `../supabase/sql/rh_perfis_acessos.sql`, `../supabase/sql/rh_notificacoes_admin.sql` e `../supabase/sql/rh_notificacoes_refinamentos.sql`. A Edge Function `admin-notifications` usa a chave anônima do próprio ambiente, com autorização por evento validada no Postgres; não usa chave privilegiada no navegador ou workflow.
 
 ## Verificação
 
