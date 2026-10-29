@@ -24,8 +24,9 @@
 .year-controls button:disabled{opacity:.45;cursor:default}.year-controls strong{color:var(--rh-ink)}
 :root{--cal-national-bg:#fce9ec;--cal-national-ink:#9c263d;--cal-state-bg:#fff0c4;--cal-state-ink:#795207;--cal-optional-bg:#e9edff;--cal-optional-ink:#344a91}
 :root[data-rh-theme=dark]{--cal-national-bg:#53282e;--cal-national-ink:#ffc0c5;--cal-state-bg:#493c20;--cal-state-ink:#ffe28a;--cal-optional-bg:#273958;--cal-optional-ink:#b8c7ff}
-.month-day.is-national,.holiday-badge.brasil{background:var(--cal-national-bg);color:var(--cal-national-ink)}
+.month-day.is-national,.month-day.is-brasil,.holiday-badge.brasil{background:var(--cal-national-bg);color:var(--cal-national-ink);font-weight:700}
 .month-day.is-bahia,.holiday-badge.bahia{background:var(--cal-state-bg);color:var(--cal-state-ink)}
 .month-day.is-facultativo,.holiday-badge.facultativo{background:var(--cal-optional-bg);color:var(--cal-optional-ink)}
 .calendar-card-heading h2{line-height:1.4}.holiday-calendar-card,.holiday-list-card{box-shadow:0 4px 16px #18344006}
 @media(max-width:760px){.holiday-page-heading{padding:20px}.year-controls{align-self:flex-start}}
+
