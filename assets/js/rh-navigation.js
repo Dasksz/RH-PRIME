@@ -1,6 +1,6 @@
 (function(){
  'use strict';
- const pages=[['index','EPI/Fardamento','Gestão de segurança'],['colaboradores','Colaboradores','Gestão de colaboradores'],['ferias','Férias','Períodos e histórico'],['indicadores','Indicadores','Indicadores de RH'],['calendario','Calendário','Feriados nacionais e da Bahia']];
+ const pages=[['index','EPI/Fardamento','Gestão de segurança'],['colaboradores','Colaboradores','Gestão de colaboradores'],['ferias','Férias','Períodos e histórico'],['indicadores','Indicadores','Indicadores de RH'],['calendario','Calendário','Feriados nacionais e da Bahia'],['registros-ponto','Registros de ponto','Jornada e compensação semanal']];
  class RHNavigation extends HTMLElement{
   connectedCallback(){
    if(this.shadowRoot)return;
