@@ -60,6 +60,16 @@ class AvisosTests(unittest.TestCase):
         self.assertEqual(avisos.enviar_aviso(person, 'http://example.test/webhook/rh', log, state, post), 'skipped')
         self.assertEqual(post.call_count, 1)
 
+    def test_folha_uses_singular(self):
+        self.assertIn('Sua folha de ponto, referente a 10/2026, está disponível', avisos.mensagem('Ana', 'FOLHA DE PONTO', '10/2026'))
+    def test_offline_check_prevents_any_send_or_log(self):
+        pd.DataFrame([self.row]).to_excel(self.root / 'Relatorio_Mapeamento.xlsx', sheet_name='Prontos para Envio', index=False)
+        with patch.object(avisos.Path, 'cwd', return_value=self.root), patch.object(avisos, 'TIPO_DOCUMENTO', 'FOLHA DE PONTO'), patch.object(avisos, 'MES', '10'), patch.object(avisos, 'ANO', '2026'), patch.dict(avisos.os.environ, {'N8N_RH_WEBHOOK_URL':'http://example.test/webhook/rh'}), patch('builtins.input', return_value='SIM'), patch.object(avisos.socket, 'create_connection', side_effect=TimeoutError()), patch.object(avisos, 'enviar_aviso') as send:
+            with self.assertRaisesRegex(ValueError, 'Tailscale'):
+                avisos.iniciar_envio()
+            send.assert_not_called()
+            self.assertFalse((self.root / 'avisos_facilita.json').exists())
+
     def test_declining_confirmation_sends_nothing(self):
         pd.DataFrame([self.row]).to_excel(self.root / 'Relatorio_Mapeamento.xlsx', sheet_name='Prontos para Envio', index=False)
         with patch.object(avisos.Path, 'cwd', return_value=self.root), patch.object(avisos, 'TIPO_DOCUMENTO', 'HOLERITE'), patch.object(avisos, 'MES', '09'), patch.object(avisos, 'ANO', '2026'), patch('builtins.input', return_value='NAO'), patch.object(avisos, 'enviar_aviso') as send:
