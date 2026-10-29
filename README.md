@@ -2,7 +2,7 @@
 
 Sistema de recursos humanos: colaboradores, equipamentos, férias, indicadores e preparação de documentos para assinatura.
 
-[Abrir o sistema](https://dasksz.github.io/RH-PRIME/) · [Documentos para assinatura](https://dasksz.github.io/RH-PRIME/documentos-web.html)
+[Abrir o sistema](https://dasksz.github.io/RH-PRIME/) · [Registros de ponto](https://dasksz.github.io/RH-PRIME/registros-ponto.html) · [Documentos para assinatura](https://dasksz.github.io/RH-PRIME/documentos-web.html)
 
 ## Onde encontrar cada parte
 
@@ -23,6 +23,8 @@ Sistema de recursos humanos: colaboradores, equipamentos, férias, indicadores e
 As páginas HTML permanecem na raiz para preservar os links publicados e o GitHub Pages. O manifesto e o service worker também ficam na raiz para manter o escopo da instalação.
 
 ## Guias principais
+
+- [Registros de ponto e compensação semanal](docs/registros-ponto.md)
 
 - [PDFs e avisos do Facilita Ponto](docs/DOCUMENTOS_WEB_N8N.md)
 - [Automações web](docs/AUTOMACOES_WEB.md)
