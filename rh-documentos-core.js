@@ -16,7 +16,7 @@ function documentFilename(employee,kind,period){
  const cpf=digits(employee?.cpf);
  if(!/^[0-9]{11}$/.test(cpf)||/^(\d)\1{10}$/.test(cpf))throw Error('CPF ausente ou inválido no cadastro. Corrija antes de importar.');
  const safe=value=>String(value||'').normalize('NFC').toUpperCase().replace(/[^\p{L}\p{N}_ .-]/gu,'_').replace(/\s+/g,' ').replace(/^[ .]+|[ .]+$/g,'').slice(0,100).replace(/[ .]+$/g,'');
- kind=safe(kind);kind=({HOLERITES:'HOLERITE',RECIBOS:'RECIBO'})[kind]||kind;
+ kind=safe(kind).slice(0,50).trim();kind=({HOLERITES:'HOLERITE',RECIBOS:'RECIBO'})[kind]||kind;
  const name=safe(employee?.nome);period=String(period||'').trim();
  if(!name||!kind)throw Error('Informe nome e tipo do documento.');
  if(!/^(?:(?:0[1-9]|1[0-2])[/\-][0-9]{4}|[0-9]{4})$/.test(period))throw Error('Informe a competência em MM/AAAA ou AAAA.');
