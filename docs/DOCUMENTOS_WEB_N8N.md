@@ -12,7 +12,7 @@ O n8n recebe somente `chatId`, `caption`, `session` e `documentId`, no contrato 
 
 ## Python separado
 
-O preparador foi recuperado da cópia anterior de 07/10/2026. A primeira etapa conserva o processamento original e acrescenta `CPF-` ao nome dos PDFs quando há CPF identificado; documentos sem CPF conservam o comportamento anterior e exibem aviso para revisão. Não se inventa matrícula. A proteção por senha do PDF foi preservada: confira no Facilita Ponto se o arquivo foi aceito antes de avisar o colaborador.
+O preparador foi recuperado da cópia anterior de 07/10/2026. A primeira etapa conserva o processamento original e acrescenta `CPF-` ao nome dos PDFs quando há CPF identificado; documentos sem CPF conservam o comportamento anterior e exibem aviso para revisão. Não se inventa matrícula. Os novos PDFs são gerados sem senha, prontos para importação no Facilita Ponto. A mudança não altera documentos já gerados.
 
 A segunda etapa gerada como `2_Enviar_WhatsApp.py` envia exclusivamente avisos de disponibilidade do Facilita Ponto. Não faz upload, não altera permissões nem envia links do Drive ou anexos. Só inclui ativos no relatório com PDF existente; deduplica colaboradores e pede confirmação explícita de publicação e autorização de avisos. O histórico fica em `avisos_facilita.json`, separado dos logs antigos; não exclua esse arquivo para tentar novamente um resultado incerto.
 
