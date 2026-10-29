@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-const source=fs.readFileSync(require.resolve('../automacoes.js'),'utf8');
+const source=fs.readFileSync(require.resolve('../assets/js/automacoes.js'),'utf8');
 function env({disabled=false,reject=false,failAt=0}={}){
  const nodes=new Map(),calls=[];
  const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',hidden:false,classList:{toggle(){}},replaceChildren(){},append(){},addEventListener(){},removeAttribute(){},setAttribute(){},focus(){},scrollIntoView(){}});return nodes.get(id);};

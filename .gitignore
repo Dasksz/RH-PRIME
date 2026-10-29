@@ -1,0 +1,20 @@
+# Arquivos gerados localmente
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+*.log
+.env
+.env.*
+!.env.example
+token.json
+credenciais_drive.json
+avisos_facilita.json
+avisos_facilita.tmp
+Relatorio_Mapeamento.xlsx
+PDFs_Separados/
+PDFs_Ex_Funcionarios/
+desktop/build/
+desktop/dist/
+*.spec

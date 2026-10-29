@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),V=require('../rh-ferias-core.js');
+const test=require('node:test'),assert=require('node:assert/strict'),V=require('../assets/js/rh-ferias-core.js');
 const e={id:'e',admissao:'13/05/2024'},today='2026-10-05';
 test('períodos anteriores, atual e próximo são calculados pela admissão',()=>{const t=V.timeline(e,[],today);assert.deepEqual(t.map(p=>[p.inicio,p.fim,p.phase]),[['2024-05-13','2025-05-12','adquirido'],['2025-05-13','2026-05-12','adquirido'],['2026-05-13','2027-05-12','em_formacao'],['2027-05-13','2028-05-12','futuro']]);assert(t.every(p=>!p.id));});
 test('saldo zerado não altera calendário aquisitivo',()=>{const p={id:'p',funcionario_id:'e',inicio:'2025-05-13',fim:'2026-05-12',direito:30,gozo_base:20,abono_base:10};assert.equal(V.totals(p,[]).balance,0);assert.equal(V.timeline(e,[p],today)[2].inicio,'2026-05-13');});

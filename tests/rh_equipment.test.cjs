@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const ctx={window:{},React:{createElement(){}},console};vm.createContext(ctx);vm.runInContext(fs.readFileSync('rh-ficha-padrao.js','utf8'),ctx);ctx.RHFichaPadrao=ctx.window.RHFichaPadrao;vm.runInContext(fs.readFileSync('rh-equipamentos.js','utf8'),ctx);
+const ctx={window:{},React:{createElement(){}},console};vm.createContext(ctx);vm.runInContext(fs.readFileSync('assets/js/rh-ficha-padrao.js','utf8'),ctx);ctx.RHFichaPadrao=ctx.window.RHFichaPadrao;vm.runInContext(fs.readFileSync('assets/js/rh-equipamentos.js','utf8'),ctx);
 const api=ctx.window.RHEquipment;
 assert.equal(api.needsReview({id:'old',saldo:1,data_movimento:'2026-01-14'},{},'2026-10-16'),true);
 assert.equal(api.needsReview({id:'recent',saldo:2,data_movimento:'2026-09-18'},{},'2026-10-16'),false);
@@ -30,7 +30,7 @@ console.log('OK: descrição, devolução parcial, vínculo, baixa sem devoluç�
 // O cabeçalho, as obrigações, o termo de responsabilidade e as seis colunas
 // devem permanecer idênticos aos templates do gerador anterior.
 const original=fs.readFileSync('index.html','utf8').replace(/\r\n/g,'\n');
-const standard=fs.readFileSync('rh-ficha-padrao.js','utf8').replace(/\r\n/g,'\n');
+const standard=fs.readFileSync('assets/js/rh-ficha-padrao.js','utf8').replace(/\r\n/g,'\n');
 for(const pattern of [/let pageContent = isFirstPage\s*\?\s*`([\s\S]*?)`\s*:\s*"";/,/const generateTableHeaders = \(\) => \x60([\s\S]*?)\x60;/]){
  assert.equal(standard.match(pattern)?.[1],original.match(pattern)?.[1]);
  assert.ok(original.match(pattern));

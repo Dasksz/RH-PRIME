@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const employeeId='11111111-1111-1111-1111-111111111111',userId='22222222-2222-2222-2222-222222222222';
 function env({auth=true,admin=true,script={status:'success',employee_id:employeeId,folders:[]}}={}){
  const calls=[],c=vm.createContext({Request,Response,AbortSignal,Deno:{env:{get:k=>({SUPABASE_URL:'https://example.supabase.co',SUPABASE_PUBLISHABLE_KEYS:'{"default":"sb_publishable_test_only"}'})[k]},serve:fn=>c.handler=fn},fetch:async(url,options)=>{calls.push({url,options});if(url.includes('/auth/'))return Response.json({id:userId},{status:auth?200:401});if(url.includes('/rest/'))return Response.json([{status:admin?'admin':'aprovado'}]);return Response.json(script);}});
- vm.runInContext(stripTypeScriptTypes(fs.readFileSync(require.resolve('../drive-folder-lookup.ts'),'utf8')),c);return {c,calls};
+ vm.runInContext(stripTypeScriptTypes(fs.readFileSync(require.resolve('../supabase/functions/drive-folder-lookup/index.ts'),'utf8')),c);return {c,calls};
 }
 const request=(body={employeeId},jwt='eyJ.test.signature')=>new Request('https://example.invalid/lookup',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+jwt,Origin:'https://dasksz.github.io'},body:JSON.stringify(body)});
 test('sem sessão não faz consultas',async()=>{const {c,calls}=env();assert.equal((await c.handler(request({},''))).status,401);assert.equal(calls.length,0);});

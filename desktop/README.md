@@ -42,7 +42,7 @@ $env:PYTHONPATH='.'
 py -m unittest discover -s tests -v
 ```
 
-Testes não acessam contas reais nem enviam documentos. O executável Windows precisa ser compilado e testado no Windows antes de ser tratado como versão final. A migração `../rh_automacoes.sql` é um rascunho separado e não é necessária para esta prévia; não aplicá-la para executar o preparador.
+Testes não acessam contas reais nem enviam documentos. O executável Windows precisa ser compilado e testado no Windows antes de ser tratado como versão final. A migração `../supabase/sql/rh_automacoes.sql` é um rascunho separado e não é necessária para esta prévia; não aplicá-la para executar o preparador.
 
 ## Instalação da prévia compilada
 
@@ -60,4 +60,4 @@ O CPF vem do colaborador identificado no cadastro, nunca do CNPJ da empresa. Cad
 
 Na página Documentos web, os selecionados são baixados em ZIP para carregamento manual no Facilita Ponto. Nenhum PDF dessa nova exportação é enviado ao Drive. Depois da publicação manual, um administrador confirma a disponibilidade e autoriza um aviso por colaborador com o portal, CPF e código da empresa `032612`.
 
-O script separado em `../AUTOMACAO_ENVIO_DE_DOCUMENTOS/1_Preparar_Holerites.py` foi recuperado da versão de trabalho anterior. Preserva a preparação original (incluindo OCR, relatório e proteção por senha), acrescentando CPF- ao nome e gerando uma segunda etapa que envia apenas avisos do portal. O arquivo `2_Avisar_Facilita.py` também pode ser usado em lotes existentes. O fluxo n8n antigo permanece arquivado em `RH PRIME.json`.
+O script separado em `../automations/python/1_Preparar_Holerites.py` foi recuperado da versão de trabalho anterior. Preserva a preparação original (incluindo OCR, relatório e proteção por senha), acrescentando CPF- ao nome e gerando uma segunda etapa que envia apenas avisos do portal. O arquivo `2_Avisar_Facilita.py` também pode ser usado em lotes existentes. O fluxo n8n antigo permanece arquivado em `RH PRIME.json`.

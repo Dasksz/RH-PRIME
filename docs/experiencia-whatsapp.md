@@ -19,7 +19,7 @@ O cumprimento usa somente o primeiro nome do perfil do gestor, informado na cria
 
 ## Integração
 
-Aplicar `rh_experiencia.sql`, `rh_experiencia_periodos.sql` e `rh_experiencia_mensagens.sql`, nessa ordem. A atualização preserva o histórico dos avisos antigos como segundo período e invalida capacidades pendentes não utilizadas. Reutiliza o fluxo publicado **RH PRIME — Notificações administrativas** e a função `admin-notifications`; não exige alteração no n8n, Apps Script ou Google Sheets.
+Aplicar `../supabase/sql/rh_experiencia.sql`, `../supabase/sql/rh_experiencia_periodos.sql` e `../supabase/sql/rh_experiencia_mensagens.sql`, nessa ordem. A atualização preserva o histórico dos avisos antigos como segundo período e invalida capacidades pendentes não utilizadas. Reutiliza o fluxo publicado **RH PRIME — Notificações administrativas** e a função `admin-notifications`; não exige alteração no n8n, Apps Script ou Google Sheets.
 
 O evento possui token de uso único com validade de 10 minutos. No envio, o banco confere novamente gestor, telefone, aprovação, acesso à área, desligamento, data de admissão e período correspondente.
 
