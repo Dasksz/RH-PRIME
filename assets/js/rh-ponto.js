@@ -153,9 +153,15 @@ function drawDetail(s){
  $('days').replaceChildren(...s.days.map(d=>{
   const row=node('tr');row.dataset.date=d.date;row.className=d.future?'day-future':d.alerts?.length?'day-pending':d.absenceClass==='injustificada'?'day-absent':d.absenceClass==='justificada'?'day-justified':'';
   const date=node('td');date.append(node('strong',fmt(d.date).slice(0,5)),node('small',['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(d.date+'T12:00:00Z').getUTCDay()]));row.append(date);
-  if(d.punches.length>4){const punches=node('td',undefined,'punches-expanded');punches.colSpan=4;d.punches.forEach(p=>punches.append(node('small',(p.entrada_saida==='E'?'Entrada ':'Saída ')+p.data_hora.slice(11,19)+' · '+p.situacao+(p.obs?' · '+p.obs:''))));row.append(punches);}
-  else{for(let i=0;i<4;i++){const p=d.punches[i],cell=node('td',p?p.data_hora.slice(11,19):'—','punch-time');if(p){cell.title=(p.entrada_saida==='E'?'Entrada':'Saída')+' · '+p.situacao+(p.tipo_registro==='M'?' · manual':'')+(p.obs?' · '+p.obs:'');if((i%2===0?'E':'S')!==p.entrada_saida||!['Aprovado (Auto)','Aprovado Manualmente'].includes(p.situacao)){cell.append(node('small',p.entrada_saida==='E'?'Entrada · conferir':'Saída · conferir'));cell.classList.add('punch-warning');}}row.append(cell);}}
+  const approved=d.punches.filter(p=>['Aprovado (Auto)','Aprovado Manualmente'].includes(p.situacao));
+  const slots=[null,null,null,null];let slot=0;
+  for(const punch of approved){while(slot<4&&(slot%2===0?'E':'S')!==punch.entrada_saida)slot++;if(slot<4)slots[slot++]=punch;}
+  for(const punch of slots){const cell=node('td',punch?punch.data_hora.slice(11,19):'—','punch-time');if(punch)cell.title=punch.situacao+(punch.tipo_registro==='M'?' · manual':'');row.append(cell);}
   const status=node('td',undefined,'day-status');if(d.verification)status.append(node('small','✓ Verificado por '+d.verification.responsavel+' · '+new Date(d.verification.verificado_em).toLocaleString('pt-BR'),'verified-note'));status.append(node('span',d.status,'day-badge'));d.warnings.forEach(w=>status.append(node('small',w)));if(d.decision)status.append(node('small',d.decision.motivo+(d.decision.abonar?' · com abono':' · sem abono')));if(d.historical)status.append(node('small','Regularização anterior a 26/10/2026.'));for(const alert of d.alerts||[]){if(alert.type==='data'||alert.type==='no_record')continue;status.append(node('small',alert.message,'day-alert review-type-'+alert.type));}
+  if(d.punches.some(p=>p.obs||p.situacao!=='Aprovado (Auto)')||approved.length>4){
+   const details=node('details',undefined,'punch-details'),summary=node('summary','Ver detalhes · '+d.punches.length+' registros');details.append(summary);
+   for(const punch of d.punches){const item=node('div',undefined,'punch-detail-item');item.append(node('strong',(punch.entrada_saida==='E'?'Entrada ':'Saída ')+punch.data_hora.slice(11,19)),node('small',punch.situacao));if(punch.obs)item.append(node('small',punch.obs));details.append(item);}status.append(details);
+  }
   const actionCell=node('td',undefined,'day-action');if(profile.status==='admin'&&d.working&&!d.future&&!d.partial){const classify=node('button','Classificar','day-review');classify.type='button';classify.setAttribute('aria-label','Classificar dia '+fmt(d.date)+' de '+s.employee.nome);classify.onclick=()=>openOccurrence(d);actionCell.append(classify);if(d.alerts?.length){const verify=node('button','Verificar','verify-day');verify.type='button';verify.setAttribute('aria-label','Marcar como verificado '+s.employee.nome+' em '+fmt(d.date));verify.onclick=()=>verifyDay(s.employee,d);actionCell.append(verify);}}else actionCell.textContent='—';
   row.append(node('td',d.future?'—':P.hours(d.expected)),node('td',d.future?'—':P.hours(d.worked),'worked-time'),node('td',P.hours(d.delta,true),d.delta===null?'':d.delta<0?'negative':d.delta>0?'positive':''),status,actionCell);return row;
  }));
@@ -249,6 +255,7 @@ function renderAbsences(){
 $('closeAbsences').onclick=()=>$('absenceList').close();$('absenceBack').onclick=()=>{absenceDate=null;renderAbsences();};
 
 action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;if(profile.status!=='admin')$('sync').hidden=true;notice('Dados carregados do banco. As credenciais de integração ficam somente no servidor.');});
+
 
 
 
