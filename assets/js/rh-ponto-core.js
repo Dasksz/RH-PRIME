@@ -21,7 +21,7 @@
  function dayAlerts(day){
   if(day.future||day.partial||!day.employed)return [];
   const alerts=[],sequence=/Entrada sem saída|Saída sem entrada|Entradas consecutivas|Marcação duplicada/;
-  const inconsistent=day.warnings.some(w=>sequence.test(w))||(day.punches.length>0&&day.punches.length%2!==0);
+  const inconsistent=day.warnings.some(w=>sequence.test(w))||(day.punches.filter(p=>['Aprovado (Auto)','Aprovado Manualmente'].includes(p.situacao)).length%2!==0);
   if(inconsistent)alerts.push({type:'missing',message:'Marcações incompletas ou inconsistentes · '+day.punches.length+' registro(s)'});
   const otherWarnings=day.warnings.filter(w=>!sequence.test(w));
   if(otherWarnings.length)alerts.push({type:'data',message:otherWarnings.join('; ')});
@@ -105,5 +105,6 @@
  const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups,distribution,dayAlerts,reviewTolerance,reviewSignature,applyVerifications};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHPonto=api;
 })(typeof window==='undefined'?globalThis:window);
+
 
 
