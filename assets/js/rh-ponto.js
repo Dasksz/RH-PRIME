@@ -124,9 +124,27 @@ function renderReviews(){
  if(!rows.length){const row=node('tr'),cell=node('td','Nenhum dia neste filtro.');cell.colSpan=7;row.append(cell);$('reviewRows').append(row);}
 }
 $('closeReviews').onclick=()=>$('reviewList').close();$('reviewKind').onchange=renderReviews;
+let employeeFilterId='';
+const normalizeEmployee=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+function pickerPeople(){return people.filter(e=>(!sector||e.setor===sector)&&(!$('branch').value||e.unidade===$('branch').value)&&($('includeLeft').checked||!e.data_desligamento)).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));}
+function closeEmployeePicker(){ $('employeePickerPopup').hidden=true;$('employeePickerToggle').setAttribute('aria-expanded','false');}
+function renderEmployeePicker(){
+ const available=pickerPeople();if(employeeFilterId&&!available.some(e=>e.id===employeeFilterId))employeeFilterId='';
+ $('employeePickerText').textContent=available.find(e=>e.id===employeeFilterId)?.nome||'Todos os colaboradores';
+ const query=normalizeEmployee($('employeePickerQuery').value),digits=query.replace(/\D/g,'');
+ const matches=available.filter(e=>!query||normalizeEmployee(e.nome).includes(query)||normalizeEmployee(e.cpf).includes(query)||(digits&&/^[\d.\-\s]+$/.test(query)&&String(e.cpf||'').replace(/\D/g,'').includes(digits)));
+ const option=(id,name,note)=>{const b=node('button',undefined,'employee-option');b.type='button';b.setAttribute('aria-pressed',String(employeeFilterId===id));b.append(node('strong',name));if(note)b.append(node('small',note));b.onclick=()=>{employeeFilterId=id;$('search').value='';closeEmployeePicker();render();$('employeePickerToggle').focus();};return b;};
+ $('employeePickerOptions').replaceChildren(option('','Todos os colaboradores'),...matches.map(e=>option(e.id,e.nome,[e.funcao,e.unidade].filter(Boolean).join(' · '))));
+ if(!matches.length)$('employeePickerOptions').append(node('p','Nenhum colaborador encontrado.','muted'));
+}
+$('employeePickerToggle').onclick=()=>{const open=$('employeePickerPopup').hidden;$('employeePickerPopup').hidden=!open;$('employeePickerToggle').setAttribute('aria-expanded',String(open));if(open){$('employeePickerQuery').value='';renderEmployeePicker();$('employeePickerQuery').focus();}};
+$('employeePickerQuery').oninput=renderEmployeePicker;
+$('employeePickerPopup').onkeydown=event=>{if(event.key==='Escape'){closeEmployeePicker();$('employeePickerToggle').focus();}else if(event.key==='ArrowDown'&&event.target===$('employeePickerQuery')){event.preventDefault();$('employeePickerOptions').querySelector('button')?.focus();}};
+document.addEventListener('click',event=>{if(!event.target.closest('.employee-picker'))closeEmployeePicker();});
 function render(){
+ renderEmployeePicker();
  const search=$('search').value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(),kind=$('situation').value;
- shown=summaries.filter(s=>(!sector||s.employee.setor===sector)&&(!$('branch').value||s.employee.unidade===$('branch').value)&&($('includeLeft').checked||!s.employee.data_desligamento)&&(!search||(s.employee.nome+' '+(s.employee.cpf||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().includes(search))&&(kind==='all'||kind==='pending'&&reviewTotal(s)>0||['missing','below','above'].includes(kind)&&(s.reviewCounts?.[kind]||0)>0||kind==='justified'&&s.justified>0||kind==='unjustified'&&s.unjustified>0||kind==='extra'&&s.extra>0||kind==='negative'&&s.negative>0));
+ shown=summaries.filter(s=>(!employeeFilterId||s.employee.id===employeeFilterId)&&(!sector||s.employee.setor===sector)&&(!$('branch').value||s.employee.unidade===$('branch').value)&&($('includeLeft').checked||!s.employee.data_desligamento)&&(!search||(s.employee.nome+' '+(s.employee.cpf||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().includes(search))&&(kind==='all'||kind==='pending'&&reviewTotal(s)>0||['missing','below','above'].includes(kind)&&(s.reviewCounts?.[kind]||0)>0||kind==='justified'&&s.justified>0||kind==='unjustified'&&s.unjustified>0||kind==='extra'&&s.extra>0||kind==='negative'&&s.negative>0));
  const sum=key=>shown.reduce((t,s)=>t+(key==='reviewCount'?reviewTotal(s):s[key]),0);
  const hasClosed=shown.some(s=>s.closedWeeks>0),net=hasClosed?sum('extra')-sum('negative'):sum('provisional');
  $('balanceLabel').textContent=hasClosed?(net<0?'SALDO NEGATIVO ACUMULADO DA EQUIPE':net>0?'HORAS EXTRAS ACUMULADAS DA EQUIPE':'SALDO SEMANAL EQUILIBRADO'):'SALDO PARCIAL DA EQUIPE · EM APURAÇÃO';
@@ -255,6 +273,7 @@ function renderAbsences(){
 $('closeAbsences').onclick=()=>$('absenceList').close();$('absenceBack').onclick=()=>{absenceDate=null;renderAbsences();};
 
 action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;if(profile.status!=='admin')$('sync').hidden=true;notice('Dados carregados do banco. As credenciais de integração ficam somente no servidor.');});
+
 
 
 
