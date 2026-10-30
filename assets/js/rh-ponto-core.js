@@ -97,7 +97,12 @@
   }}
   return {buckets,total,dates:dates.size,maximum:Math.max(0,...buckets.map(b=>b.total))};
  }
- const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups,distribution,dayAlerts,reviewTolerance};
+ function reviewSignature(day){return JSON.stringify({v:1,date:day.date,punches:day.punches.map(p=>[p.data_hora,p.entrada_saida,p.situacao,p.tipo_registro||'',p.obs||'']).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))),expected:day.expected,worked:day.worked,delta:day.delta,covered:day.covered,credit:day.credit,status:day.status,decision:day.decision?[day.decision.classificacao,day.decision.abonar,day.decision.motivo]:null,alerts:dayAlerts(day)});}
+ function applyVerifications(summary,records){
+  for(const day of summary.days){day.alerts=dayAlerts(day);const signature=reviewSignature(day);day.verification=records.filter(r=>r.funcionario_id===summary.employee.id&&r.dia===day.date&&r.assinatura===signature).sort((a,b)=>b.verificado_em.localeCompare(a.verificado_em))[0]||null;day.allAlerts=day.alerts;if(day.verification)day.alerts=[];}
+  summary.reviewCount=summary.days.filter(d=>d.alerts.length).length;summary.reviewCounts=Object.fromEntries(['missing','no_record','below','above','data'].map(t=>[t,summary.days.filter(d=>d.alerts.some(a=>a.type===t)).length]));return summary;
+ }
+ const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups,distribution,dayAlerts,reviewTolerance,reviewSignature,applyVerifications};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHPonto=api;
 })(typeof window==='undefined'?globalThis:window);
 
