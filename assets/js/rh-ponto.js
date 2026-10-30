@@ -2,14 +2,15 @@
 const pontoClient=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98');
 const P=RHPonto,$=id=>document.getElementById(id),today=RH.today();
 let people=[],marks=[],consultations=[],overrides=[],absences=[],vacations=[],config={disponivel_desde:'2026-10-26',historico_desde:'2026-09-01'},summaries=[],shown=[],profile,selected=null,busy=false,period,sector='',occurrences=[],occurrenceDay=null,occurrenceEmployee=null,absenceKind=null,absenceDate=null;
+let chartWeek=P.monday(today),chartPeriodKey='',chartSummaries=[];
 const fmt=d=>d.split('-').reverse().join('/');
 function node(tag,text,className){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 function notice(text,error=false){$('notice').hidden=false;$('notice').textContent=text;$('notice').classList.toggle('error',error);}
-async function action(fn){if(busy)return;busy=true;document.querySelectorAll('button,input,select,textarea').forEach(e=>e.disabled=true);try{await fn();}catch(e){notice(e.message||'Não foi possível concluir.',true);}finally{busy=false;document.querySelectorAll('button,input,select,textarea').forEach(e=>e.disabled=false);if(profile?.status!=='admin')$('sync').disabled=true;}}
+async function action(fn){if(busy)return;busy=true;document.querySelectorAll('button,input,select,textarea').forEach(e=>e.disabled=true);try{await fn();}catch(e){notice(e.message||'Não foi possível concluir.',true);}finally{busy=false;document.querySelectorAll('button,input,select,textarea').forEach(e=>e.disabled=false);if(profile?.status!=='admin')$('sync').disabled=true;updateWeekControls();}}
 async function fetchRows(table,columns,filter=q=>q){const rows=[];for(let offset=0;offset<100000;offset+=1000){const page=await RH.result(filter(pontoClient.from(table).select(columns)).order('id',{ascending:true}).range(offset,offset+999));rows.push(...page);if(page.length<1000)return rows;}throw Error('Consulta muito grande. Reduza o período.');}
 function readPeriod(){const start=$('start').value,end=$('end').value;if(!P.valid(start)||!P.valid(end)||start<config.historico_desde||end<start||(Date.parse(end)-Date.parse(start))/86400000>62)throw Error('Escolha um período a partir de setembro/2026, com até 63 dias.');return {start,end};}
 async function load(){
- period=readPeriod();const first=P.monday(period.start),last=P.sunday(period.end);
+ period=readPeriod();const key=period.start+'|'+period.end;if(chartPeriodKey!==key){chartWeek=P.monday([period.start,[today,period.end].sort()[0]].sort().at(-1));if(chartWeek>P.monday(today))chartWeek=P.monday(today);chartPeriodKey=key;}const first=[P.monday(period.start),chartWeek].sort()[0],last=[P.sunday(period.end),P.add(chartWeek,6)].sort().at(-1);
  [people,marks,consultations,overrides,absences,vacations,occurrences]=await Promise.all([
   RH.fetchAll(pontoClient,'funcionarios_epi','id,nome,cpf,funcao,admissao,data_desligamento,carga_horaria_semanal,jornada_diaria_minutos,dias_trabalho_semana,setor,unidade'),
   fetchRows('rh_ponto_marcacoes','id,funcionario_id,data_hora,entrada_saida,tipo_registro,situacao,obs',q=>q.gte('data_hora',first+' 00:00:00').lt('data_hora',P.add(last,1)+' 00:00:00')),
@@ -20,10 +21,11 @@ async function load(){
   fetchRows('rh_ponto_ocorrencias','*',q=>q.gte('dia',first).lte('dia',last))
  ]);
  const settings=await RH.result(pontoClient.from('rh_ponto_config').select('*'));if(settings[0])config=settings[0];
- summaries=people.map(e=>P.summarize(e,marks.filter(m=>m.funcionario_id===e.id),consultations.filter(c=>c.funcionario_id===e.id),{...period,today,availableFrom:config.disponivel_desde,historyFrom:config.historico_desde,occurrences:occurrences.filter(o=>o.funcionario_id===e.id),override:overrides.find(o=>o.funcionario_id===e.id),holiday:RHHolidays.getHoliday,absences:absences.filter(a=>a.funcionario_id===e.id),vacations:vacations.filter(v=>v.rh_ferias_periodos?.funcionario_id===e.id)}));
+ const summarizeRange=(range)=>people.map(e=>P.summarize(e,marks.filter(m=>m.funcionario_id===e.id),consultations.filter(c=>c.funcionario_id===e.id),{...range,today,availableFrom:config.disponivel_desde,historyFrom:config.historico_desde,occurrences:occurrences.filter(o=>o.funcionario_id===e.id),override:overrides.find(o=>o.funcionario_id===e.id),holiday:RHHolidays.getHoliday,absences:absences.filter(a=>a.funcionario_id===e.id),vacations:vacations.filter(v=>v.rh_ferias_periodos?.funcionario_id===e.id)}));
+ summaries=summarizeRange(period);chartSummaries=summarizeRange({start:chartWeek,end:P.add(chartWeek,6)});
  $('periodLabel').textContent='Ciclo: '+fmt(period.start)+' a '+fmt(period.end)+' · Hoje: '+fmt(today)+' · Fuso: America/Sao_Paulo';
- const lastSuccess=consultations.filter(c=>c.sucesso).map(c=>c.consultado_em).sort().at(-1);
- const failures=consultations.filter(c=>!c.sucesso).length;
+ const lastSuccess=consultations.filter(c=>c.sucesso&&c.inicio<=period.end&&c.fim>=period.start).map(c=>c.consultado_em).sort().at(-1);
+ const failures=consultations.filter(c=>!c.sucesso&&c.inicio<=period.end&&c.fim>=period.start).length;
  $('lastSync').textContent=lastSuccess?'Última consulta concluída neste período: '+new Date(lastSuccess).toLocaleString('pt-BR')+'.':'Este período ainda não foi sincronizado.';
  $('coverage').textContent='Histórico disponível a partir de setembro/2026. Corte de faltas: '+fmt(config.disponivel_desde)+'. Dias úteis sem registro anteriores ao corte são justificados por implantação; após o corte, só há falta inferida quando o período foi consultado com sucesso. '+(lastSuccess?'Última consulta concluída no banco: '+new Date(lastSuccess).toLocaleString('pt-BR')+'.':'Nenhuma consulta deste período foi registrada. Use Sincronizar para buscar os dados.')+(failures?' Há '+failures+' tentativa(s) com falha no histórico; os dados anteriores foram preservados.':'');
  setupFilters();render();if(selected){const s=summaries.find(s=>s.employee.id===selected);if(s)drawDetail(s);}
@@ -61,21 +63,45 @@ $('occurrenceForm').onsubmit=event=>{event.preventDefault();action(async()=>{
  }catch(error){$('occurrenceNotice').textContent=error.message;throw error;}
  });};
 const sectorLabels={ARMAZEM:'Armazém',TRANSPORTE:'Transporte',COMERCIAL:'Comercial',MERCHANDISING:'Merchandising','SERVIÇOS GERAIS':'Serviços gerais',ADMINISTRATIVO:'Administrativo'};
+function updateWeekControls(){
+ $('chartPrev').disabled=busy||P.add(chartWeek,-1)<config.historico_desde;
+ $('chartNext').disabled=busy||chartWeek>=P.monday(today);
+ $('chartCurrent').disabled=busy||chartWeek===P.monday(today);
+}
+function changeChartWeek(next){
+ if(busy||next>P.monday(today)||P.add(next,6)<config.historico_desde)return;
+ return action(async()=>{const before=chartWeek;chartWeek=next;try{await load();}catch(error){chartWeek=before;updateWeekControls();throw error;}});
+}
+$('chartPrev').onclick=()=>changeChartWeek(P.add(chartWeek,-7));
+$('chartNext').onclick=()=>changeChartWeek(P.add(chartWeek,7));
+$('chartCurrent').onclick=()=>changeChartWeek(P.monday(today));
+function dismissChartTooltips(){for(const column of $('distributionPlot').querySelectorAll('.chart-column')){column.classList.remove('tooltip-open');column.classList.add('tooltip-dismissed');}}
+document.addEventListener?.('pointerdown',event=>{if(!event.target.closest('.chart-column'))dismissChartTooltips();});
 function renderDistribution(){
- const data=P.distribution(shown),sectors=[...new Set(data.buckets.flatMap(b=>Object.keys(b.sectors)))].sort();
+ const ids=new Set(shown.map(s=>s.employee.id)),rows=chartSummaries.length?chartSummaries.filter(s=>ids.has(s.employee.id)):shown;
+ const data=P.distribution(rows),sectors=[...new Set(rows.map(s=>(s.employee.setor||'Sem setor').trim()||'Sem setor'))].sort();
  const palette={ARMAZEM:0,TRANSPORTE:1,ADMINISTRATIVO:2,COMERCIAL:3,MERCHANDISING:4,'SERVIÇOS GERAIS':5};
  const color=key=>'chart-color-'+(palette[key]??6),label=key=>sectorLabels[key]||key;
- $('distributionPeriod').textContent=fmt(period.start)+' a '+fmt(period.end);
+ $('distributionPeriod').textContent='Semana de '+fmt(chartWeek)+' a '+fmt(P.add(chartWeek,6));updateWeekControls();
  const peak=data.buckets.find(b=>b.total===data.maximum);
- makeCards($('distributionStats'),[['Total no período',P.hours(data.total,true),'Acima da jornada diária'],['Dias com acréscimo',String(data.dates),'Datas com variação positiva'],['Maior acumulado',data.maximum?P.hours(data.maximum,true):'—',data.maximum?peak.label+' · soma no período':'Sem variações positivas']]);
- $('distributionEmpty').hidden=data.total>0;$('distributionEmpty').textContent='Nenhuma variação diária positiva confirmada para este período e estes filtros.';
+ makeCards($('distributionStats'),[['Total na semana',P.hours(data.total,true),'Acima da jornada diária'],['Dias com acréscimo',String(data.dates),'Datas com variação positiva'],['Maior acumulado',data.maximum?P.hours(data.maximum,true):'—',data.maximum?peak.label+' · nesta semana':'Sem variações positivas']]);
+ $('distributionEmpty').hidden=data.total>0;$('distributionEmpty').textContent='Nenhuma variação diária positiva confirmada para esta semana e estes filtros.';
  $('distributionPlot').hidden=!data.total;$('distributionLegend').hidden=!data.total;$('distributionData').hidden=!data.total;
- $('distributionPlot').setAttribute('aria-label','Variações positivas de '+fmt(period.start)+' a '+fmt(period.end)+', total '+P.hours(data.total)+'. Valores detalhados disponíveis abaixo.');
- $('distributionPlot').replaceChildren(...data.buckets.map(bucket=>{
+ $('distributionPlot').setAttribute('aria-label','Variações positivas de '+fmt(chartWeek)+' a '+fmt(P.add(chartWeek,6))+', total '+P.hours(data.total)+'. Valores detalhados disponíveis abaixo.');
+ $('distributionPlot').replaceChildren(...data.buckets.map((bucket,index)=>{
   const column=node('div',undefined,'chart-column'),value=node('span',bucket.total?P.hours(bucket.total):'—','chart-value'),track=node('div',undefined,'chart-track'),stack=node('div',undefined,'chart-stack');
   stack.style.height=(data.maximum?bucket.total/data.maximum*100:0)+'%';
-  for(const key of sectors){if(!bucket.sectors[key])continue;const segment=node('div',undefined,'chart-segment '+color(key));segment.style.height=bucket.sectors[key]/bucket.total*100+'%';segment.title=bucket.label+' · '+label(key)+': '+P.hours(bucket.sectors[key]);stack.append(segment);}
-  track.append(stack);column.append(value,track,node('span',bucket.label,'chart-day'));return column;
+  for(const key of sectors){if(!bucket.sectors[key])continue;const segment=node('div',undefined,'chart-segment '+color(key));segment.style.height=bucket.sectors[key]/bucket.total*100+'%';stack.append(segment);}
+  track.append(stack);
+  const tip=node('div',undefined,'chart-tooltip');tip.id='chart-tip-'+index;tip.setAttribute('role','tooltip');
+  tip.append(node('strong',['Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado','Domingo'][index]+' · '+fmt(P.add(chartWeek,index)),'tooltip-heading'));
+  for(const key of sectors){const line=node('div',undefined,'tooltip-line'),name=node('span',undefined,'tooltip-name'),swatch=node('i',undefined,'legend-swatch '+color(key));swatch.setAttribute('aria-hidden','true');name.append(swatch,document.createTextNode(label(key)));line.append(name,node('strong',P.hours(bucket.sectors[key]||0,true)));tip.append(line);}
+  const total=node('div',undefined,'tooltip-total');total.append(node('span','Total'),node('strong',P.hours(bucket.total,true)));tip.append(total);
+  column.tabIndex=0;column.setAttribute('role','button');column.setAttribute('aria-label','Ver horas de '+bucket.label+', '+fmt(P.add(chartWeek,index)));column.setAttribute('aria-describedby',tip.id);
+  column.onpointerenter=()=>column.classList.remove('tooltip-dismissed');column.onfocus=()=>column.classList.remove('tooltip-dismissed');
+  column.onclick=()=>{dismissChartTooltips();column.classList.remove('tooltip-dismissed');column.classList.add('tooltip-open');};
+  column.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();dismissChartTooltips();}else if(['Enter',' '].includes(event.key)){event.preventDefault();column.onclick();}};
+  column.append(value,track,node('span',bucket.label,'chart-day'),tip);return column;
  }));
  $('distributionLegend').replaceChildren(...sectors.map(key=>{const item=node('span',undefined,'legend-item'),swatch=node('i',undefined,'legend-swatch '+color(key));swatch.setAttribute('aria-hidden','true');item.append(swatch,document.createTextNode(label(key)));return item;}));
  $('distributionRows').replaceChildren(...data.buckets.map(bucket=>{const row=node('tr');row.append(node('td',bucket.label),node('td',P.hours(bucket.total)),node('td',Object.entries(bucket.sectors).map(([key,value])=>label(key)+': '+P.hours(value)).join(' · ')||'—'));return row;}));
@@ -204,5 +230,7 @@ function renderAbsences(){
 $('closeAbsences').onclick=()=>$('absenceList').close();$('absenceBack').onclick=()=>{absenceDate=null;renderAbsences();};
 
 action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;if(profile.status!=='admin')$('sync').hidden=true;notice('Dados carregados do banco. As credenciais de integração ficam somente no servidor.');});
+
+
 
 
