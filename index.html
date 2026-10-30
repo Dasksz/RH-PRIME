@@ -41,7 +41,7 @@
       <link rel="stylesheet" href="assets/css/rh-responsive.css">
     <script src="assets/js/rh-core.js"></script><script src="assets/js/rh-holidays.js?v=20261022e"></script><script src="assets/js/rh-search-select.js?v=20261020f"></script><script src="assets/js/rh-navigation.js?v=ponto-20261029"></script><script src="assets/js/rh-search-focus.js?v=20261006"></script>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#102c38">
-<link rel="stylesheet" href="assets/css/rh-equipamentos.css?v=20261016g"><link rel="stylesheet" href="assets/css/rh-theme.css"><link rel="stylesheet" href="assets/css/rh-mobile-menus.css?v=20261006"><script src="assets/js/rh-theme.js"></script>
+<link rel="stylesheet" href="assets/css/rh-equipamentos.css?v=20261016g"><link rel="stylesheet" href="assets/css/rh-theme.css?v=20261030-headings"><link rel="stylesheet" href="assets/css/rh-mobile-menus.css?v=20261006"><script src="assets/js/rh-theme.js"></script>
 </head>
   <body>
     <div id="root"></div>
@@ -1543,12 +1543,7 @@
 
               <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 mt-2">
-                  <div className="flex items-center gap-2">
-                    <Activity size={24} className="text-[#002060]" />
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-800">
-                      Painel Gerencial de EPI & Fardamento
-                    </h2>
-                  </div>
+                  <div className="rh-page-heading"><div><p className="eyebrow">Segurança e equipamentos</p><h1>EPI e fardamento</h1><p className="rh-page-description">Acompanhe entregas, devoluções e equipamentos da equipe.</p></div></div>
                   <div className="flex bg-slate-200/60 p-1 rounded-xl w-fit">
                     <button
                       onClick={() => setDashboardFilter("geral")}
