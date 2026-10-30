@@ -5,7 +5,7 @@ const $=id=>document.getElementById(id),V=RHVacations;let employees=[],companies
 const statusNames={programado:'Programado',concluido:'Gozo confirmado',cancelado:'Cancelado / estornado'},deliveryNames={prepared:'Aguardando upload',uploading:'Upload em andamento',ready:'Pronto para autorização',queued:'Na fila de envio',sending:'Chamando n8n',accepted:'Aceito pelo n8n',uncertain:'Envio incerto — conferir n8n',failed:'Falha — revisar',cancelled:'Envio cancelado'};
 function launchStatusLabel(l){const today=RH.today();return l.status==='programado'&&l.inicio&&l.fim&&l.inicio<=today&&today<=l.fim?'Em andamento':statusNames[l.status]||l.status;}
 function make(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
-function message(s,error=false){$('notice').textContent=s;$('notice').classList.toggle('error',error);}
+function message(s,error=false){$('notice').hidden=false;$('notice').textContent=s;$('notice').classList.toggle('error',error);}
 async function action(fn){if(busy)return;busy=true;try{await fn();}catch(e){message(e.message||String(e),true);if($('formDialog').open){$('formError').hidden=false;$('formError').textContent=e.message||String(e);}}finally{busy=false;$('submitForm').disabled=false;}}
 async function mutate(action,payload){return RH.result(client.rpc('rh_vacation_mutate',{p_action:action,p_payload:payload}));}
 async function documentAction(action,payload){return RH.result(client.rpc('rh_vacation_document',{p_action:action,p_payload:payload}));}
