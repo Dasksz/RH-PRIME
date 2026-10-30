@@ -17,6 +17,20 @@
  }
  function admission(value){if(/^\d{2}\/\d{2}\/\d{4}$/.test(value||''))return value.split('/').reverse().join('-');return valid(value)?value:null;}
  const sec=t=>{const [h,m,s]=t.split(':').map(Number);return h*3600+m*60+s;};
+ const reviewTolerance=30*60;
+ function dayAlerts(day){
+  if(day.future||day.partial||!day.employed)return [];
+  const alerts=[],sequence=/Entrada sem saída|Saída sem entrada|Entradas consecutivas|Marcação duplicada/;
+  const inconsistent=day.warnings.some(w=>sequence.test(w))||(day.punches.length>0&&day.punches.length%2!==0);
+  if(inconsistent)alerts.push({type:'missing',message:'Marcações incompletas ou inconsistentes · '+day.punches.length+' registro(s)'});
+  const otherWarnings=day.warnings.filter(w=>!sequence.test(w));
+  if(otherWarnings.length)alerts.push({type:'data',message:otherWarnings.join('; ')});
+  if(day.working&&!day.covered)alerts.push({type:'data',message:'Dia sem consulta confirmada; conferir os dados antes de apurar'});
+  if(day.absenceClass==='injustificada')alerts.push({type:'no_record',message:'Dia sem marcações e sem justificativa'});
+  if(Number.isFinite(day.delta)&&day.worked>0&&day.delta<=-reviewTolerance)alerts.push({type:'below',message:'Jornada abaixo do esperado · '+hours(day.delta,true)});
+  if(Number.isFinite(day.delta)&&day.delta>=reviewTolerance)alerts.push({type:'above',message:day.expected?'Jornada acima do esperado · '+hours(day.delta,true):'Trabalho em dia sem jornada prevista · '+hours(day.delta,true)});
+  return alerts;
+ }
  function summarize(employee,marks,consultations,{start,end,today,availableFrom,override,holiday=()=>null,absences=[],vacations=[],occurrences=[],historyFrom='2026-09-01'}){
   const plan=schedule(employee,override),byDate=new Map(),days=[],weeks=[];
   marks.forEach(p=>{const key=p.data_hora.slice(0,10);if(!byDate.has(key))byDate.set(key,[]);byDate.get(key).push(p);});
@@ -61,7 +75,8 @@
    weeks.push({start:w,end:last,worked,expected:target,delta,extra:delta===null?0:Math.max(0,delta),negative:delta===null?0:Math.max(0,-delta),closed,pending,assigned,status:!closed?'Em andamento':pending?'Conferir':'Fechada'});
   }
   const visible=days.filter(d=>d.inCycle),assigned=weeks.filter(w=>w.assigned),closed=assigned.filter(w=>w.delta!==null);
-  return {employee,plan,days:visible,weeks,worked:visible.reduce((s,d)=>s+d.worked,0),expected:visible.filter(d=>!d.future).reduce((s,d)=>s+d.expected,0),extra:closed.reduce((s,w)=>s+w.extra,0),negative:closed.reduce((s,w)=>s+w.negative,0),pending:visible.filter(d=>d.pending).length,possibleAbsences:visible.filter(d=>d.absenceClass==='injustificada').length,justified:visible.filter(d=>d.absenceClass==='justificada').length,unjustified:visible.filter(d=>d.absenceClass==='injustificada').length,provisional:visible.reduce((n,d)=>n+(d.delta||0),0),closedWeeks:closed.length,openWeeks:assigned.filter(w=>w.delta===null).length,marks:visible.reduce((s,d)=>s+d.punches.length,0)};
+  days.forEach(day=>{day.alerts=dayAlerts(day);});const reviewCount=visible.filter(d=>d.alerts.length).length;const reviewCounts=Object.fromEntries(['missing','no_record','below','above','data'].map(type=>[type,visible.filter(d=>d.alerts.some(a=>a.type===type)).length]));
+  return {employee,plan,days:visible,weeks,reviewCount,reviewCounts,worked:visible.reduce((s,d)=>s+d.worked,0),expected:visible.filter(d=>!d.future).reduce((s,d)=>s+d.expected,0),extra:closed.reduce((s,w)=>s+w.extra,0),negative:closed.reduce((s,w)=>s+w.negative,0),pending:visible.filter(d=>d.pending).length,possibleAbsences:visible.filter(d=>d.absenceClass==='injustificada').length,justified:visible.filter(d=>d.absenceClass==='justificada').length,unjustified:visible.filter(d=>d.absenceClass==='injustificada').length,provisional:visible.reduce((n,d)=>n+(d.delta||0),0),closedWeeks:closed.length,openWeeks:assigned.filter(w=>w.delta===null).length,marks:visible.reduce((s,d)=>s+d.punches.length,0)};
  }
  function absenceGroups(summaries,kind){
   const groups=new Map();
@@ -82,7 +97,8 @@
   }}
   return {buckets,total,dates:dates.size,maximum:Math.max(0,...buckets.map(b=>b.total))};
  }
- const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups,distribution};
+ const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups,distribution,dayAlerts,reviewTolerance};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHPonto=api;
 })(typeof window==='undefined'?globalThis:window);
+
 
