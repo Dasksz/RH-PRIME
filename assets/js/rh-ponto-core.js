@@ -71,6 +71,18 @@
   }));
   return [...groups].sort(([a],[b])=>b.localeCompare(a)).map(([date,items])=>({date,items:items.sort((a,b)=>a.employee.nome.localeCompare(b.employee.nome,'pt-BR'))}));
  }
- const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups};
+ function distribution(summaries){
+  const labels=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  const buckets=labels.map((label,i)=>({label,weekday:(i+1)%7,total:0,sectors:{}}));
+  const dates=new Set();let total=0;
+  for(const summary of summaries){for(const day of summary.days){
+   if(day.future||day.partial||!Number.isFinite(day.delta)||day.delta<=0||day.warnings.length)continue;
+   const key=(summary.employee.setor||'Sem setor').trim()||'Sem setor',bucket=buckets[(weekday(day.date)+6)%7];
+   bucket.total+=day.delta;bucket.sectors[key]=(bucket.sectors[key]||0)+day.delta;total+=day.delta;dates.add(day.date);
+  }}
+  return {buckets,total,dates:dates.size,maximum:Math.max(0,...buckets.map(b=>b.total))};
+ }
+ const api={valid,add,monday,sunday,cycle,cycleMonth,hours,schedule,summarize,absenceGroups,distribution};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RHPonto=api;
 })(typeof window==='undefined'?globalThis:window);
+
