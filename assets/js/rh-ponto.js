@@ -4,7 +4,7 @@ const P=RHPonto,$=id=>document.getElementById(id),today=RH.today();
 let people=[],marks=[],consultations=[],overrides=[],absences=[],vacations=[],config={disponivel_desde:'2026-10-26',historico_desde:'2026-09-01'},summaries=[],shown=[],profile,selected=null,busy=false,period,sector='',occurrences=[],occurrenceDay=null,occurrenceEmployee=null,absenceKind=null,absenceDate=null;
 const fmt=d=>d.split('-').reverse().join('/');
 function node(tag,text,className){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
-function notice(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
+function notice(text,error=false){$('notice').hidden=false;$('notice').textContent=text;$('notice').classList.toggle('error',error);}
 async function action(fn){if(busy)return;busy=true;document.querySelectorAll('button,input,select,textarea').forEach(e=>e.disabled=true);try{await fn();}catch(e){notice(e.message||'Não foi possível concluir.',true);}finally{busy=false;document.querySelectorAll('button,input,select,textarea').forEach(e=>e.disabled=false);if(profile?.status!=='admin')$('sync').disabled=true;}}
 async function fetchRows(table,columns,filter=q=>q){const rows=[];for(let offset=0;offset<100000;offset+=1000){const page=await RH.result(filter(pontoClient.from(table).select(columns)).order('id',{ascending:true}).range(offset,offset+999));rows.push(...page);if(page.length<1000)return rows;}throw Error('Consulta muito grande. Reduza o período.');}
 function readPeriod(){const start=$('start').value,end=$('end').value;if(!P.valid(start)||!P.valid(end)||start<config.historico_desde||end<start||(Date.parse(end)-Date.parse(start))/86400000>62)throw Error('Escolha um período a partir de setembro/2026, com até 63 dias.');return {start,end};}
@@ -100,6 +100,7 @@ $('scheduleForm').onsubmit=e=>{e.preventDefault();action(async()=>{
  await RH.result(pontoClient.from('rh_ponto_jornadas').upsert({funcionario_id:selected,minutos_dia:daily,minutos_semana:weekly,dias:days,updated_at:new Date().toISOString()},{onConflict:'funcionario_id'}).select(),true);await load();notice('Jornada de apuração salva. Os horários originais foram preservados.');
 });};
 
+$('syncClose').onclick=()=>{if($('syncPanel').getAttribute('aria-busy')!=='true')$('syncPanel').hidden=true;};
 $('sync').onclick=()=>action(async()=>{
  if(profile.status!=='admin')throw Error('Administrador obrigatório para sincronizar.');
  const current=readPeriod();if(current.start!==period.start||current.end!==period.end)throw Error('Aplique o novo período antes de sincronizar.');
@@ -107,37 +108,37 @@ $('sync').onclick=()=>action(async()=>{
  const first=P.monday(period.start),last=[P.sunday(period.end),today].sort()[0];if(first>last)throw Error('O período ainda não começou.');
  const ids=shown.map(s=>s.employee.id),names=new Map(shown.map(s=>[s.employee.id,s.employee.nome])),windows=[];
  for(let start=first;start<=last;){const end=[P.add(start,62),last].sort()[0];windows.push({start,end});start=P.add(end,1);}
- const began=Date.now();let state={total:ids.length*windows.length,done:0,success:0,failed:0,issues:[]},timer;
+ let state={total:ids.length*windows.length,done:0,success:0,failed:0,issues:[]};
  const draw=()=>{
-  const elapsed=(Date.now()-began)/1000;
-  $('syncTimer').textContent='Tempo decorrido: '+RHPontoSync.duration(elapsed);
-  $('syncBar').max=state.total;$('syncBar').value=state.done;
-  $('syncCounts').textContent=state.done+' de '+state.total+' consultas confirmadas · '+state.success+' com sucesso · '+state.failed+' com falha';
-  $('syncHint').textContent=state.done>0&&state.done<state.total?'Previsão aproximada restante: '+RHPontoSync.duration(elapsed/state.done*(state.total-state.done))+'. Pode variar conforme a resposta da API. Não feche esta página.':'O tempo depende da API e da quantidade de colaboradores. Os indicadores serão atualizados ao terminar. Não feche esta página.';
+  const percent=state.total?Math.floor(state.done/state.total*100):0;
+  $('syncBar').max=state.total||1;$('syncBar').value=state.done;
+  $('syncPercent').textContent=percent+'%';
+  $('syncCounts').textContent=state.done+' de '+state.total+' consultas'+(state.failed?' · '+state.failed+' com falha':'');
  };
  $('syncPanel').hidden=false;$('syncPanel').classList.remove('error');$('syncPanel').setAttribute('aria-busy','true');$('syncIssues').replaceChildren();
- $('syncTitle').textContent='Sincronização em andamento';$('sync').textContent='Sincronizando…';$('sync').classList.add('is-syncing');
- notice('Buscando os registros de ponto. Acompanhe o progresso logo abaixo dos filtros.');
- draw();timer=setInterval(draw,1000);
+ $('syncClose').hidden=true;$('syncDetails').hidden=true;$('syncDetails').open=false;$('syncStatus').textContent='';
+ $('syncTitle').textContent='Sincronizando…';$('sync').textContent='Sincronizando…';$('sync').classList.add('is-syncing');
+ $('notice').hidden=true;
+ draw();
  let reloadError=null;
  try{
   state=await RHPontoSync.run({ids,windows,invoke:body=>pontoClient.functions.invoke('ponto-sync',{body}),onProgress:next=>{
    state=next;draw();
-   if(next.phase==='querying')$('syncStatus').textContent='Consultando: '+next.batch.map(id=>names.get(id)).join(', ')+' · '+fmt(next.window.start)+' a '+fmt(next.window.end)+'. Aguardando resposta deste lote…';
-   else if(next.phase==='received')$('syncStatus').textContent=next.done+' consultas já retornaram. Preparando a próxima etapa…';
   }});
-  $('syncTitle').textContent='Atualizando os indicadores';$('syncStatus').textContent='Consultas encerradas. Recarregando os dados do banco…';
+  draw();$('syncTitle').textContent='Finalizando…';
   try{await load();}catch(error){reloadError=error.message||'Falha ao carregar os indicadores.';}
+ }catch(error){
+  state.error=error.message||'Não foi possível concluir a sincronização.';
  }finally{
-  clearInterval(timer);draw();$('syncPanel').setAttribute('aria-busy','false');$('sync').textContent='Sincronizar colaboradores exibidos';$('sync').classList.remove('is-syncing');
+  draw();$('syncPanel').setAttribute('aria-busy','false');$('sync').textContent='Sincronizar colaboradores exibidos';$('sync').classList.remove('is-syncing');
  }
  const interrupted=!!state.error,problem=interrupted||state.failed>0||reloadError;
  $('syncPanel').classList.toggle('error',!!problem);
  $('syncTitle').textContent=interrupted?'Sincronização interrompida':problem?'Sincronização concluída com pendências':'Sincronização concluída';
- $('syncStatus').textContent=(state.error||'Respostas recebidas para todos os colaboradores selecionados.')+(reloadError?' Não foi possível recarregar os indicadores: '+reloadError:' Os indicadores foram atualizados com os dados confirmados no banco.');
- $('syncHint').textContent=(state.total-state.done>0?(state.total-state.done)+' consultas sem confirmação nesta execução. ':'')+'Dados anteriores de consultas com falha foram preservados. '+(reloadError?'Recarregue a página para conferir os dados salvos.':interrupted?'Confira a última consulta antes de tentar novamente.':'Você já pode consultar os resultados.');
+ $('syncStatus').textContent=[state.error,reloadError?'Não foi possível atualizar os indicadores: '+reloadError:'',state.failed?'Os dados anteriores das consultas com falha foram preservados.':''].filter(Boolean).join(' ');
+ $('syncDetails').hidden=!problem;$('syncClose').hidden=false;
  $('syncIssues').replaceChildren(...state.issues.map(issue=>node('li',(names.get(issue.id)||'Colaborador')+': '+issue.message)));
- $('progress').textContent='';notice($('syncTitle').textContent+'. '+$('syncCounts').textContent,!!problem);
+ $('progress').textContent='';$('notice').hidden=true;
 });
 
 const attachmentBucket='rh-ponto-comprovantes';
@@ -176,3 +177,4 @@ function renderAbsences(){
 $('closeAbsences').onclick=()=>$('absenceList').close();$('absenceBack').onclick=()=>{absenceDate=null;renderAbsences();};
 
 action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;if(profile.status!=='admin')$('sync').hidden=true;notice('Dados carregados do banco. As credenciais de integração ficam somente no servidor.');});
+
