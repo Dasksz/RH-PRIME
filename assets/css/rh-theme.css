@@ -73,3 +73,15 @@ body.rh-login .rh-theme-toggle:hover{background:var(--rh-soft)!important;color:v
 /* Cartões de empresa na devolução: azul escuro e rótulos legíveis. */
 [data-rh-theme=dark] [class~="bg-blue-50/60"]{background:#173344!important;border-color:var(--rh-border)!important}
 [data-rh-theme=dark] [class~="text-blue-900/70"]{color:#93c5fd!important}
+
+/* Cabeçalhos compartilhados das páginas. */
+.rh-page-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:8px 0 28px;padding:0;background:transparent!important;border:0!important;box-shadow:none!important}
+.rh-page-heading .eyebrow{display:block;margin:0 0 16px!important;color:var(--rh-accent)!important;font-size:12px!important;font-weight:700!important;line-height:1.5!important;letter-spacing:.16em!important;text-transform:uppercase}
+.rh-page-heading h1{margin:0 0 16px!important;color:var(--rh-ink)!important;font-family:inherit!important;font-size:34px!important;line-height:1.2!important;font-weight:700!important;letter-spacing:-.02em!important}
+.rh-page-heading p:not(.eyebrow):not([hidden]){margin:0!important;color:var(--rh-muted)!important;font-size:14px!important;line-height:1.6!important;font-weight:400!important}
+.rh-page-heading .title-line{display:flex;align-items:center;gap:12px}
+.rh-page-heading .title-line h1{margin-bottom:16px!important}
+.rh-page-heading .back-link,.rh-page-heading .back{display:inline-block;margin-bottom:16px}
+@media(max-width:640px){.rh-page-heading{align-items:flex-start;flex-direction:column;gap:16px;margin-bottom:24px}.rh-page-heading h1{font-size:28px!important}.rh-page-heading .eyebrow{margin-bottom:12px!important}}
+
+[data-rh-theme=dark] .rh-page-heading .eyebrow{color:#2dd4bf!important}

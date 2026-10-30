@@ -4,14 +4,14 @@
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <meta name="theme-color" content="#102c38"><title>RH PRIME · Calendário de feriados</title>
  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="assets/images/LOGO_RH.jpeg">
- <link rel="stylesheet" href="assets/css/rh-theme.css"><script src="assets/js/rh-theme.js"></script>
+ <link rel="stylesheet" href="assets/css/rh-theme.css?v=20261030-headings"><script src="assets/js/rh-theme.js"></script>
  <script src="assets/js/rh-navigation.js?v=ponto-20261029"></script><script src="assets/js/rh-holidays.js?v=20261022e"></script>
  <link rel="stylesheet" href="assets/css/calendario.css?v=20261029d">
 </head>
 <body>
  <rh-navigation active="calendario"></rh-navigation>
  <main class="holiday-page">
-  <div class="holiday-page-heading"><div><p class="eyebrow">Planejamento de RH</p><h1>Calendário</h1><p>Consulte feriados nacionais, o feriado estadual da Bahia e pontos facultativos.</p></div>
+  <div class="holiday-page-heading rh-page-heading"><div><p class="eyebrow">Planejamento de RH</p><h1>Calendário</h1><p>Consulte feriados nacionais, o feriado estadual da Bahia e pontos facultativos.</p></div>
    <div class="year-controls" aria-label="Navegar entre anos"><button type="button" id="previousYear" aria-label="Ano anterior">‹</button><strong id="calendarYear" aria-live="polite"></strong><button type="button" id="nextYear" aria-label="Próximo ano">›</button><button type="button" id="currentYear">Este ano</button></div>
   </div>
   <section class="holiday-calendar-card" aria-labelledby="calendarTitle"><div class="calendar-card-heading"><div><h2 id="calendarTitle">Feriados e pontos facultativos</h2><p>As cores separam feriados nacionais, feriado estadual e pontos facultativos.</p></div><div class="calendar-legend"><span><i class="national"></i>Brasil</span><span><i class="state"></i>Bahia</span><span><i class="optional"></i>Ponto facultativo</span></div></div><div id="monthsGrid" class="months-grid"></div></section>
