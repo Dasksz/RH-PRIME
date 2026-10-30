@@ -11,7 +11,7 @@ function readPeriod(){const start=$('start').value,end=$('end').value;if(!P.vali
 async function load(){
  period=readPeriod();const first=P.monday(period.start),last=P.sunday(period.end);
  [people,marks,consultations,overrides,absences,vacations,occurrences]=await Promise.all([
-  RH.fetchAll(pontoClient,'funcionarios_epi','id,nome,cpf,admissao,data_desligamento,carga_horaria_semanal,jornada_diaria_minutos,dias_trabalho_semana,setor,unidade'),
+  RH.fetchAll(pontoClient,'funcionarios_epi','id,nome,cpf,funcao,admissao,data_desligamento,carga_horaria_semanal,jornada_diaria_minutos,dias_trabalho_semana,setor,unidade'),
   fetchRows('rh_ponto_marcacoes','id,funcionario_id,data_hora,entrada_saida,tipo_registro,situacao,obs',q=>q.gte('data_hora',first+' 00:00:00').lt('data_hora',P.add(last,1)+' 00:00:00')),
   fetchRows('rh_ponto_consultas','id,funcionario_id,inicio,fim,iniciado_em,consultado_em,sucesso,quantidade,erro',q=>q.lte('inicio',last).gte('fim',first)),
   RH.fetchAll(pontoClient,'rh_ponto_jornadas','*','funcionario_id'),
@@ -60,6 +60,26 @@ $('occurrenceForm').onsubmit=event=>{event.preventDefault();action(async()=>{
   $('occurrence').close();await load();notice('Classificação salva com histórico. Os horários originais foram preservados.');
  }catch(error){$('occurrenceNotice').textContent=error.message;throw error;}
  });};
+const sectorLabels={ARMAZEM:'Armazém',TRANSPORTE:'Transporte',COMERCIAL:'Comercial',MERCHANDISING:'Merchandising','SERVIÇOS GERAIS':'Serviços gerais',ADMINISTRATIVO:'Administrativo'};
+function renderDistribution(){
+ const data=P.distribution(shown),sectors=[...new Set(data.buckets.flatMap(b=>Object.keys(b.sectors)))].sort();
+ const palette={ARMAZEM:0,TRANSPORTE:1,ADMINISTRATIVO:2,COMERCIAL:3,MERCHANDISING:4,'SERVIÇOS GERAIS':5};
+ const color=key=>'chart-color-'+(palette[key]??6),label=key=>sectorLabels[key]||key;
+ $('distributionPeriod').textContent=fmt(period.start)+' a '+fmt(period.end);
+ const peak=data.buckets.find(b=>b.total===data.maximum);
+ makeCards($('distributionStats'),[['Total no período',P.hours(data.total,true),'Acima da jornada diária'],['Dias com acréscimo',String(data.dates),'Datas com variação positiva'],['Maior acumulado',data.maximum?P.hours(data.maximum,true):'—',data.maximum?peak.label+' · soma no período':'Sem variações positivas']]);
+ $('distributionEmpty').hidden=data.total>0;$('distributionEmpty').textContent='Nenhuma variação diária positiva confirmada para este período e estes filtros.';
+ $('distributionPlot').hidden=!data.total;$('distributionLegend').hidden=!data.total;$('distributionData').hidden=!data.total;
+ $('distributionPlot').setAttribute('aria-label','Variações positivas de '+fmt(period.start)+' a '+fmt(period.end)+', total '+P.hours(data.total)+'. Valores detalhados disponíveis abaixo.');
+ $('distributionPlot').replaceChildren(...data.buckets.map(bucket=>{
+  const column=node('div',undefined,'chart-column'),value=node('span',bucket.total?P.hours(bucket.total):'—','chart-value'),track=node('div',undefined,'chart-track'),stack=node('div',undefined,'chart-stack');
+  stack.style.height=(data.maximum?bucket.total/data.maximum*100:0)+'%';
+  for(const key of sectors){if(!bucket.sectors[key])continue;const segment=node('div',undefined,'chart-segment '+color(key));segment.style.height=bucket.sectors[key]/bucket.total*100+'%';segment.title=bucket.label+' · '+label(key)+': '+P.hours(bucket.sectors[key]);stack.append(segment);}
+  track.append(stack);column.append(value,track,node('span',bucket.label,'chart-day'));return column;
+ }));
+ $('distributionLegend').replaceChildren(...sectors.map(key=>{const item=node('span',undefined,'legend-item'),swatch=node('i',undefined,'legend-swatch '+color(key));swatch.setAttribute('aria-hidden','true');item.append(swatch,document.createTextNode(label(key)));return item;}));
+ $('distributionRows').replaceChildren(...data.buckets.map(bucket=>{const row=node('tr');row.append(node('td',bucket.label),node('td',P.hours(bucket.total)),node('td',Object.entries(bucket.sectors).map(([key,value])=>label(key)+': '+P.hours(value)).join(' · ')||'—'));return row;}));
+}
 function render(){
  const search=$('search').value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(),kind=$('situation').value;
  shown=summaries.filter(s=>(!sector||s.employee.setor===sector)&&(!$('branch').value||s.employee.unidade===$('branch').value)&&($('includeLeft').checked||!s.employee.data_desligamento)&&(!search||(s.employee.nome+' '+(s.employee.cpf||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().includes(search))&&(kind==='all'||kind==='pending'&&s.pending>0||kind==='justified'&&s.justified>0||kind==='unjustified'&&s.unjustified>0||kind==='extra'&&s.extra>0||kind==='negative'&&s.negative>0));
@@ -71,22 +91,29 @@ function render(){
  $('balanceStats').replaceChildren(...[[shown.filter(s=>(hasClosed?s.extra-s.negative:s.provisional)>0).length,'Com saldo +'],[shown.filter(s=>(hasClosed?s.extra-s.negative:s.provisional)<0).length,'Com saldo −']].map(([value,label])=>{const box=node('div');box.append(node('strong',String(value)),node('span',label));return box;}));
  $('overviewStats').textContent=shown.length+' colaboradores · '+sum('pending')+' dias para conferir · '+P.hours(sum('worked'))+' realizadas';
  $('cards').replaceChildren(...[['justificada','Faltas justificadas',sum('justified'),'Dias justificados pelo RH ou pelo corte de implantação'],['injustificada','Faltas injustificadas',sum('unjustified'),'Dias úteis sem ponto e sem justificativa cadastrada']].map(([kind,label,total,description])=>{const card=node('button',undefined,'card absence-kpi');card.type='button';card.setAttribute('aria-label',label+': '+total+' dias. Ver detalhes');card.append(node('span',label),node('strong',String(total)),node('span',description),node('span','Ver dias e colaboradores →','kpi-link'));card.onclick=()=>{absenceKind=kind;absenceDate=null;renderAbsences();$('absenceList').showModal();};return card;}));
- if($('absenceList').open)renderAbsences();
+ renderDistribution();if($('absenceList').open)renderAbsences();
  $('employees').replaceChildren(...shown.sort((a,b)=>a.employee.nome.localeCompare(b.employee.nome)).map(s=>{
-  const row=node('tr'),name=node('td');row.tabIndex=0;row.setAttribute('aria-label','Abrir espelho de '+s.employee.nome);const open=()=>{selected=s.employee.id;drawDetail(s);$('detail').showModal();};row.onclick=event=>{if(!event.target.closest('button,a,input'))open();};row.onkeydown=event=>{if(event.target===row&&['Enter',' '].includes(event.key)){event.preventDefault();open();}};name.append(node('strong',s.employee.nome),node('small',[s.employee.setor,s.employee.unidade].filter(Boolean).join(' · ')));row.append(name,node('td',P.hours(s.worked)));
-  const week=s.weeks.find(w=>w.start<=today&&w.end>=today),current=node('td');current.append(node('span',week?P.hours(week.worked)+' / '+P.hours(week.expected):'—'),node('small',week?.status||'Fora do período'));row.append(current,node('td',P.hours(s.extra),'positive'),node('td',P.hours(s.negative),'negative'));
-  row.append(node('td',String(s.justified)),node('td',String(s.unjustified)));
-  const review=node('td');review.append(node('span',s.pending+' dia(s) para conferir'),node('small',s.unjustified+' sem justificativa · '+s.openWeeks+' semana(s) em apuração'));row.append(review);
-  const button=node('button','Abrir colaborador');button.onclick=()=>{selected=s.employee.id;drawDetail(s);$('detail').showModal();};const box=node('td');box.append(button);row.append(box);return row;
- }));if(!shown.length){const row=node('tr'),cell=node('td','Nenhum colaborador neste filtro.');cell.colSpan=9;row.append(cell);$('employees').append(row);}
+  const row=node('tr'),name=node('td');row.tabIndex=0;row.setAttribute('aria-label','Abrir espelho de '+s.employee.nome);const open=()=>{selected=s.employee.id;drawDetail(s);$('detail').showModal();};row.onclick=event=>{if(!event.target.closest('button,a,input'))open();};row.onkeydown=event=>{if(event.target===row&&['Enter',' '].includes(event.key)){event.preventDefault();open();}};name.append(node('strong',s.employee.nome),node('small',[s.employee.funcao,s.employee.setor,s.employee.unidade].filter(Boolean).join(' · ')));row.append(name,node('td',P.hours(s.worked)));
+  const week=s.weeks.find(w=>w.start<=today&&w.end>=today),current=node('td');current.append(node('span',week?P.hours(week.worked)+' / '+P.hours(week.expected):'—'),node('small',week?.status||'Fora do período'));row.append(current);const net=s.extra-s.negative,balance=node('td');balance.append(node('strong',s.closedWeeks?P.hours(net,true):'Em apuração',net<0?'negative':net>0?'positive':''),node('small','Extra '+P.hours(s.extra)+' · Negativo '+P.hours(s.negative)));row.append(balance);const absences=node('td');absences.append(node('span',String(s.justified)+' justificadas'),node('small',String(s.unjustified)+' injustificadas'));row.append(absences);
+  const review=node('td');review.append(node('span',s.pending?s.pending+' para conferir':'Sem pendências',s.pending?'review-badge review-pending':'review-badge review-ok'),node('small',s.unjustified+' sem justificativa · '+s.openWeeks+' semana(s) em apuração'));row.append(review);
+  const button=node('button','Ver folha →','sheet-open');button.setAttribute('aria-label','Ver folha de ponto de '+s.employee.nome);button.onclick=()=>{selected=s.employee.id;drawDetail(s);$('detail').showModal();};const box=node('td');box.append(button);row.append(box);return row;
+ }));if(!shown.length){const row=node('tr'),cell=node('td','Nenhum colaborador neste filtro.');cell.colSpan=7;row.append(cell);$('employees').append(row);}
 }
 function drawDetail(s){
- $('detailTitle').textContent=s.employee.nome;$('detailSubtitle').textContent=P.hours(s.plan.weekly*60)+' por semana · '+P.hours(s.plan.daily*60)+' por dia · ciclo '+fmt(period.start)+' a '+fmt(period.end);
+ $('detailTitle').textContent=s.employee.nome;$('detailIdentity').replaceChildren(...[['CPF',s.employee.cpf||'Não informado'],['Função',s.employee.funcao||'Não informada'],['Setor / unidade',[s.employee.setor,s.employee.unidade].filter(Boolean).join(' · ')||'Não informado']].map(([label,value])=>{const item=node('div');item.append(node('span',label),node('strong',value));return item;}));$('detailSubtitle').textContent=P.hours(s.plan.weekly*60)+' por semana · '+P.hours(s.plan.daily*60)+' por dia · ciclo '+fmt(period.start)+' a '+fmt(period.end);
  makeCards($('detailCards'),[['Realizado',P.hours(s.worked),'Dentro do ciclo selecionado'],['Extra semanal',P.hours(s.extra),'Após compensação semanal'],['Negativo semanal',P.hours(s.negative),'Semanas fechadas'],['Conferir',String(s.pending),'Dias pendentes']]);
  $('scheduleBox').hidden=profile.status!=='admin';$('dailyMinutes').value=s.plan.daily;$('weeklyHours').value=s.plan.weekly/60;
  $('workDays').replaceChildren(node('legend','Dias da jornada'));['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach((name,i)=>{const label=node('label'),check=node('input');check.type='checkbox';check.value=i;check.checked=s.plan.days.includes(i);label.append(check,document.createTextNode(name));$('workDays').append(label);});
  $('weeks').replaceChildren(...s.weeks.map(w=>{const row=node('tr'),label=node('td');label.append(node('span',fmt(w.start)+' a '+fmt(w.end)),node('small',w.assigned?'Saldo somado a este ciclo':'Contexto semanal; saldo não somado a este ciclo'));row.append(label,node('td',P.hours(w.worked)),node('td',P.hours(w.expected)),node('td',P.hours(w.delta,true),w.delta<0?'negative':'positive'),node('td',w.status));return row;}));
- $('days').replaceChildren(...s.days.map(d=>{const row=node('tr'),punches=node('td');d.punches.forEach(p=>punches.append(node('small',(p.entrada_saida==='E'?'Entrada ':'Saída ')+p.data_hora.slice(11,19)+' · '+p.situacao+(p.tipo_registro==='M'?' · manual':'')+(p.obs?' · '+p.obs:''))));if(!d.punches.length)punches.textContent='Sem marcações';const status=node('td');status.append(node('strong',d.status));d.warnings.forEach(w=>status.append(node('small',w)));if(d.decision)status.append(node('small',d.decision.motivo+(d.decision.abonar?' · com abono':' · sem abono')));if(d.historical)status.append(node('small','Regularização automática anterior a 26/10/2026; não representa falta apurada.'));if(profile.status==='admin'&&d.working&&!d.future&&!d.partial){const classify=node('button','Classificar dia');classify.onclick=()=>openOccurrence(d);status.append(classify);}row.append(node('td',fmt(d.date)),punches,node('td',P.hours(d.expected)),node('td',P.hours(d.worked)),node('td',P.hours(d.delta,true),d.delta<0?'negative':'positive'),status);return row;}));
+ $('days').replaceChildren(...s.days.map(d=>{
+  const row=node('tr');row.className=d.future?'day-future':d.pending?'day-pending':d.absenceClass==='injustificada'?'day-absent':d.absenceClass==='justificada'?'day-justified':'';
+  const date=node('td');date.append(node('strong',fmt(d.date).slice(0,5)),node('small',['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(d.date+'T12:00:00Z').getUTCDay()]));row.append(date);
+  if(d.punches.length>4){const punches=node('td',undefined,'punches-expanded');punches.colSpan=4;d.punches.forEach(p=>punches.append(node('small',(p.entrada_saida==='E'?'Entrada ':'Saída ')+p.data_hora.slice(11,19)+' · '+p.situacao+(p.obs?' · '+p.obs:''))));row.append(punches);}
+  else{for(let i=0;i<4;i++){const p=d.punches[i],cell=node('td',p?p.data_hora.slice(11,19):'—','punch-time');if(p){cell.title=(p.entrada_saida==='E'?'Entrada':'Saída')+' · '+p.situacao+(p.tipo_registro==='M'?' · manual':'')+(p.obs?' · '+p.obs:'');if((i%2===0?'E':'S')!==p.entrada_saida||!['Aprovado (Auto)','Aprovado Manualmente'].includes(p.situacao)){cell.append(node('small',p.entrada_saida==='E'?'Entrada · conferir':'Saída · conferir'));cell.classList.add('punch-warning');}}row.append(cell);}}
+  const status=node('td',undefined,'day-status');status.append(node('span',d.status,'day-badge'));d.warnings.forEach(w=>status.append(node('small',w)));if(d.decision)status.append(node('small',d.decision.motivo+(d.decision.abonar?' · com abono':' · sem abono')));if(d.historical)status.append(node('small','Regularização anterior a 26/10/2026.'));
+  const actionCell=node('td',undefined,'day-action');if(profile.status==='admin'&&d.working&&!d.future&&!d.partial){const classify=node('button','Classificar','day-review');classify.type='button';classify.setAttribute('aria-label','Classificar dia '+fmt(d.date)+' de '+s.employee.nome);classify.onclick=()=>openOccurrence(d);actionCell.append(classify);}else actionCell.textContent='—';
+  row.append(node('td',d.future?'—':P.hours(d.expected)),node('td',d.future?'—':P.hours(d.worked),'worked-time'),node('td',P.hours(d.delta,true),d.delta===null?'':d.delta<0?'negative':d.delta>0?'positive':''),status,actionCell);return row;
+ }));
  const history=consultations.filter(c=>c.funcionario_id===s.employee.id).sort((a,b)=>b.consultado_em.localeCompare(a.consultado_em));
  $('detailHistory').textContent=history[0]?'Última tentativa: '+new Date(history[0].consultado_em).toLocaleString('pt-BR')+' · '+(history[0].sucesso?history[0].quantidade+' marcações recebidas':history[0].erro):'Ainda não sincronizado neste período.';
 }
@@ -177,4 +204,5 @@ function renderAbsences(){
 $('closeAbsences').onclick=()=>$('absenceList').close();$('absenceBack').onclick=()=>{absenceDate=null;renderAbsences();};
 
 action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;if(profile.status!=='admin')$('sync').hidden=true;notice('Dados carregados do banco. As credenciais de integração ficam somente no servidor.');});
+
 
