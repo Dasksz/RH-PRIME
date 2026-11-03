@@ -1,7 +1,7 @@
 -- Executar com postgres no MCP. Tudo, inclusive as entregas e gatilhos HTTP, é revertido.
 BEGIN;
 SELECT set_config('request.jwt.claim.sub',(SELECT id::text FROM public.profiles WHERE status='admin' ORDER BY created_at LIMIT 1),true);
-CREATE TRIGGER zz_stock_equipment AFTER INSERT OR UPDATE ON public.rh_equipment_movements FOR EACH ROW EXECUTE FUNCTION rh_internal.stock_equipment();
+CREATE OR REPLACE TRIGGER zz_stock_equipment AFTER INSERT OR UPDATE ON public.rh_equipment_movements FOR EACH ROW EXECUTE FUNCTION rh_internal.stock_equipment();
 SET LOCAL ROLE authenticated;
 DO $$
 DECLARE product jsonb; target jsonb; stock jsonb; payload jsonb; op uuid:=gen_random_uuid(); op8 uuid:=gen_random_uuid(); e5 uuid; e8 uuid; doc jsonb; olddoc jsonb; movement uuid; today date:=(now() AT TIME ZONE 'America/Sao_Paulo')::date; n integer;

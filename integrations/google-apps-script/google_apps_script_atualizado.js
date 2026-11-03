@@ -72,7 +72,7 @@ function planilhaRH() {
   return SpreadsheetApp.openById(id);
 }
 function configPorTabelaRH(table) {
-  const name = Object.keys(SHEET_CONFIG).find(n => SHEET_CONFIG[n].tableName === table);
+  const name = Object.keys(SHEET_CONFIG).find(n => (SHEET_CONFIG[n].tableName === table || SHEET_CONFIG[n].readTable === table));
   if (!name) throw new Error('Tabela não mapeada: ' + table);
   return { name: name, config: SHEET_CONFIG[name] };
 }
@@ -130,7 +130,8 @@ function calcularHorasUteis(inicio, fim, carga) {
   return Math.round(hours * 100) / 100;
 }
 function requestRH(table, method, query, payload) {
-  configPorTabelaRH(table); // lista permitida
+  const allowedConfig=configPorTabelaRH(table).config; // lista permitida
+  if (allowedConfig.readTable===table && method!=='get') throw new Error('Visão do catálogo permite somente consulta.');
   const props = propriedadesRH(), base = props.getProperty('SUPABASE_URL'), key = props.getProperty('SUPABASE_KEY');
   if (!base || !key) throw new Error('Configure SUPABASE_URL e SUPABASE_KEY nas Propriedades do script.');
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(base)) throw new Error('SUPABASE_URL inválida.');
