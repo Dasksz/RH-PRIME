@@ -24,7 +24,7 @@
       <link rel="stylesheet" href="assets/css/rh-responsive.css">
         <script src="assets/js/rh-core.js"></script><script src="assets/js/rh-holidays.js?v=20261022e"></script><script src="assets/js/rh-search-select.js?v=20261020f"></script><script src="assets/js/rh-scheduled-notice-files.js?v=20261020a"></script><script src="assets/js/rh-navigation.js?v=estoque-20261103"></script><script src="assets/js/rh-search-focus.js?v=20261006"></script>
 <link rel="stylesheet" href="assets/css/rh-theme.css?v=20261030-headings"><script src="assets/js/rh-theme.js"></script>
-</head>
+<link rel="stylesheet" href="assets/css/rh-table-sort.css?v=20261103-all"><script src="assets/js/rh-table-sort.js?v=20261103-all"></script></head>
   <body class="bg-[#F8FAFC]">
     <div id="root"></div>
 
@@ -332,6 +332,7 @@
         const [funcoesTabela, setFuncoesTabela] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
         const [searchTerm, setSearchTerm] = useState("");
+        const [tableOrder,setTableOrder]=useState({key:"nome",type:"text",direction:"ascending"});
         const [filterStatus, setFilterStatus] = useState("ativos"); // "ativos", "desligados", "todos"
         const [filterFuncao, setFilterFuncao] = useState("");
         const [filterSetor, setFilterSetor] = useState("");
@@ -574,7 +575,7 @@
           });
         }, [colaboradores, movimentacoes]);
 
-        const colaboradoresFiltrados = useMemo(() => {
+        const colaboradoresFiltradosBase = useMemo(() => {
           const searchLower = searchTerm.toLowerCase();
           const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 
@@ -597,6 +598,14 @@
           });
         }, [listaColaboradoresProcessada, searchTerm, filterStatus, filterFuncao, filterSetor, filterEmpresa, empresas]);
 
+        const colaboradoresFiltrados=useMemo(()=>{
+          const value=item=>tableOrder.key==='funcao'?[(item.funcao||''),(item.setor||'')].join(' '):tableOrder.key==='unidade'?[(item.unidade||''),(item.local_registro||'')].join(' '):tableOrder.key==='tamanhos'?[(item.tamanho_farda||''),(item.calca||''),(item.calcado||'')].join(' '):tableOrder.key==='carga_horaria'?(item.carga_horaria||220):item[tableOrder.key];
+          return colaboradoresFiltradosBase.slice().sort((a,b)=>RHTableSort.compare(value(a),value(b),tableOrder.type,tableOrder.direction));
+        },[colaboradoresFiltradosBase,tableOrder]);
+        const sortHeader=(key,label,type='text')=>{
+          const active=tableOrder.key===key,direction=active&&tableOrder.direction==='ascending'?'descending':active?'ascending':type==='text'?'ascending':'descending';
+          return <th data-sort-type={type} aria-sort={active?tableOrder.direction:'none'}><button type="button" className="rh-sort-heading" title={'Ordenar '+label+' em ordem '+(direction==='ascending'?'crescente':'decrescente')} onClick={()=>setTableOrder({key,type,direction})}>{label}<span className="rh-sort-arrow" aria-hidden="true">{active?(tableOrder.direction==='ascending'?'↑':'↓'):'↕'}</span></button></th>;
+        };
         // Handlers de formulários
         const handleOpenCadastrar = () => {
           const empresaPadrao = empresas.find((e) => (e.cnpj || "").replace(/\D/g, "") === "48986353000139");
@@ -1050,14 +1059,14 @@
                       <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-slate-100 text-slate-600 uppercase tracking-wider font-bold border-b border-slate-200">
-                          <th className="p-3.5">Matrícula / CPF</th>
-                          <th className="p-3.5">Nome Completo</th>
-                          <th className="p-3.5">Nascimento (Idade)</th>
-                          <th className="p-3.5">Função & Setor</th>
-                          <th className="p-3.5">Unidade / Local</th>
-                          <th className="p-3.5">Tamanhos</th>
-                          <th className="p-3.5">Carga Horária</th>
-                          <th className="p-3.5">WhatsApp</th>
+                          {sortHeader("matricula", "Matrícula / CPF", "text")}
+                          {sortHeader("nome", "Nome Completo", "text")}
+                          {sortHeader("nascimento", "Nascimento (Idade)", "date")}
+                          {sortHeader("funcao", "Função & Setor", "text")}
+                          {sortHeader("unidade", "Unidade / Local", "text")}
+                          {sortHeader("tamanhos", "Tamanhos", "text")}
+                          {sortHeader("carga_horaria", "Carga Horária", "number")}
+                          {sortHeader("whatsapp", "WhatsApp", "text")}
                           <th className="p-3.5 text-center">Ações</th>
                         </tr>
                       </thead>
