@@ -1,6 +1,6 @@
 # Estoque por filial e tamanho
 
-Abra `estoque.html` pelo menu Estoque. Administradores podem cadastrar, renomear, unificar e informar quantidades; usuários aprovados consultam os saldos dentro do seu acesso existente.
+Abra `estoque.html` pelo menu Estoque. O estoque tem somente dois tipos: EPI e Fardamento. O filtro e o cadastro usam a mesma categoria das entregas. Administradores podem cadastrar, renomear, unificar e informar quantidades; usuários aprovados consultam os saldos dentro do seu acesso existente.
 
 1. Confira os itens importados do histórico. Selecione as funções autorizadas e ajuste os tamanhos; use ÚNICO para itens sem numeração. A seleção Todas as funções libera qualquer cargo. Sem funções selecionadas, novas entregas ficam bloqueadas.
 2. Informe o saldo físico de cada item, tamanho e filial em **Informar quantidade**. O valor é o total disponível após a conferência, e não a quantidade a somar. O motivo fica no histórico. O sistema começa sem saldo informado; entregas antigas não descontam o estoque inicial.
