@@ -39,7 +39,7 @@ const SHEET_CONFIG = {
   }
 };
 SHEET_CONFIG['Movimentações de equipamentos'] = {
-  tableName: 'rh_equipment_movements', headerRow: 1, nameField: 'id', readOnlyAll: true,
+  tableName: 'rh_equipment_movements', readTable: 'rh_equipment_current', headerRow: 1, nameField: 'id', readOnlyAll: true,
   fields: ['id','funcionario_nome','categoria','tipo','descricao','ca','tamanho','quantidade','data_movimento','motivo','observacao','entrega_origem_id','operacao_id','comprovante','legado'],
   extra: ['funcionario_id','equipamento','complemento','created_by','created_at']
 };
@@ -437,7 +437,7 @@ function syncAllToSupabase() {
 function receberTabelaRH(ss, name) {
   const config = SHEET_CONFIG[name], sheet = ss.getSheetByName(name);
   if (!sheet) throw new Error('Aba ausente: ' + name);
-  const map = layoutRH(sheet,config,false), records = lerTabelaRH(config.tableName);
+  const map = layoutRH(sheet,config,false), records = lerTabelaRH(config.readTable || config.tableName);
   if (config.readOnlyAll) {
     const people = lerTabelaRH('funcionarios_epi');
     const names = Object.fromEntries(people.map(e => [e.id,e.nome]));
@@ -517,6 +517,9 @@ function doPost(e) {
     // Ative a propriedade somente após configurar o mesmo token na URL dos webhooks.
     if (token && (!e.parameter || e.parameter.token !== token)) throw new Error('Webhook não autorizado.');
     if (data.schema && data.schema !== 'public') throw new Error('Schema não permitido.');
+    if (data.table === 'rh_product_events' && data.type === 'INSERT') {
+      return comLockRH(() => respostaRH({status:'success',action:'catalog_updated',count:receberTabelaRH(planilhaRH(),'Movimentações de equipamentos')}));
+    }
     if (data.type === 'BATCH') {
       if (data.table !== 'funcionarios_epi' || !Array.isArray(data.ids)) throw new Error('Lote não permitido.');
       return comLockRH(() => respostaRH({status:'success',action:'batch_updated',count:sincronizarLoteFuncionariosWebhook(data.ids)}));
@@ -531,7 +534,7 @@ function doPost(e) {
       const pk = data.table === 'epi_funcao' ? 'funcao' : 'id';
       if (!eventRecord[pk]) throw new Error('Identidade do registro ausente.');
       // Lê o estado atual: eventos atrasados não sobrescrevem uma edição mais nova.
-      const current = requestRH(data.table,'get',filtroRH(pk,eventRecord[pk]) + '&select=*');
+      const current = requestRH(config.readTable || data.table,'get',filtroRH(pk,eventRecord[pk]) + '&select=*');
       if (current.length > 1) throw new Error('Identidade duplicada no banco.');
       if (!current.length) {
         if (data.type !== 'DELETE') return respostaRH({status:'ignored',message:'Registro já excluído no banco'});
