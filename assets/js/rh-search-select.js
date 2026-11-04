@@ -42,7 +42,7 @@
         <style>
           :host{display:block;width:100%;min-width:0;font:inherit;color:var(--rh-ink,#183440);position:relative;--rs-border:var(--rh-border,#344b58);--rs-panel:var(--rh-panel,#142630);--rs-soft:var(--rh-soft,#203540);--rs-ink:var(--rh-ink,#e7f0f4);--rs-muted:var(--rh-muted,#adc2cd);--rs-accent:var(--rh-accent,#137e71)}
           *{box-sizing:border-box}
-          .trigger{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--rs-border);border-radius:12px;background:var(--rs-panel);color:var(--rs-ink);font:inherit;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+          .trigger{width:100%;min-height:var(--rs-trigger-height,42px);padding:9px 12px;border:1px solid var(--rs-border);border-radius:var(--rs-trigger-radius,12px);background:var(--rs-panel);color:var(--rs-ink);font:inherit;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
           .trigger:hover,.trigger:focus-visible{border-color:var(--rs-accent);outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--rs-accent) 25%,transparent)}
           :host(.compact) .trigger{min-height:34px;padding:6px 8px;border-radius:9px;font-size:12px}
           .kind{flex:none;color:var(--rs-muted);font-size:.88em;font-weight:700;white-space:nowrap}.selected{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}.chevron{width:9px;height:9px;flex:none;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-5px 3px 0;opacity:.75}

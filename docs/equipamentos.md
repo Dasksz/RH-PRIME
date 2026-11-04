@@ -71,3 +71,10 @@ instalados. `tests/rh_estoque_transferencias.sql` verifica os seis sentidos, tam
 saldo insuficiente, observação opcional, permissões e idempotência em transação
 revertida, usando apenas um item fictício. `tests/stock_transfer_preview.html` é uma
 prévia sem conexão com o banco e com falha de resposta simulável.
+
+O filtro **Item do estoque** é uma lista pesquisável: digitar filtra as opções,
+e selecionar aplica o item exato. Os indicadores, saldos, catálogo e histórico seguem
+a mesma seleção de item, tipo e filial. **Todos os itens** remove a seleção. Se o
+tipo mudar e o item selecionado não pertencer ao novo tipo, a seleção volta para
+Todos os itens. A prévia de estoque inclui itens com nomes semelhantes para conferir
+que selecionar BOTA não soma BOTA ESPECIAL.
