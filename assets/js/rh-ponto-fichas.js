@@ -44,9 +44,9 @@
  }
  async function run(fn){
   if(working)return;working=true;
-  $('manualSheetPanel').querySelectorAll('button,input,select').forEach(e=>e.disabled=true);
+  $('manualSheetPanel').querySelectorAll('button:not(#closeManualSheets),input,select').forEach(e=>e.disabled=true);
   try{await fn();}catch(error){message(error.message||'Não foi possível concluir.',true);}
-  finally{working=false;$('manualSheetPanel').querySelectorAll('button,input,select').forEach(e=>e.disabled=false);try{refresh();}catch(error){message(error.message,true);$('sheetGenerate').disabled=true;}}
+  finally{working=false;$('manualSheetPanel').querySelectorAll('button:not(#closeManualSheets),input,select').forEach(e=>e.disabled=false);try{refresh();}catch(error){message(error.message,true);$('sheetGenerate').disabled=true;}}
  }
  function download(sheets,label){
   const month=$('sheetMonth').value,bytes=F.pdf({month,sheets,holiday:root.RHHolidays.getHoliday});
@@ -66,7 +66,10 @@
  }
  async function init({supabase,profile}){
   if(profile?.status!=='admin')return;client=supabase;
-  $('manualSheetPanel').hidden=false;$('sheetMonth').value=RH.today().slice(0,7);
+  $('openManualSheets').hidden=false;
+  $('openManualSheets').onclick=()=>{if(!$('manualSheetPanel').open)$('manualSheetPanel').showModal();};
+  $('closeManualSheets').onclick=()=>$('manualSheetPanel').close();
+  $('sheetMonth').value=RH.today().slice(0,7);
   $('sheetSearch').oninput=refresh;$('sheetCompany').onchange=refresh;
   $('sheetMonth').onchange=()=>{try{refresh();message('');}catch(e){message(e.message,true);$('sheetGenerate').disabled=true;}};
   $('sheetReload').onclick=()=>run(async()=>{await loadData();message('Lista atualizada com os dados do cadastro.');});

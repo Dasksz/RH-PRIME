@@ -3,7 +3,7 @@ const F=require('../assets/js/rh-ponto-fichas-core.js');
 class Element{
  constructor(tag){this.tag=tag;this.children=[];this.value='';this.hidden=true;this.disabled=false;this.classList={toggle(){}};}
  append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}
- setAttribute(){}querySelectorAll(){return [];}remove(){}click(){this.clicked=true;}
+ showModal(){this.open=true;}close(){this.open=false;}setAttribute(){}querySelectorAll(){return [];}remove(){}click(){this.clicked=true;}
 }
 function harness(){
  const els=new Map(),get=id=>{if(!els.has(id))els.set(id,new Element('div'));return els.get(id);};
@@ -18,8 +18,9 @@ function harness(){
  return {get,db,calls,downloads,client,init:profile=>root.RHPontoFichas.init({supabase:client,profile})};
 }
 test('lista salva, cidade, geração com cadastro atual, filtro e remoção',async()=>{
- const h=harness(),{get,db}=h;await h.init({status:'aprovado'});assert.equal(get('manualSheetPanel').hidden,true);assert.equal(h.calls.length,0);
- await h.init({status:'admin'});assert.equal(get('manualSheetPanel').hidden,false);assert.equal(get('sheetMonth').value,'2026-11');
+ const h=harness(),{get,db}=h;await h.init({status:'aprovado'});assert.equal(get('openManualSheets').hidden,true);assert.equal(h.calls.length,0);
+ await h.init({status:'admin'});assert.equal(get('openManualSheets').hidden,false);assert.equal(get('sheetMonth').value,'2026-11');
+ assert.ok(!get('manualSheetPanel').open);get('openManualSheets').onclick();assert.equal(get('manualSheetPanel').open,true);get('closeManualSheets').onclick();assert.equal(get('manualSheetPanel').open,false);
  get('sheetEmployee').value='a';await get('sheetAdd').onclick();assert.equal(db.rh_ponto_fichas_destinatarios.length,1);
  let row=get('sheetRecipients').children[0];row.children[1].children[0].value='Ilhéus';await row.children[2].onclick();assert.equal(db.rh_ponto_fichas_destinatarios[0].cidade_trabalho,'Ilhéus');
  get('sheetEmployee').value='b';await get('sheetAdd').onclick();assert.equal(db.rh_ponto_fichas_destinatarios.length,2);
