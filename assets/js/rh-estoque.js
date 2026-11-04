@@ -12,8 +12,15 @@
   if(admin){const result=await client.from('rh_stock_events').select('*').order('created_at',{ascending:false}).limit(100);if(result.error)throw result.error;events=result.data;}
   render();
  }
- function selected(){const query=$('search').value.trim().toLocaleUpperCase('pt-BR');return products.filter(p=>($('includeInactive').checked||p.ativo)&&(!$('group').value||p.categoria===$('group').value)&&(!query||[p.nome,...p.tamanhos].some(x=>x.toLocaleUpperCase('pt-BR').includes(query)))).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));}
+ function availableProducts(){return products.filter(p=>($('includeInactive').checked||p.ativo)&&(!$('group').value||p.categoria===$('group').value)).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')||a.categoria.localeCompare(b.categoria));}
+ function refreshItemFilter(){
+  const available=availableProducts(),previous=$('search').value,all=n('option','Todos os itens');all.value='';
+  $('search').replaceChildren(all,...available.map(p=>{const o=n('option',p.nome+' · '+labels[p.categoria]+(p.ativo?'':' · Inativo'));o.value=p.id;return o;}));
+  $('search').value=available.some(p=>p.id===previous)?previous:'';
+ }
+ function selected(){return availableProducts().filter(p=>!$('search').value||p.id===$('search').value);}
  function render(){
+  refreshItemFilter();
   const chosen=selected(),filiais=$('branch').value?[$('branch').value]:branches;let total=0,empty=0;
   $('balances').replaceChildren();$('products').replaceChildren();
   for(const p of chosen){
@@ -91,6 +98,6 @@
  $('mergeProduct').onclick=()=>{const target=products.find(p=>p.id===$('mergeTarget').value);if(!target){$('productError').textContent='Selecione o cadastro que será mantido.';return;}if(!confirm('Unificar '+editing.nome+' em '+target.nome+'? As entregas usarão '+target.nome+' e os saldos serão somados por filial e tamanho.'))return;action(async()=>{await RH.result(client.rpc('rh_merge_products',{source_id:editing.id,target_id:target.id}));$('productDialog').close();notice('Cadastros unificados. As entregas e saldos já usam '+target.nome+'.');await load();},'productError');};
 
  document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());document.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>{if(busy)e.preventDefault();}));
- $('newProduct').onclick=()=>openProduct();$('refresh').onclick=()=>action(load);for(const id of ['branch','group','includeInactive'])$(id).onchange=render;$('search').oninput=render;
+ $('newProduct').onclick=()=>openProduct();$('refresh').onclick=()=>action(load);for(const id of ['branch','group','includeInactive'])$(id).onchange=render;$('search').onchange=render;
  (async()=>{try{const p=await RH.profile(client);admin=p.status==='admin';if(admin){const [people,rules,profiles]=await Promise.all([RH.fetchAll(client,'funcionarios_epi','id,funcao'),RH.fetchAll(client,'epi_funcao','funcao','funcao'),RH.fetchAll(client,'profiles','id,name')]);roles=[...new Set([...people,...rules].map(x=>x.funcao).filter(Boolean))];names=Object.fromEntries(profiles.map(p=>[p.id,p.name]));}$('newProduct').hidden=!admin;$('newTransfer').hidden=!admin;$('historyPanel').hidden=!admin;await load();$('app').hidden=false;notice(admin?'Cadastre os itens e informe o saldo físico de cada filial e tamanho.':'Consulta de estoque. Ajustes e cadastros são feitos por administradores.');}catch(e){notice(e.message,true);}})();
 })();
