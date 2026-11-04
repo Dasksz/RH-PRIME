@@ -55,10 +55,7 @@ $('closeOccurrence').onclick=()=>$('occurrence').close();
 $('occurrenceClass').onchange=()=>{if($('occurrenceClass').value!=='justificada')$('occurrenceCredit').checked=false;};
 $('occurrenceForm').onsubmit=event=>{event.preventDefault();action(async()=>{
  try{
-  if(profile.status!=='admin'||!occurrenceEmployee||!occurrenceDay)throw Error('Administrador obrigatório.');
-  const classification=$('occurrenceClass').value,reason=$('occurrenceReason').value.trim()||({justificada:'Falta justificada pelo RH.',injustificada:'Falta mantida sem justificativa pelo RH.',pendente:'Aguardando conferência pelo RH.'}[classification]);
-  const files=[...$('occurrenceFiles').files];validateFiles(files);
-  const saved=await RH.result(pontoClient.from('rh_ponto_ocorrencias').upsert({funcionario_id:occurrenceEmployee,dia:occurrenceDay,classificacao:classification,motivo:reason,abonar:classification==='justificada'&&$('occurrenceCredit').checked},{onConflict:'funcionario_id,dia'}).select(),true);
+  if(profile.status!=='admin'||!occurrenceEmployee||!occurrenceDay)throw Er…138 tokens truncated…r:classification==='justificada'&&$('occurrenceCredit').checked},{onConflict:'funcionario_id,dia'}).select(),true);
   try{await saveAttachments(saved[0],files);}catch(error){$('occurrenceFiles').value='';await load();await drawAttachments(saved[0].id);throw Error('A classificação foi salva, mas houve falha no anexo. '+error.message+' Confira os comprovantes abaixo e selecione novamente apenas os que faltam.');}
   $('occurrence').close();await load();notice('Classificação salva com histórico. Os horários originais foram preservados.');
  }catch(error){$('occurrenceNotice').textContent=error.message;throw error;}
@@ -272,7 +269,7 @@ function renderAbsences(){
 }
 $('closeAbsences').onclick=()=>$('absenceList').close();$('absenceBack').onclick=()=>{absenceDate=null;renderAbsences();};
 
-action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;if(profile.status!=='admin')$('sync').hidden=true;$('notice').hidden=true;});
+action(async()=>{profile=await RH.profile(pontoClient);if(!['admin','aprovado'].includes(profile.status))throw Error('Acesso restrito a usuários aprovados.');const c=P.cycle(today);$('start').value=c.start;$('end').value=c.end;$('cycleMonth').value=c.end.slice(0,7);await load();$('app').hidden=false;await window.RHPontoFichas?.init({supabase:pontoClient,profile});if(profile.status!=='admin')$('sync').hidden=true;$('notice').hidden=true;});
 
 
 

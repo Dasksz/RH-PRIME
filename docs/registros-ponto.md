@@ -51,3 +51,13 @@ As credenciais são provisionadas no Vault pelos nomes `rh_facilita_empresa` e `
 Scripts de estrutura: `../supabase/sql/rh_ponto.sql` e `../supabase/sql/rh_ponto_ocorrencias.sql`, nessa ordem, já aplicados no RH PRIME. Função: `../supabase/functions/ponto-sync/index.ts`.
 
 Testes: `node --test tests/rh_ponto.test.cjs tests/rh_ponto_edge.test.cjs`. Foram verificados compensação, corte, abono, autenticação, gravação idempotente, preservação em erro e auditoria. A suíte geral conserva três falhas anteriores em testes alheios a este fluxo.
+
+## Fichas manuais em PDF
+
+Administradores encontram o painel **Fichas de ponto para preenchimento manual** em Registros de ponto. Adicione cada colaborador uma vez; a lista compartilhada entre administradores fica em `rh_ponto_fichas_destinatarios`, protegida por RLS administrativa. A cidade de trabalho é opcional e deve ser salva pelo botão da linha. Remover da lista não altera o cadastro do colaborador.
+
+Selecione mês civil e empresa e clique em Gerar PDF. Cada colaborador ocupa uma página A4, com nome, função, CPF e empresa/CNPJ do cadastro atual, relido antes da emissão. CPF ocupa o campo CPF/Matrícula. Horários e assinaturas permanecem em branco. Não há setor nem jornada contratual. A emissão considera vínculo que se sobreponha ao mês; não usa o ciclo digital 26–25.
+
+São indicados os feriados nacionais e estaduais da Bahia do calendário existente, excluindo pontos facultativos. Feriados municipais podem ser anotados na ficha; não são presumidos a partir da cidade. O botão de modelos em branco gera uma página por empresa selecionada. O download é local, sem armazenar PDFs no servidor.
+
+Estrutura: `supabase/sql/rh_ponto_fichas.sql`. Implementação: `assets/js/rh-ponto-fichas-core.js` e `assets/js/rh-ponto-fichas.js`. Validação: `node --test tests/rh_ponto_fichas*.test.cjs`, com testes do mês, vínculo, empresa, PDF, persistência e fluxo dos botões.
