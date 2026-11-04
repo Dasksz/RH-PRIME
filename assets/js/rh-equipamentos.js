@@ -95,6 +95,13 @@
   const corrected=latestCorrections(corrections);
   function startDateEdit(m){if(staged.length||returns.length||inspected.length||returning||form.nome.trim()){setError('Conclua ou cancele os itens em preenchimento antes de editar uma data salva.');return;}clearVerification();setEditingDate({row:m,data:m.data_movimento||'',motivo:''});setError('');setNotice('');}
   async function saveDate(e){e.preventDefault();if(!editingDate)return;const edit=editingDate;setBusy(true);setError('');let saved=false;try{const result=await client.rpc('rh_corrigir_data_entrega',{p_entrega:edit.row.id,p_data:edit.data,p_data_anterior:edit.row.data_movimento,p_motivo:edit.motivo});if(result.error)throw result.error;if(result.data?.data_movimento!==edit.data)throw Error('A data retornada não corresponde à correção. Atualize a tela.');saved=true;setEditingDate(null);setNotice('Data da entrega salva: '+date(edit.data)+'. A correção ficou registrada no histórico; fichas já emitidas foram preservadas.');await load();if(onSaved)await onSaved();}catch(err){setError((saved?'Data salva; falha ao atualizar a tela: ':'Não foi possível corrigir a data: ')+err.message);}finally{setBusy(false);}}
+  async function excludeDelivery(m){
+   if(busy||verifying)return;
+   if(!window.confirm('Excluir o lançamento de '+displayedName(m)+'? Use apenas quando a entrega foi registrada incorretamente.'))return;
+   setBusy(true);setError('');setNotice('');let saved=false;
+   try{const result=await client.rpc('rh_excluir_entrega',{p_entrega:m.id,p_motivo:'Entrega registrada incorretamente — exclusão solicitada pelo RH.'});if(result.error)throw result.error;if(!result.data?.excluido)throw Error('Exclusão não confirmada pelo servidor.');saved=true;setEditingDate(null);await load();if(onSaved)await onSaved();setNotice('Entrega excluída. O estoque foi estornado quando havia desconto.');}
+   catch(e){setError((saved?'Entrega excluída; falha ao atualizar a tela: ':'Não foi possível excluir: ')+e.message);}finally{setBusy(false);}
+  }
   const auditLabel=m=>{const c=corrected[m.id];return h('div',{className:'rh-equip-authorship'},h('small',null,'Registrado por: '+(m.registrado_por||'Responsável não identificado')),
    c&&h('small',null,'Última edição por: '+(c.primeiro_nome||'Responsável não identificado')+' · '+new Date(c.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'})),
    c&&h('small',null,'Data corrigida de '+date(c.data_anterior)+' para '+date(c.data_corrigida)+' · '+c.motivo));};
@@ -156,7 +163,7 @@
    h('div',{className:'rh-equip-history-heading'},h('span',{className:'rh-equip-history-status'},icon('check',16)),h('div',null,h('h4',null,index===0?'Última Entrega':'Entrega Anterior'),h('p',null,icon('calendar',12),date(when)),expired&&h('span',{className:'rh-equip-expired-label'},'Verificação pendente · 180 dias'))),h('strong',{className:'rh-equip-items-label'},'Itens:'),
    h('ul',null,list.map(m=>h('li',{key:m.id},
     h('span',null,displayedName(m)+(m.ca?' (CA: '+m.ca+')':'')+' — Qtd: '+m.quantidade+(m.saldo!==m.quantidade?' · Em posse: '+m.saldo:'')),
-    auditLabel(m),
+    auditLabel(m),h('button',{type:'button',className:'rh-equip-action',disabled:busy||verifying,onClick:()=>excludeDelivery(m),'aria-label':'Excluir entrega de '+displayedName(m)},'Excluir'),
     needsReview(m,verified,RH.today())&&h('small',{className:'rh-equip-review-note'},'Este item em posse completou 180 dias desde a entrega ou última conferência. Verifique suas condições.'),
     checks.filter(v=>v.entrega_id===m.id).sort((a,b)=>b.data_verificacao.localeCompare(a.data_verificacao)).map(v=>h('small',{key:v.id,className:'rh-equip-verified'},'Verificado em '+date(v.data_verificacao)+' — em boas condições')),
     m.entrega_origem_id&&h('small',null,'Reposição vinculada à entrega original'),
