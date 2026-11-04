@@ -27,3 +27,7 @@ Se um envio falhar, a conclusão permanece registrada e a interface mostra o com
 - `tests/training_preview.html`: prévia isolada para verificar edição das etapas, conclusão e PDF sem modificar o banco.
 - PDF gerado pela página e inspecionado visualmente em A4 horizontal, com as doze etapas em uma página.
 - A implantação real de Apps Script foi verificada rejeitando sessão inválida. O envio real de um arquivo pelo navegador não foi validado, pois a extensão não permitiu selecionar arquivos locais; os testes da integração usam serviços simulados.
+
+### Exportação sem corte lateral
+
+A captura mantém as dimensões reais do navegador. A largura fixa de 1200 pixels mudava a posição do relatório centralizado no documento clonado, cortando a coluna de datas em telas maiores. Correção conferida em PDFs gerados em telas de 1762 × 772 e 390 × 844, com todas as colunas e doze etapas visíveis em uma página.
