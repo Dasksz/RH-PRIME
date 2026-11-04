@@ -7,7 +7,7 @@ class Element{
 async function harness(){
  const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const products=[{id:'boot',nome:'BOTA',categoria:'epi',ativo:true,tamanhos:['37','38'],funcoes:[]},{id:'special',nome:'BOTA ESPECIAL',categoria:'epi',ativo:true,tamanhos:['37'],funcoes:[]},{id:'shirt',nome:'CAMISA',categoria:'fardamento',ativo:true,tamanhos:['M','G'],funcoes:[]}];
- const stock=[{produto_id:'boot',filial:'FILIAL 5',tamanho:'37',quantidade:12},{produto_id:'boot',filial:'FILIAL 6',tamanho:'37',quantidade:4},{produto_id:'special',filial:'FILIAL 5',tamanho:'37',quantidade:5},{produto_id:'shirt',filial:'FILIAL 5',tamanho:'M',quantidade:6},{produto_id:'shirt',filial:'FILIAL 6',tamanho:'M',quantidade:2},{produto_id:'shirt',filial:'FILIAL 8',tamanho:'G',quantidade:1}];
+ const stock=[{produto_id:'boot',filial:'FILIAL 5',tamanho:'37',quantidade:12},{produto_id:'boot',filial:'FILIAL 8',tamanho:'37',quantidade:4},{produto_id:'special',filial:'FILIAL 5',tamanho:'37',quantidade:5},{produto_id:'shirt',filial:'FILIAL 5',tamanho:'M',quantidade:6},{produto_id:'shirt',filial:'FILIAL 8',tamanho:'M',quantidade:2},{produto_id:'shirt',filial:'FILIAL 8',tamanho:'G',quantidade:1}];
  const document={getElementById:get,createElement:tag=>new Element(tag),querySelectorAll:()=>[]};
  const window={supabase:{createClient:()=>({})}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../assets/js/rh-estoque.js'),'utf8'),{window,document,RHTableSort:{refresh(){}},RH:{profile:async()=>({status:'aprovado'}),fetchAll:async(c,t)=>t==='rh_products'?products:stock}});
@@ -17,10 +17,10 @@ async function harness(){
 test('seleção exata atualiza saldos e indicadores sem somar itens com nomes parecidos',async()=>{
  const {get,change}=await harness();assert.equal(get('total').textContent,'30');assert.equal(get('count').textContent,3);
  change('search','boot');assert.equal(get('total').textContent,'16');assert.equal(get('count').textContent,1);
- assert.equal(get('balances').children.length,6);assert.ok(get('balances').children.every(row=>row.children[0].textContent==='BOTA'));
+ assert.equal(get('balances').children.length,4);assert.ok(get('balances').children.every(row=>row.children[0].textContent==='BOTA'));
  change('branch','FILIAL 5');assert.equal(get('total').textContent,'12');assert.equal(get('balances').children.length,2);
- change('branch','FILIAL 8');assert.equal(get('total').textContent,'0');assert.equal(get('empty').textContent,2);
- change('search','');assert.equal(get('total').textContent,'1');assert.equal(get('count').textContent,3);
+ change('branch','FILIAL 8');assert.equal(get('total').textContent,'4');assert.equal(get('empty').textContent,1);
+ change('search','');assert.equal(get('total').textContent,'7');assert.equal(get('count').textContent,3);
 });
 test('tipo restringe as opções e limpa somente uma seleção incompatível',async()=>{
  const {get,change}=await harness();change('search','boot');change('branch','FILIAL 5');change('group','fardamento');

@@ -2,7 +2,7 @@
  'use strict';
  const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98');
  window.RHNavigationClient=client;
- const $=id=>document.getElementById(id),branches=['FILIAL 5','FILIAL 6','FILIAL 8'],labels={epi:'EPI',fardamento:'Fardamento'};
+ const $=id=>document.getElementById(id),branches=['FILIAL 5','FILIAL 8'],labels={epi:'EPI',fardamento:'Fardamento'};
  let products=[],stock=[],events=[],roles=[],names={},admin=false,editing=null,counting=null,busy=false,operation=null,transferRequest=null;
  const n=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
  function notice(text,error=false){$('notice').textContent=text;$('notice').className=error?'error':'';}

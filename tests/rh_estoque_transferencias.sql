@@ -9,8 +9,8 @@ BEGIN
  ASSERT NOT has_function_privilege('anon','public.rh_transfer_stock(jsonb)','execute'),'Sem acesso anônimo';
  p:=public.rh_save_product(jsonb_build_object('nome','TESTE TRANSFERENCIA '||gen_random_uuid(),'categoria','epi','grupo','equipamento','tamanhos',jsonb_build_array('M','G'),'funcoes','[]'::jsonb,'todas_funcoes',true));
  pid:=(p->>'id')::uuid;
- -- Observação vazia, ausente e curta são aceitas também na contagem física da filial 6.
- FOREACH branch IN ARRAY ARRAY['FILIAL 5','FILIAL 6'] LOOP
+ -- Observação vazia, ausente e curta são aceitas na contagem física.
+ FOREACH branch IN ARRAY ARRAY['FILIAL 5'] LOOP
   PERFORM public.rh_set_stock(jsonb_build_object('operacao_id',gen_random_uuid(),'produto_id',pid,'filial',branch,'tamanho','M','quantidade',10,'motivo','','versao',0));
  END LOOP;
  ASSERT (SELECT motivo FROM public.rh_stock_events WHERE produto_id=pid ORDER BY created_at LIMIT 1)='Atualização de estoque';
@@ -24,23 +24,23 @@ BEGIN
   PERFORM public.rh_transfer_stock(payload||jsonb_build_object('quantidade',1));
   RAISE EXCEPTION 'Teste falhou: operação reutilizada';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'Operação já utilizada%' THEN RAISE; END IF; END;
- -- Todas as seis direções são permitidas; nunca mistura o tamanho G.
- FOREACH branch IN ARRAY ARRAY['FILIAL 5','FILIAL 6','FILIAL 8'] LOOP
-  FOREACH dest IN ARRAY ARRAY['FILIAL 5','FILIAL 6','FILIAL 8'] LOOP
+ -- Os dois sentidos são permitidas; nunca mistura o tamanho G.
+ FOREACH branch IN ARRAY ARRAY['FILIAL 5','FILIAL 8'] LOOP
+  FOREACH dest IN ARRAY ARRAY['FILIAL 5','FILIAL 8'] LOOP
    IF branch=dest THEN CONTINUE; END IF;
    SELECT versao INTO version FROM public.rh_stock WHERE produto_id=pid AND filial=branch AND tamanho='M';
    PERFORM public.rh_transfer_stock(jsonb_build_object('operacao_id',gen_random_uuid(),'produto_id',pid,'origem',branch,'destino',dest,'tamanho','M','quantidade',1,'motivo','x','versao_origem',version));
   END LOOP;
  END LOOP;
- ASSERT (SELECT sum(quantidade) FROM public.rh_stock WHERE produto_id=pid)=20,'Todas as direções conservam o total';
+ ASSERT (SELECT sum(quantidade) FROM public.rh_stock WHERE produto_id=pid)=10,'Todas as direções conservam o total';
  ASSERT NOT EXISTS(SELECT FROM public.rh_stock WHERE produto_id=pid AND tamanho='G'),'Tamanho isolado';
  SELECT count(*) INTO before_events FROM public.rh_stock_events WHERE produto_id=pid;
  SELECT quantidade,versao INTO origin_qty,version FROM public.rh_stock WHERE produto_id=pid AND filial='FILIAL 5' AND tamanho='M';
- payload:=jsonb_build_object('operacao_id',gen_random_uuid(),'produto_id',pid,'origem','FILIAL 5','destino','FILIAL 6','tamanho','M','quantidade',1,'versao_origem',version);
+ payload:=jsonb_build_object('operacao_id',gen_random_uuid(),'produto_id',pid,'origem','FILIAL 5','destino','FILIAL 8','tamanho','M','quantidade',1,'versao_origem',version);
  FOR q IN SELECT value FROM jsonb_array_elements(jsonb_build_array(
   jsonb_build_object('quantidade',0),jsonb_build_object('quantidade',-1),jsonb_build_object('quantidade',1.5),jsonb_build_object('quantidade',null),
   jsonb_build_object('quantidade',1000001),jsonb_build_object('quantidade',origin_qty+1),jsonb_build_object('destino','FILIAL 5'),
-  jsonb_build_object('destino','FILIAL 9'),jsonb_build_object('origem',null),jsonb_build_object('tamanho','XX'),
+  jsonb_build_object('destino','FILIAL 9'),jsonb_build_object('destino','FILIAL 6'),jsonb_build_object('origem','FILIAL 6'),jsonb_build_object('origem',null),jsonb_build_object('tamanho','XX'),
   jsonb_build_object('versao_origem',version-1),jsonb_build_object('versao_origem',null),jsonb_build_object('operacao_id',null),
   jsonb_build_object('motivo',repeat('x',501)))) LOOP
   BEGIN
@@ -65,16 +65,16 @@ DECLARE pid uuid; op uuid:=gen_random_uuid(); count_before bigint;
 BEGIN
  INSERT INTO public.rh_products(nome,categoria,tamanhos,todas_funcoes)
  VALUES('TESTE ROLLBACK TRANSFERENCIA '||gen_random_uuid(),'epi',ARRAY['M'],true) RETURNING id INTO pid;
- INSERT INTO public.rh_stock(produto_id,filial,tamanho,quantidade) VALUES(pid,'FILIAL 5','M',10),(pid,'FILIAL 6','M',2147483647);
+ INSERT INTO public.rh_stock(produto_id,filial,tamanho,quantidade) VALUES(pid,'FILIAL 5','M',10),(pid,'FILIAL 8','M',2147483647);
  SELECT count(*) INTO count_before FROM public.rh_stock_events WHERE produto_id=pid;
  BEGIN
-  PERFORM public.rh_transfer_stock(jsonb_build_object('operacao_id',op,'produto_id',pid,'origem','FILIAL 5','destino','FILIAL 6','tamanho','M','quantidade',1,'versao_origem',1));
+  PERFORM public.rh_transfer_stock(jsonb_build_object('operacao_id',op,'produto_id',pid,'origem','FILIAL 5','destino','FILIAL 8','tamanho','M','quantidade',1,'versao_origem',1));
   RAISE EXCEPTION 'Teste falhou: deveria rejeitar overflow no destino';
  EXCEPTION WHEN numeric_value_out_of_range THEN NULL; END;
  ASSERT (SELECT quantidade FROM public.rh_stock WHERE produto_id=pid AND filial='FILIAL 5')=10,'Erro no destino reverte débito';
- ASSERT (SELECT quantidade FROM public.rh_stock WHERE produto_id=pid AND filial='FILIAL 6')=2147483647,'Erro no destino conserva saldo';
+ ASSERT (SELECT quantidade FROM public.rh_stock WHERE produto_id=pid AND filial='FILIAL 8')=2147483647,'Erro no destino conserva saldo';
  ASSERT (SELECT count(*) FROM public.rh_stock_events WHERE produto_id=pid)=count_before,'Erro na segunda perna não deixa eventos';
  ASSERT NOT EXISTS(SELECT FROM rh_internal.stock_operations WHERE id=op),'Erro não marca operação como concluída';
 END $$;
-SELECT 'OK: seis direções, filial 6, observação opcional, idempotência, validações, permissões e conservação de saldo' AS resultado;
+SELECT 'OK: dois sentidos entre filiais 5 e 8, observação opcional, idempotência, validações, permissões e conservação de saldo' AS resultado;
 ROLLBACK;

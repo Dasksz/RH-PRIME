@@ -1,7 +1,7 @@
 -- Transferência atômica entre filiais; usa as mesmas travas das entregas e contagens.
 ALTER TABLE public.rh_stock DROP CONSTRAINT rh_stock_filial_check;
 ALTER TABLE public.rh_stock ADD CONSTRAINT rh_stock_filial_check
- CHECK (filial IN ('FILIAL 5','FILIAL 6','FILIAL 8'));
+ CHECK (filial IN ('FILIAL 5','FILIAL 8'));
 
 CREATE OR REPLACE FUNCTION rh_internal.stock_transfer(payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
@@ -24,9 +24,9 @@ BEGIN
   RETURN previous.result;
  END IF;
  origin:=payload->>'origem'; destination:=payload->>'destino'; sz:=payload->>'tamanho';
- IF origin IS NULL OR destination IS NULL OR origin NOT IN ('FILIAL 5','FILIAL 6','FILIAL 8')
-  OR destination NOT IN ('FILIAL 5','FILIAL 6','FILIAL 8') OR origin=destination THEN
-  RAISE EXCEPTION 'Selecione filiais de origem e destino diferentes: 5, 6 ou 8.';
+ IF origin IS NULL OR destination IS NULL OR origin NOT IN ('FILIAL 5','FILIAL 8')
+  OR destination NOT IN ('FILIAL 5','FILIAL 8') OR origin=destination THEN
+  RAISE EXCEPTION 'Selecione filiais de origem e destino diferentes: 5 ou 8.';
  END IF;
  SELECT * INTO p FROM public.rh_products WHERE id=(payload->>'produto_id')::uuid;
  IF NOT FOUND OR NOT p.ativo THEN RAISE EXCEPTION 'Selecione um item ativo do estoque.'; END IF;
@@ -56,7 +56,7 @@ LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$ SELECT rh_internal.stock_
 REVOKE ALL ON FUNCTION public.rh_transfer_stock(jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.rh_transfer_stock(jsonb) TO authenticated;
 
--- A filial 6 também recebe entradas e contagens físicas pelo formulário existente.
+-- Entradas e contagens físicas usam somente as unidades registradas: 5 e 8.
 CREATE OR REPLACE FUNCTION rh_internal.stock_set(payload jsonb) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE s public.rh_stock; p public.rh_products; previous rh_internal.stock_operations; op uuid; qty integer; result jsonb;
 BEGIN
@@ -70,7 +70,7 @@ BEGIN
  END IF;
  SELECT * INTO p FROM public.rh_products WHERE id=(payload->>'produto_id')::uuid;
  IF NOT FOUND THEN RAISE EXCEPTION 'Item inexistente.'; END IF;
- IF NOT (payload->>'tamanho')=ANY(p.tamanhos) OR payload->>'filial' NOT IN ('FILIAL 5','FILIAL 6','FILIAL 8') THEN RAISE EXCEPTION 'Filial ou tamanho inválido.'; END IF;
+ IF NOT (payload->>'tamanho')=ANY(p.tamanhos) OR payload->>'filial' NOT IN ('FILIAL 5','FILIAL 8') THEN RAISE EXCEPTION 'Filial ou tamanho inválido.'; END IF;
  qty:=(payload->>'quantidade')::integer;
  IF qty IS NULL OR qty<0 OR qty>1000000 OR length(trim(coalesce(payload->>'motivo','')))>500 THEN RAISE EXCEPTION 'Informe quantidade de 0 a 1.000.000 e observação de até 500 caracteres.'; END IF;
  SELECT * INTO s FROM public.rh_stock WHERE produto_id=p.id AND filial=payload->>'filial' AND tamanho=payload->>'tamanho' FOR UPDATE;
