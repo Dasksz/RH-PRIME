@@ -142,7 +142,11 @@
    h('label',null,'Complemento (opcional)',h('input',{maxLength:300,value:form.complemento??nameParts(form.nome).complemento,disabled:!selectedProduct,onChange:e=>setForm({...form,complemento:e.target.value})})),
    h('label',null,'Tamanho',h('select',{required:true,value:form.tamanho,onChange:e=>setForm({...form,tamanho:e.target.value})},h('option',{value:''},'Selecione o tamanho'),...(selectedProduct?.tamanhos||[]).map(x=>h('option',{key:x,value:x},x)))),
    field('C.A. (opcional)','ca','text',{maxLength:80,placeholder:'Informe o número do C.A.'}),field('Qtd.','quantidade','number',{min:1,max:10000,required:true}),field('Data da entrega','data','date',{required:true,max:RH.today(),min:returning?returnDate:undefined}),field('Link comprovante','comprovante','url',{placeholder:'Opcional…'}),
-   h('p',{className:'rh-equip-date-note'},(employee.unidade||'Filial não cadastrada')+' · Disponível neste tamanho: '+available+'. O saldo será conferido ao salvar. ',h('a',{href:'estoque.html',target:'_blank',rel:'noopener'},'Consultar ou cadastrar no estoque')));
+   h('div',{className:'rh-equip-stock'+(selectedProduct&&form.tamanho&&available===0?' is-empty':''),'aria-live':'polite'},
+    h('div',{className:'rh-equip-stock-info'},
+     h('span',{className:'rh-equip-stock-count'},selectedProduct&&form.tamanho?h(React.Fragment,null,h('strong',null,available),h('span',null,available===1?'un. disponível':available===0?'Sem estoque':'un. disponíveis')):'Selecione item e tamanho'),
+     h('span',{className:'rh-equip-stock-location'},[employee.unidade||'Filial não cadastrada',form.tamanho?'Tam. '+form.tamanho:''].filter(Boolean).join(' · '))),
+    h('div',{className:'rh-equip-stock-details'},h('a',{href:'estoque.html',target:'_blank',rel:'noopener'},'Ver estoque ↗'),h('small',null,'Saldo conferido ao salvar.'))));
 
   const returnForm=returning&&h('section',{className:'rh-equip-card',role:'region','aria-label':'Preparar devolução ou troca'},h('h3',null,'Devolver / Trocar — '+returning.descricao),h('p',null,'Entrega original: '+date(returning.data_movimento)+' · Em posse: '+returning.saldo),h('form',{onSubmit:stageReturn},h('fieldset',{disabled:busy},h('div',{className:'rh-equip-fields'},
    h('label',null,'Quantidade devolvida / baixada',h('input',{type:'number',min:1,max:returning.saldo,required:true,value:returnedQty,onChange:e=>setReturnedQty(e.target.value)})),
