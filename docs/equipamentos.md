@@ -48,3 +48,26 @@ O teste legado `rh_sync.test.cjs` contém uma verificação de férias que procu
 removido anteriormente de `ferias.html`; esse teste já falha na revisão anterior.
 A suíte específica de sincronização de equipamentos reutiliza suas 26 verificações de
 sincronização e acrescenta as proteções novas, sem a verificação antiga de férias.
+
+## Transferências de estoque
+
+Na página Estoque, administradores podem usar **Transferir estoque** ou o botão
+**Transferir** em uma linha com saldo. Selecione item, tamanho, origem, destino e
+quantidade. As filiais 5, 6 e 8 podem enviar e receber entre si. O modal mostra os
+saldos atuais e a previsão após transferir; a confirmação relê e valida o saldo.
+
+A transferência grava a saída e a entrada na mesma transação, com um identificador
+compartilhado no histórico, data e responsável. Saldo insuficiente, origem igual ao
+destino e saldo alterado desde a consulta impedem a transferência. Repetir o mesmo
+pedido após falha de resposta não movimenta o estoque novamente.
+
+**Observação é opcional**, tanto nas transferências quanto em Informar quantidade.
+Sem texto, o histórico registra a rota da transferência ou “Atualização de estoque”.
+A permissão administrativa existente é preservada. Entregas e documentos emitidos
+não são alterados por uma transferência.
+
+Aplicar `supabase/sql/rh_estoque_transferencias.sql` após os scripts de estoque já
+instalados. `tests/rh_estoque_transferencias.sql` verifica os seis sentidos, tamanho,
+saldo insuficiente, observação opcional, permissões e idempotência em transação
+revertida, usando apenas um item fictício. `tests/stock_transfer_preview.html` é uma
+prévia sem conexão com o banco e com falha de resposta simulável.

@@ -17,7 +17,7 @@
    toggle.onclick=()=>{const open=nav.classList.toggle('open');toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Fechar menu':'Abrir menu');toggle.textContent=open?'×':'☰';};
    root.addEventListener('keydown',e=>{if(e.key==='Escape'){close();toggle.focus();}});
    nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',close));
-   root.querySelector('.brand').onclick=e=>{e.preventDefault();if(window.RHNavigationClient)window.RH.openAdmin(window.RHNavigationClient);};
+   root.querySelector('.brand').onclick=e=>{if(e.defaultPrevented||e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();if(window.RHNavigationClient)window.RH.openAdmin(window.RHNavigationClient);};
    root.querySelector('.logout').onclick=async e=>{e.currentTarget.disabled=true;await window.RH.logout(window.RHNavigationClient);};
    root.querySelector('.theme').onclick=()=>window.RHTheme?.toggle();
    const update=()=>{const dark=document.documentElement.dataset.rhTheme==='dark',button=root.querySelector('.theme');button.setAttribute('aria-label',dark?'Ativar tema claro':'Ativar tema escuro');button.title=button.getAttribute('aria-label');button.setAttribute('aria-pressed',String(dark));button.querySelector('.theme-icon').textContent=dark?'☀':'☾';button.querySelector('.theme-text').textContent=dark?'Claro':'Escuro';};
