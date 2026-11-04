@@ -10,7 +10,7 @@ async function harness(){
  const stock=[{produto_id:'boot',filial:'FILIAL 5',tamanho:'37',quantidade:12},{produto_id:'boot',filial:'FILIAL 8',tamanho:'37',quantidade:4},{produto_id:'special',filial:'FILIAL 5',tamanho:'37',quantidade:5},{produto_id:'shirt',filial:'FILIAL 5',tamanho:'M',quantidade:6},{produto_id:'shirt',filial:'FILIAL 8',tamanho:'M',quantidade:2},{produto_id:'shirt',filial:'FILIAL 8',tamanho:'G',quantidade:1}];
  const document={getElementById:get,createElement:tag=>new Element(tag),querySelectorAll:()=>[]};
  const window={supabase:{createClient:()=>({})}};
- vm.runInNewContext(fs.readFileSync(require.resolve('../assets/js/rh-estoque.js'),'utf8'),{window,document,RHTableSort:{refresh(){}},RH:{profile:async()=>({status:'aprovado'}),fetchAll:async(c,t)=>t==='rh_products'?products:stock}});
+ vm.runInNewContext(fs.readFileSync(require.resolve('../assets/js/rh-estoque.js'),'utf8'),{window,document,RHTableSort:{refresh(){}},RH:{profile:async()=>({status:'aprovado'}),fetchAll:async(c,t)=>t==='rh_products'?products:t==='rh_stock'?stock:[]}});
  await new Promise(setImmediate);
  return {get,change(id,value){get(id).value=value;get(id).onchange();}};
 }
