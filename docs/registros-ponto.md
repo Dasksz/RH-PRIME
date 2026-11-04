@@ -54,7 +54,7 @@ Testes: `node --test tests/rh_ponto.test.cjs tests/rh_ponto_edge.test.cjs`. Fora
 
 ## Fichas manuais em PDF
 
-Administradores encontram o painel **Fichas de ponto para preenchimento manual** em Registros de ponto. Adicione cada colaborador uma vez; a lista compartilhada entre administradores fica em `rh_ponto_fichas_destinatarios`, protegida por RLS administrativa. A cidade de trabalho é opcional e deve ser salva pelo botão da linha. Remover da lista não altera o cadastro do colaborador.
+Administradores encontram o botão **Fichas manuais** no cabeçalho de Registros de ponto, ao lado de Ir para absenteísmo. O botão abre um modal, sem expandir o conteúdo da página. Feche pelo botão Fechar ou pela tecla Esc para voltar à consulta. Adicione cada colaborador uma vez; a lista compartilhada entre administradores fica em `rh_ponto_fichas_destinatarios`, protegida por RLS administrativa. A cidade de trabalho é opcional e deve ser salva pelo botão da linha. Remover da lista não altera o cadastro do colaborador.
 
 Selecione mês civil e empresa e clique em Gerar PDF. Cada colaborador ocupa uma página A4, com nome, função, CPF e empresa/CNPJ do cadastro atual, relido antes da emissão. CPF ocupa o campo CPF/Matrícula. Horários e assinaturas permanecem em branco. Não há setor nem jornada contratual. A emissão considera vínculo que se sobreponha ao mês; não usa o ciclo digital 26–25.
 
