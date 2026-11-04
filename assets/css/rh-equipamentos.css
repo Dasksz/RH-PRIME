@@ -93,3 +93,11 @@ html[data-rh-theme=dark] .rh-equip input,html[data-rh-theme=dark] .rh-equip sele
 @media(max-width:900px){.rh-equip .rh-equip-fields.rh-equip-correction-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:500px){.rh-equip .rh-equip-fields.rh-equip-correction-fields{grid-template-columns:minmax(0,1fr)}}
 
+
+/* Disponibilidade ocupa a faixa livre do formulário, sem estreitar o texto. */
+.rh-equip-stock{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;padding:10px 14px;min-width:0;min-height:62px;border:1px solid var(--rh-border,#dce5e9);border-radius:10px;background:var(--rh-soft,#f1f5f9)}
+.rh-equip-stock-info{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;min-width:0}.rh-equip-stock-count{display:inline-flex;align-items:baseline;gap:6px;font-size:12px;font-weight:500;color:var(--rh-ink,#17313e)}.rh-equip-stock-count strong{font-size:24px;line-height:1;font-weight:700;font-variant-numeric:tabular-nums;color:#087c67}.rh-equip-stock-location{font-size:12px;color:var(--rh-muted,#64748b);overflow-wrap:anywhere}.rh-equip-stock-details{display:flex;flex-direction:column;gap:3px}.rh-equip-stock-details a{font-size:12px;font-weight:600;color:#087c67;text-decoration:none}.rh-equip-stock-details a:hover{text-decoration:underline}.rh-equip-stock-details small{font-size:10px;color:var(--rh-muted,#64748b)}.rh-equip-stock.is-empty .rh-equip-stock-count strong{color:#ad5610}
+.rh-equip-add-fields .rh-equip-stock{grid-column:2/-2}
+html[data-rh-theme=dark] .rh-equip-stock-count strong,html[data-rh-theme=dark] .rh-equip-stock-details a{color:#5edbc1}html[data-rh-theme=dark] .rh-equip-stock.is-empty .rh-equip-stock-count strong{color:#f7bf73}
+@media(max-width:1000px){.rh-equip-add-fields .rh-equip-stock{grid-column:2/-1}.rh-equip-add-fields>button{grid-column:1/-1;justify-self:end;min-width:160px}}
+@media(max-width:600px){.rh-equip-add-fields .rh-equip-stock{grid-column:1/-1}.rh-equip-stock{gap:10px;padding:12px}.rh-equip-stock-details{flex-direction:row;align-items:center;flex-wrap:wrap;gap:6px 14px}.rh-equip-add-fields>button{justify-self:stretch}}
