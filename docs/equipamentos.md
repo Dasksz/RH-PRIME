@@ -53,7 +53,7 @@ sincronização e acrescenta as proteções novas, sem a verificação antiga de
 
 Na página Estoque, administradores podem usar **Transferir estoque** ou o botão
 **Transferir** em uma linha com saldo. Selecione item, tamanho, origem, destino e
-quantidade. As filiais 5, 6 e 8 podem enviar e receber entre si. O modal mostra os
+quantidade. As filiais 5 e 8 podem enviar e receber entre si. O modal mostra os
 saldos atuais e a previsão após transferir; a confirmação relê e valida o saldo.
 
 A transferência grava a saída e a entrada na mesma transação, com um identificador
@@ -67,7 +67,7 @@ A permissão administrativa existente é preservada. Entregas e documentos emiti
 não são alterados por uma transferência.
 
 Aplicar `supabase/sql/rh_estoque_transferencias.sql` após os scripts de estoque já
-instalados. `tests/rh_estoque_transferencias.sql` verifica os seis sentidos, tamanho,
+instalados. `tests/rh_estoque_transferencias.sql` verifica os dois sentidos, tamanho,
 saldo insuficiente, observação opcional, permissões e idempotência em transação
 revertida, usando apenas um item fictício. `tests/stock_transfer_preview.html` é uma
 prévia sem conexão com o banco e com falha de resposta simulável.
@@ -78,3 +78,6 @@ a mesma seleção de item, tipo e filial. **Todos os itens** remove a seleção.
 tipo mudar e o item selecionado não pertencer ao novo tipo, a seleção volta para
 Todos os itens. A prévia de estoque inclui itens com nomes semelhantes para conferir
 que selecionar BOTA não soma BOTA ESPECIAL.
+
+As únicas filiais operacionais registradas são FILIAL 5 e FILIAL 8. O código interno
+da empresa 6 (CNPJ de Jequié) não representa uma terceira unidade de estoque.
