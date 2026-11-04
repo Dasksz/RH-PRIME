@@ -1,0 +1,37 @@
+BEGIN;
+DO $$
+DECLARE actor uuid; payload jsonb; saved jsonb; again jsonb; f jsonb; emp public.rh_trainings; rejected boolean;
+BEGIN
+ SELECT id INTO actor FROM public.profiles WHERE status='admin' LIMIT 1;
+ IF actor IS NULL THEN RAISE EXCEPTION 'Administrador de teste indisponível'; END IF;
+ PERFORM set_config('request.jwt.claim.sub',actor::text,true);
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',actor,'role','authenticated')::text,true);
+ SET LOCAL ROLE authenticated;
+ payload:=jsonb_build_object('operacao_id',gen_random_uuid(),'nome','Teste transacional de treinamento','data_programada','2026-12-07','status','agendado','modalidade','Online','carga_horaria',8,'empresas',jsonb_build_array(4,5,6),'etapas',jsonb_build_array(jsonb_build_object('data','2026-12-07','horas',4),jsonb_build_object('data','2026-12-08','horas',4)));
+ saved:=public.rh_save_training(payload);again:=public.rh_save_training(payload);
+ IF saved IS DISTINCT FROM again THEN RAISE EXCEPTION 'Falha na repetição segura'; END IF;
+ rejected:=false;
+ BEGIN PERFORM public.rh_save_training(payload||jsonb_build_object('operacao_id',gen_random_uuid(),'id',saved->>'id','versao',0));EXCEPTION WHEN raise_exception THEN rejected:=true;END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Versão antiga aceita'; END IF;
+ rejected:=false;
+ BEGIN PERFORM public.rh_save_training(payload||jsonb_build_object('operacao_id',gen_random_uuid(),'data_programada','2026-12-12','etapas',jsonb_build_array(jsonb_build_object('data','2026-12-12','horas',4),jsonb_build_object('data','2026-12-14','horas',4))));EXCEPTION WHEN OTHERS THEN rejected:=true;END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Sábado aceito'; END IF;
+ rejected:=false;
+ BEGIN PERFORM public.rh_save_training(payload||jsonb_build_object('operacao_id',gen_random_uuid(),'etapas',jsonb_build_array(jsonb_build_object('data','2026-12-07','horas',8))));EXCEPTION WHEN raise_exception THEN rejected:=true;END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Etapa maior que quatro horas aceita'; END IF;
+ SELECT * INTO emp FROM public.rh_trainings WHERE source_key='cronograma-2026-08';
+ PERFORM public.rh_save_training(to_jsonb(emp)||jsonb_build_object('operacao_id',gen_random_uuid()));
+ saved:=public.rh_save_training(payload||jsonb_build_object('operacao_id',gen_random_uuid(),'id',saved->>'id','versao',1,'status','concluido','data_realizacao',(now() AT TIME ZONE 'America/Sao_Paulo')::date));
+ f:=public.rh_prepare_training_file(jsonb_build_object('id',gen_random_uuid(),'treinamento_id',saved->>'id','nome','teste.pdf','mime','application/pdf','tamanho',100,'sha256',repeat('0',64)));
+ again:=public.rh_prepare_training_file(jsonb_build_object('id',gen_random_uuid(),'treinamento_id',saved->>'id','nome','teste repetido.pdf','mime','application/pdf','tamanho',100,'sha256',repeat('0',64)));
+ IF f->>'id' IS DISTINCT FROM again->>'id' THEN RAISE EXCEPTION 'Comprovante duplicado'; END IF;
+ rejected:=false;
+ BEGIN PERFORM public.rh_save_training(payload||jsonb_build_object('operacao_id',gen_random_uuid(),'id',saved->>'id','versao',2,'status','agendado'));EXCEPTION WHEN raise_exception THEN rejected:=true;END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Data de arquivamento alterada'; END IF;
+ IF has_function_privilege('authenticated','public.rh_finish_training_upload(jsonb)','EXECUTE') THEN RAISE EXCEPTION 'Confirmação de arquivo exposta'; END IF;
+ PERFORM set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
+ rejected:=false;
+ BEGIN PERFORM public.rh_save_training(payload||jsonb_build_object('operacao_id',gen_random_uuid()));EXCEPTION WHEN raise_exception THEN rejected:=true;END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Alteração por não administrador'; END IF;
+END $$;
+ROLLBACK;

@@ -514,6 +514,7 @@ function doPost(e) {
     if (!e || !e.postData) throw new Error('Payload ausente.');
     const data = JSON.parse(e.postData.contents);
     if(data.action==='lookup_folder')return respostaRH(buscarPastaColaboradorRH(data));
+    if(data.action==='training_upload')return respostaRH(salvarComprovanteTreinamentoRH(data));
     const props = propriedadesRH(), token = props.getProperty('WEBHOOK_TOKEN');
     // Ative a propriedade somente após configurar o mesmo token na URL dos webhooks.
     if (token && (!e.parameter || e.parameter.token !== token)) throw new Error('Webhook não autorizado.');
