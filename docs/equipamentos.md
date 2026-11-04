@@ -81,3 +81,40 @@ que selecionar BOTA não soma BOTA ESPECIAL.
 
 As únicas filiais operacionais registradas são FILIAL 5 e FILIAL 8. O código interno
 da empresa 6 (CNPJ de Jequié) não representa uma terceira unidade de estoque.
+
+
+## Mudança entre EPI e fardamento
+
+Em Estoque → Catálogo de itens → Editar / renomear, selecione outro **Tipo**.
+O modal permite manter o cadastro mudando apenas o tipo ou escolher um substituto
+ativo da categoria de destino. Se já houver um cadastro com o mesmo nome no destino,
+escolha unificar nele ou renomeie antes; o sistema não escolhe automaticamente.
+
+A mudança atualiza a classificação vigente das entregas, devoluções, baixas,
+conferências e correções vinculadas. A consulta usa o tipo atual do catálogo;
+os lançamentos originais e suas datas, quantidades, observações, comprovantes e
+autoria permanecem preservados. Novas fichas/PDFs usam a aba correta. PDFs emitidos
+anteriormente mantêm seus snapshots originais.
+
+Na substituição, os saldos são somados por filial/tamanho, os tamanhos são reunidos,
+as regras por função do destino são preservadas e a origem fica inativa. Há auditoria,
+controle de versão, permissão administrativa e identificador para evitar repetição.
+Nenhum item real é reclassificado pela instalação; a mudança depende do formulário.
+
+## Itens devolvidos
+
+O estoque tem uma área compacta separada para as devoluções físicas registradas,
+incluindo as anteriores à atualização. Mostra item, tamanho, filial, data, quantidade
+e motivo. **Ver detalhes** abre um modal com colaborador, autoria, motivo, observações
+e comprovante, aproveitando os campos já preenchidos na devolução. Não exige novo
+campo nem infere o estado físico quando ele não tiver sido informado.
+
+Os mesmos filtros de item, tipo e filial se aplicam a essa área. São registros de
+devolução; não somam ao saldo disponível, não incluem perdas/baixas e não tornam o
+item automaticamente apto para nova entrega. O total representa as unidades devolvidas
+registradas, sem presumir uma nova contagem física ou uma posterior liberação manual.
+
+Aplicar `supabase/sql/rh_estoque_classificacao.sql` após os scripts anteriores de estoque.
+`tests/rh_estoque_classificacao.sql` testa mudanças nos dois sentidos, colisão de nomes,
+substituição, estoque, observações, snapshots, devoluções e conferências/correções
+posteriores em uma transação revertida. A prévia isolada também simula a mudança.
