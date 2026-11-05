@@ -102,3 +102,12 @@ html[data-rh-theme=dark] .rh-equip input,html[data-rh-theme=dark] .rh-equip sele
 html[data-rh-theme=dark] .rh-equip-stock-count strong,html[data-rh-theme=dark] .rh-equip-stock-details a{color:#5edbc1}html[data-rh-theme=dark] .rh-equip-stock.is-empty .rh-equip-stock-count strong{color:#f7bf73}
 @media(max-width:1000px){.rh-equip-add-fields .rh-equip-stock{grid-column:2/-1}.rh-equip-add-fields>button{grid-column:1/-1;justify-self:end;min-width:160px}}
 @media(max-width:600px){.rh-equip-add-fields .rh-equip-stock{grid-column:1/-1}.rh-equip-stock{gap:10px;padding:12px}.rh-equip-stock-details{flex-direction:row;align-items:center;flex-wrap:wrap;gap:6px 14px}.rh-equip-add-fields>button{justify-self:stretch}}
+
+/* A escolha é por item e aparece somente em datas de entrega retroativas. */
+.rh-equip-retro-stock{grid-column:1/-1;display:grid;gap:6px;padding:12px 14px;border:1px solid var(--rh-border,#dce5e9);border-radius:10px;background:var(--rh-soft,#f1f5f9)}
+.rh-equip .rh-equip-retro-stock label{display:flex;flex-direction:row;align-items:center;gap:10px;font-size:13px;font-weight:600;letter-spacing:normal;text-transform:none;color:var(--rh-ink,#183440)}
+.rh-equip .rh-equip-retro-stock input[type=checkbox]{width:18px;height:18px;min-height:18px;flex:none;margin:0;accent-color:#137e71}
+.rh-equip-retro-stock small,.rh-equip-historical-note{font-size:12px;line-height:1.5;color:var(--rh-muted,#526e7b)}
+.rh-equip-historical-note{display:block;margin-top:6px}
+
+@media(max-width:600px){.rh-equip-retro-stock{order:1}.rh-equip-add-fields>button{order:2}}
