@@ -15,7 +15,11 @@
    return card;
   }));
   const approvalStates={pendente:'Aguardando resposta 1 ou 2 no WhatsApp do RH',aprovado:'Autorizado pelo RH',recusado:'Não autorizado pelo RH',expirado:'Prazo encerrado sem envio',cancelado:'Solicitação cancelada'};
-  $('sheetAutoApprovals').replaceChildren(...approvals.filter(a=>a.mes===month+'-01').map(a=>node('p',title[a.tipo]+' — '+approvalStates[a.status])));
+  $('sheetAutoApprovals').replaceChildren(...approvals.filter(a=>a.mes===month+'-01').map(a=>{
+   const repeat=new Date(a.dia_ultima_pergunta+'T12:00:00Z');repeat.setUTCDate(repeat.getUTCDate()+1);
+   const extra=a.status==='expirado'&&a.tentativas===1?' · última repetição prevista para '+format(repeat.toISOString())+' às 7h':'';
+   return node('p',title[a.tipo]+' — '+approvalStates[a.status]+' · tentativa '+a.tentativas+' de 2'+extra);
+  }));
   const rows=history.filter(h=>h.mes===month+'-01');
   $('sheetAutoHistory').replaceChildren(...rows.map(h=>{
    const row=node('tr');row.append(node('td',h.nome),node('td',title[h.tipo]),node('td',states[h.status]||h.status),node('td',h.enviado_em?new Date(h.enviado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—'),node('td',h.erro||''));return row;
@@ -26,7 +30,7 @@
   const [settings,events,requests]=await Promise.all([
    RH.result(client.from('rh_ponto_fichas_config').select('*').eq('id',true),true),
    RH.fetchAll(client,'rh_ponto_fichas_historico','*','agendado'),
-   RH.fetchAll(client,'rh_ponto_fichas_autorizacoes','id,mes,tipo,status,criado_em,expira_em,respondido_em','criado_em')
+   RH.fetchAll(client,'rh_ponto_fichas_autorizacoes','id,mes,tipo,status,criado_em,expira_em,respondido_em,tentativas,dia_ultima_pergunta','criado_em')
   ]);cfg=settings[0];history=events;approvals=requests;if(!cfg)throw Error('Configuração de envio não encontrada.');await render();
  }
  async function action(fn){if(busy)return;busy=true;$('sheetAutoRefresh').disabled=true;$('sheetAutoToggle').disabled=true;try{await fn();}catch(error){notice(error.message||'Não foi possível atualizar os envios.');}finally{busy=false;$('sheetAutoRefresh').disabled=false;$('sheetAutoToggle').disabled=false;}}

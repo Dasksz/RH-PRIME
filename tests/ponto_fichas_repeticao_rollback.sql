@@ -1,0 +1,27 @@
+begin;
+update public.rh_ponto_fichas_config set ativo=true;
+update rh_internal.ponto_fichas_runtime set webhook_url=null;
+do $$declare a public.rh_ponto_fichas_autorizacoes;request_old uuid;n integer;begin
+ if rh_internal.ponto_fichas_approval_queue('2026-11-16',7)<>1 then raise exception 'Primeira pergunta ausente';end if;
+ select * into a from public.rh_ponto_fichas_autorizacoes where mes='2026-11-01' and tipo='parcial';
+ if a.dia_ultima_pergunta<>'2026-11-16' or a.tentativas<>1 then raise exception 'Data/tentativa inicial incorreta';end if;
+ request_old=a.notificacao_id;
+ update public.rh_ponto_fichas_autorizacoes set status='expirado',expira_em=now()-interval '20 minutes' where id=a.id;
+ if rh_internal.ponto_fichas_retry_queue('2026-11-17',6)<>0 or rh_internal.ponto_fichas_retry_queue('2026-11-16',7)<>0 then raise exception 'Repetição fora da data/horário';end if;
+ if rh_internal.ponto_fichas_retry_queue('2026-11-17',7)<>1 then raise exception 'Repetição do dia seguinte ausente';end if;
+ select * into a from public.rh_ponto_fichas_autorizacoes where id=a.id;
+ if a.tentativas<>2 or a.dia_ultima_pergunta<>'2026-11-17' or a.notificacao_id=request_old then raise exception 'Repetição sem novo pedido';end if;
+ if rh_internal.ponto_fichas_retry_queue('2026-11-17',8)<>0 then raise exception 'Repetiu duas vezes no dia';end if;
+ update public.rh_ponto_fichas_autorizacoes set status='expirado',expira_em=now()-interval '20 minutes' where id=a.id;
+ if rh_internal.ponto_fichas_retry_queue('2026-11-18',7)<>0 or rh_internal.ponto_fichas_queue('2026-11-18',7)<>0 then raise exception 'Terceira pergunta ou envio sem resposta';end if;
+ if rh_internal.ponto_fichas_approval_queue('2026-11-30',7)<>1 then raise exception 'Próximo aviso no fim do mês ausente';end if;
+ select * into a from public.rh_ponto_fichas_autorizacoes where mes='2026-11-01' and tipo='final';
+ update public.rh_ponto_fichas_autorizacoes set status='expirado',expira_em=now()-interval '20 minutes' where id=a.id;
+ if rh_internal.ponto_fichas_retry_queue('2026-12-01',7)<>1 then raise exception 'Repetição na virada do mês ausente';end if;
+ if rh_internal.ponto_fichas_approval_queue('2026-12-01',7)<>0 then raise exception 'Duas perguntas simultâneas';end if;
+ update public.rh_ponto_fichas_autorizacoes set status='aprovado',envio_ate=now()+interval '30 minutes' where id=a.id;
+ n=rh_internal.ponto_fichas_queue('2026-12-01',7);
+ if n<>4 or (select count(*) from public.rh_ponto_fichas_envios where mes='2026-11-01' and tipo='final')<>4 then raise exception 'Repetição mudou a competência da ficha';end if;
+ if rh_internal.ponto_fichas_approval_queue('2026-12-01',7)<>1 then raise exception 'Nova ficha não liberou após encerrar pedido anterior';end if;
+end $$;
+rollback;
