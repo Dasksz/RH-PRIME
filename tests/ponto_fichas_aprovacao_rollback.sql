@@ -51,5 +51,16 @@ do $$declare n integer;a public.rh_ponto_fichas_autorizacoes;b public.rh_ponto_f
  if not exists(select 1 from public.rh_admin_notifications where id=event_id and whatsapp_status='aceito') then raise exception 'Histórico perdido';end if;
  if has_table_privilege('anon','public.rh_ponto_fichas_envios','select') or has_table_privilege('anon','public.rh_ponto_fichas_autorizacoes','select') then raise exception 'Dados expostos';end if;
  if has_function_privilege('anon','rh_internal.ponto_fichas_queue(date,integer)','execute') then raise exception 'Agendador exposto';end if;
+ -- Uma consulta atrasada aceita resposta recebida antes do prazo, nunca uma resposta posterior.
+ update public.rh_ponto_fichas_autorizacoes set status='pendente',expira_em=now()-interval '2 minutes',envio_ate=null where id=a.id;
+ update public.rh_admin_notifications set whatsapp_status='aceito',sent_at=now()-interval '10 minutes' where id=a.notificacao_id;
+ update rh_internal.ponto_fichas_polls set token=repeat('c',64),expira_em=now()+interval '4 minutes',claimed=false where id=a.id;
+ perform public.rh_fichas_poll_claim(a.id,repeat('c',64));
+ result=public.rh_fichas_poll_complete(a.id,repeat('c',64),jsonb_build_array(jsonb_build_object('id','teste-depois-prazo','from',a.recipient_phone||'@c.us','fromMe',false,'body','1','timestamp',ts-119)));
+ if result->>'status'<>'pendente' then raise exception 'Aceitou resposta enviada após o prazo';end if;
+ update rh_internal.ponto_fichas_polls set token=repeat('d',64),expira_em=now()+interval '4 minutes',claimed=false where id=a.id;
+ perform public.rh_fichas_poll_claim(a.id,repeat('d',64));
+ result=public.rh_fichas_poll_complete(a.id,repeat('d',64),jsonb_build_array(jsonb_build_object('id','teste-antes-prazo','from',a.recipient_phone||'@c.us','fromMe',false,'body','1','timestamp',ts-121)));
+ if result->>'status'<>'aprovado' or not exists(select 1 from public.rh_ponto_fichas_autorizacoes where id=a.id and envio_ate>now()) then raise exception 'Perdeu resposta que chegou antes do prazo';end if;
 end $$;
 rollback;
