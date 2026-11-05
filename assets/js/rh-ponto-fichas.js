@@ -67,7 +67,7 @@
  async function init({supabase,profile}){
   if(profile?.status!=='admin')return;client=supabase;
   $('openManualSheets').hidden=false;
-  $('openManualSheets').onclick=()=>{if(!$('manualSheetPanel').open)$('manualSheetPanel').showModal();};
+  $('openManualSheets').onclick=()=>{if(!$('manualSheetPanel').open)$('manualSheetPanel').showModal();root.RHPontoFichasAuto?.refresh?.();};
   $('closeManualSheets').onclick=()=>$('manualSheetPanel').close();
   $('sheetMonth').value=RH.today().slice(0,7);
   $('sheetSearch').oninput=refresh;$('sheetCompany').onchange=refresh;
@@ -87,6 +87,7 @@
    download(list.map(company=>({company})),'Modelos_em_Branco');
   });
   await run(async()=>{await loadData();message('Adicione quem recebe ficha manual. A lista fica salva para os próximos meses.');});
+  await root.RHPontoFichasAuto?.init({supabase,profile});
  }
  root.RHPontoFichas={init};
 })(window,document);

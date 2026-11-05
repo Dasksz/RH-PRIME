@@ -45,6 +45,7 @@ button:hover{filter:brightness(.97)}button:disabled{cursor:default}.absence-kpi:
 .sheet-controls label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;flex:1 1 180px;min-width:0}
 .sheet-controls select,.sheet-controls input{width:100%}
 .sheet-recipients{display:grid;gap:10px}
+.sheet-auto{border:1px solid var(--rh-border);border-radius:10px;padding:16px;margin:20px 0}.sheet-auto .dialog-heading{align-items:center}.sheet-auto h3{margin:0}.sheet-auto-switch{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:13px}.sheet-auto-switch input{width:auto}.sheet-auto-schedule{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}.sheet-auto-schedule>div{padding:12px;border-radius:8px;background:var(--rh-soft);display:flex;flex-direction:column;gap:8px;font-size:13px}.sheet-auto-schedule small{color:var(--rh-muted)}.sheet-auto table{min-width:700px}.sheet-auto summary{cursor:pointer}@media(max-width:700px){.sheet-auto-schedule{grid-template-columns:1fr}.sheet-auto{padding:12px}}
 .sheet-recipient{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:14px;border:1px solid var(--rh-border);border-radius:9px}
 .sheet-person{flex:2 1 260px;min-width:0;overflow-wrap:anywhere}
 .sheet-person strong,.sheet-person small{display:block}.sheet-person small{font-size:12px;color:var(--rh-muted);margin-top:5px}

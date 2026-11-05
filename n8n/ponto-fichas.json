@@ -1,0 +1,356 @@
+{
+  "name": "RH PRIME — Fichas manuais de ponto",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rh-prime-ponto-fichas",
+        "options": {}
+      },
+      "id": "86ead349-fe92-49bb-8a4a-c726693ebe03",
+      "name": "Receber evento",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "rh-prime-ponto-fichas"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||{};if(!/^[a-f0-9-]{36}$/i.test(b.eventId||'')||!/^[a-f0-9]{64}$/.test(b.eventToken||'')|| ![undefined,'poll'].includes(b.mode))throw Error('Evento inválido');return [{json:{eventId:b.eventId,eventToken:b.eventToken,mode:b.mode||'send'}}];"
+      },
+      "id": "9defb272-af29-43b7-a087-f017d8c3c5c8",
+      "name": "Validar evento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gcksbfstheavpfgcdndb.supabase.co/functions/v1/admin-notifications",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({action:$json.mode === 'poll'?'poll_claim':'claim',eventId:$json.eventId,eventToken:$json.eventToken}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "3d5a23fa-1d79-4e2b-83ea-afd0a73092e9",
+      "name": "Obter evento autorizado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send File",
+        "session": "default",
+        "chatId": "={{ $json.chatId }}",
+        "file": "={{ JSON.stringify($json.file) }}",
+        "caption": "={{ $json.message }}",
+        "requestOptions": {}
+      },
+      "id": "1c818a4b-9e71-4943-b27d-6c07bdd4f86a",
+      "name": "Enviar ficha PDF",
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        1120,
+        16
+      ],
+      "credentials": {
+        "wahaApi": {
+          "id": "peJjsLQh8i0DW9NC",
+          "name": "WAHA account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gcksbfstheavpfgcdndb.supabase.co/functions/v1/admin-notifications",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({action:'complete',eventId:$('Validar evento').first().json.eventId,eventToken:$('Validar evento').first().json.eventToken,success:!$json.error && !$json.data?.error && !!($json.id || $json.data?.id),uncertain:!$json.error && !$json.data?.error && !($json.id || $json.data?.id)}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "132d7bc1-f63e-4fa7-8b4f-20e8027a52d9",
+      "name": "Registrar resultado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1344,
+        112
+      ]
+    },
+    {
+      "id": "3a19a408-0cb6-4e40-8a88-b2f693d05991",
+      "name": "Tem ficha PDF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        896,
+        112
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.kind }}",
+              "operation": "equal",
+              "value2": "ficha"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "default",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.message }}",
+        "requestOptions": {}
+      },
+      "id": "ad31c8bc-1c23-404e-a968-b2179cd4381b",
+      "name": "Enviar lembrete",
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        1120,
+        240
+      ],
+      "credentials": {
+        "wahaApi": {
+          "id": "peJjsLQh8i0DW9NC",
+          "name": "WAHA account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "0b636118-3b3a-4817-98a7-95e727c27dce",
+      "name": "Consultar autorização",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.kind }}",
+              "operation": "equal",
+              "value2": "poll"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Get Messages",
+        "session": "default",
+        "downloadMedia": false,
+        "chatId": "={{ $json.chatId }}",
+        "limit": 50,
+        "filter-timestamp-gte": "={{ $json.since }}",
+        "filter-fromMe": false,
+        "requestOptions": {}
+      },
+      "id": "25e80b24-5c9c-4fd3-b7d9-1f6c9d62cfea",
+      "name": "Ler resposta do administrador",
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        896,
+        -256
+      ],
+      "credentials": {
+        "wahaApi": {
+          "id": "peJjsLQh8i0DW9NC",
+          "name": "WAHA account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "8aab5d07-a8cf-4e42-b4ac-ae362360d19b",
+      "name": "Selecionar respostas 1 ou 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -256
+      ],
+      "parameters": {
+        "jsCode": "const messages=[];for(const item of $input.all()){const j=item.json;const list=Array.isArray(j)?j:Array.isArray(j.data)?j.data:Array.isArray(j.messages)?j.messages:[j];for(const m of list){if(m?.fromMe===false && ['1','2'].includes(String(m.body||'').trim()) && typeof m.id==='string' && typeof m.from==='string' && typeof m.timestamp==='number')messages.push({id:m.id.slice(0,300),from:m.from.slice(0,100),fromMe:false,body:String(m.body).trim(),timestamp:m.timestamp});}}return [{json:{messages:messages.slice(0,50)}}];"
+      }
+    },
+    {
+      "id": "e5fdfb7d-4b8d-409c-99db-a7dc7f1019de",
+      "name": "Registrar resposta de autorização",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1344,
+        -256
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://gcksbfstheavpfgcdndb.supabase.co/functions/v1/admin-notifications",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({action:'poll_complete',eventId:$('Validar evento').first().json.eventId,eventToken:$('Validar evento').first().json.eventToken,messages:$json.messages}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receber evento": {
+      "main": [
+        [
+          {
+            "node": "Validar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar evento": {
+      "main": [
+        [
+          {
+            "node": "Obter evento autorizado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obter evento autorizado": {
+      "main": [
+        [
+          {
+            "node": "Consultar autorização",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem ficha PDF": {
+      "main": [
+        [
+          {
+            "node": "Enviar ficha PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar ficha PDF": {
+      "main": [
+        [
+          {
+            "node": "Registrar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar lembrete": {
+      "main": [
+        [
+          {
+            "node": "Registrar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar autorização": {
+      "main": [
+        [
+          {
+            "node": "Ler resposta do administrador",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tem ficha PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler resposta do administrador": {
+      "main": [
+        [
+          {
+            "node": "Selecionar respostas 1 ou 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecionar respostas 1 ou 2": {
+      "main": [
+        [
+          {
+            "node": "Registrar resposta de autorização",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "executionTimeout": 120
+  },
+  "nodeGroups": [],
+  "id": "tAvrAWqT8C5qDycG",
+  "tags": []
+}
