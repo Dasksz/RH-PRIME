@@ -2,7 +2,7 @@
 
 A lista de **Registros de ponto → Fichas manuais** controla os destinatários. Às 7h de Brasília, o destinatário administrativo configurado recebe a pergunta com os nomes e a competência. **1** autoriza a etapa; **2** recusa. O prazo é até as 18h. Sem resposta, há **uma única repetição no dia seguinte, às 7h**, inclusive em fim de semana ou feriado. Sem resposta até as 18h da segunda tentativa, a etapa termina sem envio; somente a próxima etapa programada gera nova solicitação. Recusa ou autorização interrompem a repetição.
 
-O destinatário é cadastrado em **Administração → Perfis e acessos → Destinatário das notificações**. Selecione a conta administradora, preencha WhatsApp com DDD (ou vincule o colaborador), marque **Receber por WhatsApp** e salve. A rotina reutiliza esse cadastro; não cria uma segunda configuração de número.
+O destinatário é cadastrado em **Administração → Gerenciador de Tabelas → Perfis e acessos → Destinatário das notificações**. Selecione a conta administradora, preencha WhatsApp com DDD (ou vincule o colaborador), marque **Receber por WhatsApp** e salve. A rotina reutiliza esse cadastro; não cria uma segunda configuração de número.
 
 As datas usam segunda a sexta, feriados nacionais e da Bahia, excluindo pontos facultativos. A parcial cai no dia útil mais próximo do dia 15; em empate, o posterior. A ficha completa é cobrada no último dia útil. A nova ficha PDF é oferecida no primeiro dia útil do mês. Feriados municipais não são presumidos a partir do texto livre da cidade.
 
