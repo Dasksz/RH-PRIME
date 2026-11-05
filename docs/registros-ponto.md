@@ -61,3 +61,5 @@ Selecione mês civil e empresa e clique em Gerar PDF. Cada colaborador ocupa uma
 São indicados os feriados nacionais e estaduais da Bahia do calendário existente, excluindo pontos facultativos. Feriados municipais podem ser anotados na ficha; não são presumidos a partir da cidade. O botão de modelos em branco gera uma página por empresa selecionada. O download é local, sem armazenar PDFs no servidor.
 
 Estrutura: `supabase/sql/rh_ponto_fichas.sql`. Implementação: `assets/js/rh-ponto-fichas-core.js` e `assets/js/rh-ponto-fichas.js`. Validação: `node --test tests/rh_ponto_fichas*.test.cjs`, com testes do mês, vínculo, empresa, PDF, persistência e fluxo dos botões.
+
+O modal também acompanha as autorizações por WhatsApp, as datas das etapas e o histórico dos envios. O RH recebe uma pergunta às 7h e responde 1 para autorizar ou 2 para cancelar; silêncio nunca autoriza. A lista salva controla as próximas solicitações. Consulte [Fichas e WhatsApp](PONTO_FICHAS_WHATSAPP.md) para calendário, validade da resposta e operação.
