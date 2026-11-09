@@ -110,4 +110,10 @@ html[data-rh-theme=dark] .rh-equip-stock-count strong,html[data-rh-theme=dark] .
 .rh-equip-retro-stock small,.rh-equip-historical-note{font-size:12px;line-height:1.5;color:var(--rh-muted,#526e7b)}
 .rh-equip-historical-note{display:block;margin-top:6px}
 
+.rh-equip button.rh-equip-history-pencil{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;margin-left:8px;padding:0;vertical-align:middle}
+.rh-equip .rh-equip-history-editor{max-width:480px;display:grid;gap:10px;margin:8px 0;padding:12px;border:1px solid var(--rh-border);border-radius:10px}
+.rh-equip .rh-equip-history-editor label{display:grid;gap:6px}
+.rh-equip .rh-equip-history-editor .rh-equip-history-delete{color:var(--rh-danger,#b91c1c)}
+html[data-rh-theme=dark] .rh-equip .rh-equip-history-editor .rh-equip-history-delete{color:#fca5a5}
+
 @media(max-width:600px){.rh-equip-retro-stock{order:1}.rh-equip-add-fields>button{order:2}}

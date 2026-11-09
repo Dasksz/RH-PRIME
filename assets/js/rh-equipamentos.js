@@ -65,6 +65,7 @@
   const [tab,setTab]=React.useState('epi'),[rows,setRows]=React.useState([]),[receipts,setReceipts]=React.useState([]),[loading,setLoading]=React.useState(true),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[notice,setNotice]=React.useState('');
   const [deliveryOnly,setDeliveryOnly]=React.useState(false),[verifying,setVerifying]=React.useState(false),[returns,setReturns]=React.useState([]),[staged,setStaged]=React.useState([]),[checks,setChecks]=React.useState([]),[inspected,setInspected]=React.useState([]),[verificationDate,setVerificationDate]=React.useState(RH.today);
   const [corrections,setCorrections]=React.useState([]),[nameCorrections,setNameCorrections]=React.useState([]),[editingDate,setEditingDate]=React.useState(null),editRef=React.useRef(null);
+  const [historyEdit,setHistoryEdit]=React.useState(null);
   const [itemEdits,setItemEdits]=React.useState({});
   const [catalog,setCatalog]=React.useState([]),[stock,setStock]=React.useState([]);
   const empty=()=>({nome:'',ca:'',tamanho:'',quantidade:1,data:RH.today(),comprovante:'',sem_desconto_estoque:false});
@@ -82,7 +83,7 @@
    if(docs.error)throw docs.error;
    if(mounted.current&&sequence===loadSequence.current){setRows(mov.data.sort((a,b)=>(a.data_movimento||'').localeCompare(b.data_movimento||'')||a.created_at.localeCompare(b.created_at)));setReceipts(docs.data);setChecks(verifiedRows);setCorrections(correctedRows);setNameCorrections(nameRows);setCatalog(products);setStock(balances);}
   }
-  React.useEffect(()=>{mounted.current=true;setLoading(true);setError('');setNotice('');setEditingDate(null);clearVerification();load().catch(e=>{if(mounted.current)setError(e.message);}).finally(()=>{if(mounted.current)setLoading(false);});return()=>{mounted.current=false;};},[employee.id,tab]);
+  React.useEffect(()=>{mounted.current=true;setLoading(true);setError('');setNotice('');setEditingDate(null);setHistoryEdit(null);clearVerification();load().catch(e=>{if(mounted.current)setError(e.message);}).finally(()=>{if(mounted.current)setLoading(false);});return()=>{mounted.current=false;};},[employee.id,tab]);
   React.useEffect(()=>{if(editingDate&&editRef.current){editRef.current.scrollIntoView({block:'center',behavior:'smooth'});editRef.current.querySelector('input')?.focus({preventScroll:true});}},[editingDate?.row.id]);
   React.useEffect(()=>{if(onVerificationChange)onVerificationChange(verifying);const warn=e=>{e.preventDefault();e.returnValue='';};if(verifying)window.addEventListener('beforeunload',warn);return()=>{window.removeEventListener('beforeunload',warn);if(onVerificationChange)onVerificationChange(false);};},[verifying]);
   const allowed=catalog.filter(p=>p.ativo&&p.categoria===tab&&(p.todas_funcoes||p.funcoes.includes(employee.funcao||employee.cargo)));
@@ -94,14 +95,46 @@
   const latestNames=nameCorrections.reduce((map,c)=>{if(!map[c.entrega_id]||map[c.entrega_id].created_at<=c.created_at)map[c.entrega_id]=c;return map;},{});
   const displayedName=m=>m.produto_id?m.descricao:latestNames[m.id]?.descricao||m.descricao;
   const corrected=latestCorrections(corrections);
+  async function saveHistoryItem(e,m){
+   e.preventDefault();
+   if(busy||verifying||historyEdit?.id!==m.id)return;
+   const ca=historyEdit.ca.trim();
+   setBusy(true);setNotice('');setHistoryEdit({...historyEdit,error:''});
+   try{
+    const result=await client.rpc('rh_corrigir_ca_entrega',{p_entrega:m.id,p_ca:ca,p_ca_anterior:historyEdit.originalCa});
+    if(result.error)throw result.error;
+    if(result.data?.id!==m.id||result.data?.ca!==ca)throw Error('O servidor não confirmou a alteração.');
+    setRows(previous=>previous.map(row=>row.id===m.id?{...row,ca}:row));
+    setHistoryEdit(null);setNotice('C.A. atualizado na entrega de '+date(result.data.data_movimento)+'.');
+    try{await load();if(onSaved)await onSaved();}catch(err){setError('C.A. salvo. Falha ao atualizar a tela: '+err.message);}
+   }catch(err){setHistoryEdit(previous=>previous?.id===m.id?{...previous,error:err.message}:previous);}
+   finally{setBusy(false);}
+  }
   function startDateEdit(m){if(staged.length||returns.length||inspected.length||returning||form.nome.trim()){setError('Conclua ou cancele os itens em preenchimento antes de editar uma data salva.');return;}clearVerification();setEditingDate({row:m,data:m.data_movimento||'',motivo:''});setError('');setNotice('');}
   async function saveDate(e){e.preventDefault();if(!editingDate)return;const edit=editingDate;setBusy(true);setError('');let saved=false;try{const result=await client.rpc('rh_corrigir_data_entrega',{p_entrega:edit.row.id,p_data:edit.data,p_data_anterior:edit.row.data_movimento,p_motivo:edit.motivo});if(result.error)throw result.error;if(result.data?.data_movimento!==edit.data)throw Error('A data retornada não corresponde à correção. Atualize a tela.');saved=true;setEditingDate(null);setNotice('Data da entrega salva: '+date(edit.data)+'. A correção ficou registrada no histórico; fichas já emitidas foram preservadas.');await load();if(onSaved)await onSaved();}catch(err){setError((saved?'Data salva; falha ao atualizar a tela: ':'Não foi possível corrigir a data: ')+err.message);}finally{setBusy(false);}}
   async function excludeDelivery(m){
    if(busy||verifying)return;
    if(!window.confirm('Excluir o lançamento de '+displayedName(m)+'? Use apenas quando a entrega foi registrada incorretamente.'))return;
    setBusy(true);setError('');setNotice('');let saved=false;
-   try{const result=await client.rpc('rh_excluir_entrega',{p_entrega:m.id,p_motivo:'Entrega registrada incorretamente — exclusão solicitada pelo RH.'});if(result.error)throw result.error;if(!result.data?.excluido)throw Error('Exclusão não confirmada pelo servidor.');saved=true;setEditingDate(null);await load();if(onSaved)await onSaved();setNotice('Entrega excluída. O estoque foi estornado quando havia desconto.');}
-   catch(e){setError((saved?'Entrega excluída; falha ao atualizar a tela: ':'Não foi possível excluir: ')+e.message);}finally{setBusy(false);}
+   try{const result=await client.rpc('rh_excluir_entrega',{p_entrega:m.id,p_motivo:'Entrega registrada incorretamente — exclusão solicitada pelo RH.'});if(result.error)throw result.error;if(!result.data?.excluido)throw Error('Exclusão não confirmada pelo servidor.');saved=true;setEditingDate(null);setHistoryEdit(null);await load();if(onSaved)await onSaved();setNotice('Entrega excluída. O estoque foi estornado quando havia desconto.');}
+   catch(e){if(saved)setError('Entrega excluída. Falha ao atualizar a tela: '+e.message);else setHistoryEdit(previous=>previous?.id===m.id?{...previous,error:'Não foi possível excluir: '+e.message}:previous);}finally{setBusy(false);}
+  }
+  function historyItemEditor(m){
+   const isOpen=historyEdit?.id===m.id, panelId='rh-equipment-edit-'+m.id;
+   return h(React.Fragment,null,
+    h('button',{type:'button',className:'rh-equip-action rh-equip-history-pencil',disabled:busy||verifying,
+     'aria-label':'Editar item entregue: '+displayedName(m),title:'Editar item', 'aria-expanded':isOpen,'aria-controls':isOpen?panelId:undefined,
+     onClick:()=>setHistoryEdit(isOpen?null:{id:m.id,ca:m.ca||'',originalCa:m.ca||'',error:''})},
+     h('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
+      h('path',{d:'m16 3 5 5M4 20l5-1L21 7a2 2 0 0 0-4-4L5 15l-1 5Z'}))),
+    isOpen&&h('form',{id:panelId,className:'rh-equip-history-editor',onSubmit:e=>saveHistoryItem(e,m)},
+     h('label',null,'Número do C.A.',h('input',{type:'text',autoFocus:true,maxLength:80,value:historyEdit.ca,disabled:busy||verifying,
+      onChange:e=>setHistoryEdit({...historyEdit,ca:e.target.value,error:''})})),
+     historyEdit.error&&h('p',{role:'alert'},historyEdit.error),
+     h('div',{className:'rh-equip-actions'},
+      h('button',{type:'submit',className:'rh-equip-primary',disabled:busy||verifying||historyEdit.ca.trim()===historyEdit.originalCa},'Salvar C.A.'),
+      h('button',{type:'button',className:'rh-equip-action',disabled:busy,onClick:()=>setHistoryEdit(null)},'Cancelar'),
+      h('button',{type:'button',className:'rh-equip-action rh-equip-history-delete',disabled:busy||verifying,onClick:()=>excludeDelivery(m)},'Excluir item'))));
   }
   const auditLabel=m=>{const c=corrected[m.id];return h('div',{className:'rh-equip-authorship'},h('small',null,'Registrado por: '+(m.registrado_por||'Responsável não identificado')),
    c&&h('small',null,'Última edição por: '+(c.primeiro_nome||'Responsável não identificado')+' · '+new Date(c.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'})),
@@ -169,7 +202,8 @@
    h('div',{className:'rh-equip-history-heading'},h('span',{className:'rh-equip-history-status'},icon('check',16)),h('div',null,h('h4',null,index===0?'Última Entrega':'Entrega Anterior'),h('p',null,icon('calendar',12),date(when)),expired&&h('span',{className:'rh-equip-expired-label'},'Verificação pendente · 180 dias'))),h('strong',{className:'rh-equip-items-label'},'Itens:'),
    h('ul',null,list.map(m=>h('li',{key:m.id},
     h('span',null,displayedName(m)+(m.ca?' (CA: '+m.ca+')':'')+' — Qtd: '+m.quantidade+(m.saldo!==m.quantidade?' · Em posse: '+m.saldo:'')),
-    m.sem_desconto_estoque&&h('small',{className:'rh-equip-historical-note'},'Entrega histórica · registrada sem descontar do estoque atual'),auditLabel(m),h('button',{type:'button',className:'rh-equip-action',disabled:busy||verifying,onClick:()=>excludeDelivery(m),'aria-label':'Excluir entrega de '+displayedName(m)},'Excluir'),
+    historyItemEditor(m),
+    m.sem_desconto_estoque&&h('small',{className:'rh-equip-historical-note'},'Entrega histórica · registrada sem descontar do estoque atual'),auditLabel(m),
     needsReview(m,verified,RH.today())&&h('small',{className:'rh-equip-review-note'},'Este item em posse completou 180 dias desde a entrega ou última conferência. Verifique suas condições.'),
     checks.filter(v=>v.entrega_id===m.id).sort((a,b)=>b.data_verificacao.localeCompare(a.data_verificacao)).map(v=>h('small',{key:v.id,className:'rh-equip-verified'},'Verificado em '+date(v.data_verificacao)+' — em boas condições')),
     m.entrega_origem_id&&h('small',null,'Reposição vinculada à entrega original'),
