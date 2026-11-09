@@ -10,6 +10,11 @@
  function sizeType(name){const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();if(/\b(CALCA|CALCAS)\b/.test(n))return'pants';if(/\b(BOTA|BOTAS|CALCADO|CALCADOS)\b/.test(n))return'shoe';if(/\b(CAMISA|CAMISAS|BLUSA|BLUSAS|COLETE|COLETES|PROTETOR DORSAL)\b/.test(n))return'shirt';if(/\b(LUVA|LUVAS|PROTETOR AURICULAR|OCULOS|CAPACETE)\b/.test(n))return'unique';return'';}
  function sizeOptions(name){return sizeCatalog[sizeType(name)]||[];}
  function caLabel(m){return [m.tamanho?'Tamanho '+m.tamanho:'',m.ca?'C.A. '+m.ca:''].filter(Boolean).join(' - ');}
+ function historyFields(m){
+  return {produto_id:m.produto_id||null,complemento:m.complemento||'',tamanho:m.tamanho||'',ca:m.ca||'',
+   quantidade:m.quantidade,data_movimento:m.data_movimento||null,observacao:m.observacao||'',
+   comprovante:m.comprovante||'',descontado:!!m.estoque_descontado};
+ }
  function balances(rows){return rows.filter(m=>m.tipo==='entrega').map(m=>({...m,saldo:m.quantidade-rows.filter(r=>r.entrega_origem_id===m.id&&r.tipo!=='entrega').reduce((n,r)=>n+r.quantidade,0)}));}
  function latestChecks(checks){return checks.reduce((map,c)=>{const old=map[c.entrega_id];if(!old||(c.data_verificacao+(c.created_at||''))>(old.data_verificacao+(old.created_at||'')))map[c.entrega_id]=c;return map;},{});}
  function latestCorrections(corrections){return corrections.reduce((map,c)=>{if(!map[c.entrega_id]||c.created_at>map[c.entrega_id].created_at)map[c.entrega_id]=c;return map;},{});}
@@ -66,6 +71,7 @@
   const [deliveryOnly,setDeliveryOnly]=React.useState(false),[verifying,setVerifying]=React.useState(false),[returns,setReturns]=React.useState([]),[staged,setStaged]=React.useState([]),[checks,setChecks]=React.useState([]),[inspected,setInspected]=React.useState([]),[verificationDate,setVerificationDate]=React.useState(RH.today);
   const [corrections,setCorrections]=React.useState([]),[nameCorrections,setNameCorrections]=React.useState([]),[editingDate,setEditingDate]=React.useState(null),editRef=React.useRef(null);
   const [historyEdit,setHistoryEdit]=React.useState(null);
+  const [historyFocus,setHistoryFocus]=React.useState(null);
   const [itemEdits,setItemEdits]=React.useState({});
   const [catalog,setCatalog]=React.useState([]),[stock,setStock]=React.useState([]);
   const empty=()=>({nome:'',ca:'',tamanho:'',quantidade:1,data:RH.today(),comprovante:'',sem_desconto_estoque:false});
@@ -85,6 +91,13 @@
   }
   React.useEffect(()=>{mounted.current=true;setLoading(true);setError('');setNotice('');setEditingDate(null);setHistoryEdit(null);clearVerification();load().catch(e=>{if(mounted.current)setError(e.message);}).finally(()=>{if(mounted.current)setLoading(false);});return()=>{mounted.current=false;};},[employee.id,tab]);
   React.useEffect(()=>{if(editingDate&&editRef.current){editRef.current.scrollIntoView({block:'center',behavior:'smooth'});editRef.current.querySelector('input')?.focus({preventScroll:true});}},[editingDate?.row.id]);
+  React.useEffect(()=>{
+   if(!historyFocus||busy)return;
+   const row=document.getElementById('rh-equipment-history-'+historyFocus);
+   row?.querySelector('.rh-equip-history-pencil')?.focus({preventScroll:true});
+   row?.scrollIntoView({block:'nearest'});
+   setHistoryFocus(null);
+  },[historyFocus,busy]);
   React.useEffect(()=>{if(onVerificationChange)onVerificationChange(verifying);const warn=e=>{e.preventDefault();e.returnValue='';};if(verifying)window.addEventListener('beforeunload',warn);return()=>{window.removeEventListener('beforeunload',warn);if(onVerificationChange)onVerificationChange(false);};},[verifying]);
   const allowed=catalog.filter(p=>p.ativo&&p.categoria===tab&&(p.todas_funcoes||p.funcoes.includes(employee.funcao||employee.cargo)));
   const options=allowed.map(p=>p.nome),selectedProduct=allowed.find(p=>p.nome===nameParts(form.nome).equipamento);
@@ -98,15 +111,18 @@
   async function saveHistoryItem(e,m){
    e.preventDefault();
    if(busy||verifying||historyEdit?.id!==m.id)return;
-   const ca=historyEdit.ca.trim();
-   setBusy(true);setNotice('');setHistoryEdit({...historyEdit,error:''});
+   const {original,fields}=historyEdit;
+   const values={...fields,quantidade:Number(fields.quantidade)};
+   const changes=Object.fromEntries(Object.entries(values).filter(([key,value])=>value!==original[key]));
+   if(!Object.keys(changes).length)return;
+   setBusy(true);setError('');setNotice('');setHistoryEdit({...historyEdit,error:''});
    try{
-    const result=await client.rpc('rh_corrigir_ca_entrega',{p_entrega:m.id,p_ca:ca,p_ca_anterior:historyEdit.originalCa});
+    const result=await client.rpc('rh_editar_entrega_historico',{p_entrega:m.id,p_original:original,p_alteracoes:changes});
     if(result.error)throw result.error;
-    if(result.data?.id!==m.id||result.data?.ca!==ca)throw Error('O servidor não confirmou a alteração.');
-    setRows(previous=>previous.map(row=>row.id===m.id?{...row,ca}:row));
-    setHistoryEdit(null);setNotice('C.A. atualizado na entrega de '+date(result.data.data_movimento)+'.');
-    try{await load();if(onSaved)await onSaved();}catch(err){setError('C.A. salvo. Falha ao atualizar a tela: '+err.message);}
+    if(result.data?.id!==m.id)throw Error('O servidor não confirmou a alteração.');
+    setRows(previous=>previous.map(row=>row.id===m.id?result.data:row));
+    setHistoryEdit(null);setHistoryFocus(m.id);setNotice('Item atualizado no histórico de '+date(result.data.data_movimento)+'.');
+    try{await load();if(onSaved)await onSaved();}catch(err){setError('Item salvo. Falha ao atualizar a tela: '+err.message);}
    }catch(err){setHistoryEdit(previous=>previous?.id===m.id?{...previous,error:err.message}:previous);}
    finally{setBusy(false);}
   }
@@ -121,18 +137,43 @@
   }
   function historyItemEditor(m){
    const isOpen=historyEdit?.id===m.id, panelId='rh-equipment-edit-'+m.id;
+   const fields=isOpen?historyEdit.fields:null;
+   const selected=fields&&catalog.find(p=>p.id===fields.produto_id);
+   const sizes=selected?.tamanhos||sizeOptions(m.equipamento);
+   const originalChoice=m.produto_id&&!allowed.some(p=>p.id===m.produto_id);
+   const change=patch=>setHistoryEdit(previous=>({...previous,fields:{...previous.fields,...patch},error:''}));
+   const editField=(label,key,type,options={})=>h('label',null,label,h('input',{
+    type,value:fields[key]??'',onChange:e=>change({[key]:type==='date'?(e.target.value||null):type==='number'&&e.target.value?e.target.valueAsNumber:e.target.value}),...options}));
    return h(React.Fragment,null,
     h('button',{type:'button',className:'rh-equip-action rh-equip-history-pencil',disabled:busy||verifying,
      'aria-label':'Editar item entregue: '+displayedName(m),title:'Editar item', 'aria-expanded':isOpen,'aria-controls':isOpen?panelId:undefined,
-     onClick:()=>setHistoryEdit(isOpen?null:{id:m.id,ca:m.ca||'',originalCa:m.ca||'',error:''})},
+     onClick:()=>{const original=historyFields(m);setHistoryEdit(isOpen?null:{id:m.id,original,fields:original,error:''});}},
      h('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
       h('path',{d:'m16 3 5 5M4 20l5-1L21 7a2 2 0 0 0-4-4L5 15l-1 5Z'}))),
     isOpen&&h('form',{id:panelId,className:'rh-equip-history-editor',onSubmit:e=>saveHistoryItem(e,m)},
-     h('label',null,'Número do C.A.',h('input',{type:'text',autoFocus:true,maxLength:80,value:historyEdit.ca,disabled:busy||verifying,
-      onChange:e=>setHistoryEdit({...historyEdit,ca:e.target.value,error:''})})),
+     h('fieldset',{disabled:busy||verifying,className:'rh-equip-fields rh-equip-correction-fields'},
+      h('label',null,'Item do estoque',h('select',{autoFocus:true,value:fields.produto_id||'',onChange:e=>{
+       const id=e.target.value||null;
+       const product=allowed.find(p=>p.id===id);
+       change({produto_id:id,tamanho:id===m.produto_id?m.tamanho||'':product?.tamanhos.length===1?product.tamanhos[0]:''});
+      }},
+       !m.produto_id&&h('option',{value:''},m.equipamento+' (item registrado)'),
+       originalChoice&&h('option',{value:m.produto_id},m.equipamento+' (item registrado)'),
+       allowed.map(p=>h('option',{key:p.id,value:p.id},p.nome)))),
+      editField('Complemento (opcional)','complemento','text',{maxLength:300}),
+      h('label',null,'Tamanho',h('select',{value:fields.tamanho,onChange:e=>change({tamanho:e.target.value})},
+       h('option',{value:''},'Sem tamanho informado'),sizes.map(size=>h('option',{key:size,value:size},size)),
+       fields.tamanho&&!sizes.includes(fields.tamanho)&&h('option',{value:fields.tamanho},fields.tamanho+' (registrado)'))),
+      editField('C.A. (opcional)','ca','text',{maxLength:80}),
+      editField('Quantidade','quantidade','number',{min:1,max:10000,required:true}),
+      editField('Data da entrega','data_movimento','date',{max:RH.today(),required:!!historyEdit.original.data_movimento}),
+      editField('Link do comprovante (opcional)','comprovante','url',{maxLength:2000}),
+      h('label',{className:'rh-equip-history-observation'},'Observação (opcional)',h('textarea',{maxLength:2000,value:fields.observacao,onChange:e=>change({observacao:e.target.value})})),
+      h('label',{className:'rh-equip-check'},h('input',{type:'checkbox',checked:fields.descontado,onChange:e=>change({descontado:e.target.checked})}),'Descontar do estoque'),
+      h('small',{className:'rh-equip-history-observation'},'A edição ajusta o desconto no saldo da filial conforme o item, tamanho e quantidade salvos.')),
      historyEdit.error&&h('p',{role:'alert'},historyEdit.error),
      h('div',{className:'rh-equip-actions'},
-      h('button',{type:'submit',className:'rh-equip-primary',disabled:busy||verifying||historyEdit.ca.trim()===historyEdit.originalCa},'Salvar C.A.'),
+      h('button',{type:'submit',className:'rh-equip-primary',disabled:busy||verifying||Object.keys(fields).every(key=>fields[key]===historyEdit.original[key])},'Salvar alterações'),
       h('button',{type:'button',className:'rh-equip-action',disabled:busy,onClick:()=>setHistoryEdit(null)},'Cancelar'),
       h('button',{type:'button',className:'rh-equip-action rh-equip-history-delete',disabled:busy||verifying,onClick:()=>excludeDelivery(m)},'Excluir item'))));
   }
@@ -200,10 +241,11 @@
      h('div',{className:'rh-equip-actions rh-equip-finish'},h('button',{className:'rh-equip-primary',disabled:busy||!!returning||(!returns.length&&!staged.length&&!inspected.length),onClick:finish},busy?'Salvando…':deliveryOnly?'Salvar e gerar ficha':'Concluir verificação e gerar ficha'),deliveryOnly&&h('button',{className:'rh-equip-action',disabled:busy,onClick:cancelVerification},'Cancelar entrega')));
   const historyCards=groups.map(([when,list],index)=>{const expired=list.some(m=>needsReview(m,verified,RH.today()));return h('section',{className:'rh-equip-card rh-equip-history-group'+(expired?' rh-equip-expired':''),key:when},
    h('div',{className:'rh-equip-history-heading'},h('span',{className:'rh-equip-history-status'},icon('check',16)),h('div',null,h('h4',null,index===0?'Última Entrega':'Entrega Anterior'),h('p',null,icon('calendar',12),date(when)),expired&&h('span',{className:'rh-equip-expired-label'},'Verificação pendente · 180 dias'))),h('strong',{className:'rh-equip-items-label'},'Itens:'),
-   h('ul',null,list.map(m=>h('li',{key:m.id},
-    h('span',null,displayedName(m)+(m.ca?' (CA: '+m.ca+')':'')+' — Qtd: '+m.quantidade+(m.saldo!==m.quantidade?' · Em posse: '+m.saldo:'')),
+   h('ul',null,list.map(m=>h('li',{key:m.id,id:'rh-equipment-history-'+m.id},
+    h('span',null,displayedName(m)+(m.ca?' (CA: '+m.ca+')':'')+' — Qtd: '+m.quantidade+(m.tamanho?' · Tam.: '+m.tamanho:'')+(m.saldo!==m.quantidade?' · Em posse: '+m.saldo:'')),
     historyItemEditor(m),
     m.sem_desconto_estoque&&h('small',{className:'rh-equip-historical-note'},'Entrega histórica · registrada sem descontar do estoque atual'),auditLabel(m),
+    m.observacao&&h('small',null,'Observação: '+m.observacao),
     needsReview(m,verified,RH.today())&&h('small',{className:'rh-equip-review-note'},'Este item em posse completou 180 dias desde a entrega ou última conferência. Verifique suas condições.'),
     checks.filter(v=>v.entrega_id===m.id).sort((a,b)=>b.data_verificacao.localeCompare(a.data_verificacao)).map(v=>h('small',{key:v.id,className:'rh-equip-verified'},'Verificado em '+date(v.data_verificacao)+' — em boas condições')),
     m.entrega_origem_id&&h('small',null,'Reposição vinculada à entrega original'),
