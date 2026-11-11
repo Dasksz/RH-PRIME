@@ -3,13 +3,13 @@
  const client=window.supabase.createClient('https://gcksbfstheavpfgcdndb.supabase.co','sb_publishable_UrTJ8_SyM3n800C4LZQWpw_5Ah8Ko98');
  window.RHNavigationClient=client;
  const $=id=>document.getElementById(id),branches=['FILIAL 5','FILIAL 8'],labels={epi:'EPI',fardamento:'Fardamento'};
- let products=[],stock=[],returned=[],events=[],roles=[],names={},admin=false,editing=null,counting=null,busy=false,operation=null,transferRequest=null,classificationSource=null,classificationRequest=null;
+ let products=[],stock=[],returned=[],events=[],roles=[],names={},managesStock=false,editing=null,counting=null,busy=false,operation=null,transferRequest=null,classificationSource=null,classificationRequest=null;
  const n=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
  function notice(text,error=false){$('notice').textContent=text;$('notice').className=error?'error':'';}
  async function action(fn,errorId){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);document.querySelectorAll('dialog fieldset').forEach(e=>e.disabled=true);try{await fn();}catch(e){if(errorId)$(errorId).textContent=e.message;else notice(e.message,true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);document.querySelectorAll('dialog fieldset').forEach(e=>e.disabled=false);$('productCategory').disabled=false;$('roles').disabled=$('allRoles').checked;if($('transferDialog').open)previewTransfer();if($('classificationDialog').open)previewClassification();}}
  async function load(){
   [products,stock,returned]=await Promise.all([RH.fetchAll(client,'rh_products'),RH.fetchAll(client,'rh_stock','*','produto_id'),RH.fetchAll(client,'rh_returned_items','*','id')]);
-  if(admin){const result=await client.from('rh_stock_events').select('*').order('created_at',{ascending:false}).limit(100);if(result.error)throw result.error;events=result.data;}
+  if(managesStock){const result=await client.from('rh_stock_events').select('*').order('created_at',{ascending:false}).limit(100);if(result.error)throw result.error;events=result.data;}
   render();
  }
  function availableProducts(){return products.filter(p=>($('includeInactive').checked||p.ativo)&&(!$('group').value||p.categoria===$('group').value)).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')||a.categoria.localeCompare(b.categoria));}
@@ -28,10 +28,10 @@
     const s=stock.find(s=>s.produto_id===p.id&&s.filial===filial&&s.tamanho===tamanho),qty=s?.quantidade||0;total+=qty;if(!qty)empty++;
     const tr=n('tr'),name=n('td',p.nome);name.append(n('small',labels[p.categoria]));tr.append(name,n('td',filial),n('td',tamanho),n('td',String(qty),'qty'));
     const status=n('td');status.append(n('span',!p.ativo?'Inativo':qty?'Disponível':'Informar entrada','badge'+(!p.ativo?' inactive':qty?'':' empty')));tr.append(status);
-    const cell=n('td');if(admin&&p.tamanhos.includes(tamanho)){const b=n('button','Informar quantidade','secondary');b.onclick=()=>openStock(p,filial,tamanho,s);cell.append(b);if(p.ativo&&qty>0){const t=n('button','Transferir','secondary');t.type='button';t.onclick=()=>action(async()=>{await load();openTransfer(p,filial,tamanho);});cell.append(t);}cell.className='balance-actions';}tr.append(cell);$('balances').append(tr);
+    const cell=n('td');if(managesStock&&p.tamanhos.includes(tamanho)){const b=n('button','Informar quantidade','secondary');b.onclick=()=>openStock(p,filial,tamanho,s);cell.append(b);if(p.ativo&&qty>0){const t=n('button','Transferir','secondary');t.type='button';t.onclick=()=>action(async()=>{await load();openTransfer(p,filial,tamanho);});cell.append(t);}cell.className='balance-actions';}tr.append(cell);$('balances').append(tr);
    }
    const tr=n('tr'),name=n('td',p.nome);if(!p.ativo)name.append(n('small','Inativo'));tr.append(name,n('td',labels[p.categoria]),n('td',p.tamanhos.join(', ')),n('td',p.todas_funcoes?'Todas as funções':p.funcoes.length?p.funcoes.join(', '):'Selecione as funções para liberar entregas'));
-   const td=n('td');if(admin){const b=n('button','Editar / renomear','secondary');b.onclick=()=>openProduct(p);td.append(b);}tr.append(td);$('products').append(tr);
+   const td=n('td');if(managesStock){const b=n('button','Editar / renomear','secondary');b.onclick=()=>openProduct(p);td.append(b);}tr.append(td);$('products').append(tr);
   }
   $('total').textContent=total.toLocaleString('pt-BR');$('count').textContent=chosen.length;$('empty').textContent=empty;
   for(const id of ['balances','products'])if(!$(id).children.length){const tr=n('tr'),td=n('td','Nenhum item encontrado.');td.colSpan=6;tr.append(td);$(id).append(tr);}
@@ -144,5 +144,22 @@
 
  document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());document.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>{if(busy)e.preventDefault();}));
  $('newProduct').onclick=()=>openProduct();$('refresh').onclick=()=>action(load);for(const id of ['branch','group','includeInactive'])$(id).onchange=render;$('search').onchange=render;
- (async()=>{try{const p=await RH.profile(client);admin=p.status==='admin';if(admin){const [people,rules,profiles]=await Promise.all([RH.fetchAll(client,'funcionarios_epi','id,funcao'),RH.fetchAll(client,'epi_funcao','funcao','funcao'),RH.fetchAll(client,'profiles','id,name')]);roles=[...new Set([...people,...rules].map(x=>x.funcao).filter(Boolean))];names=Object.fromEntries(profiles.map(p=>[p.id,p.name]));}$('newProduct').hidden=!admin;$('newTransfer').hidden=!admin;$('historyPanel').hidden=!admin;await load();$('app').hidden=false;notice(admin?'Cadastre os itens e informe o saldo físico de cada filial e tamanho.':'Consulta de estoque. Ajustes e cadastros são feitos por administradores.');}catch(e){notice(e.message,true);}})();
+ (async()=>{
+  try{
+   await RH.profile(client);
+   const catalogRoles=await RH.result(client.rpc('rh_stock_catalog_roles'));
+   managesStock=Array.isArray(catalogRoles);
+   if(managesStock){
+    roles=catalogRoles;
+    const profiles=await RH.fetchAll(client,'profiles','id,name');
+    names=Object.fromEntries(profiles.map(p=>[p.id,p.name]));
+   }
+   $('newProduct').hidden=!managesStock;
+   $('newTransfer').hidden=!managesStock;
+   $('historyPanel').hidden=!managesStock;
+   await load();
+   $('app').hidden=false;
+   notice(managesStock?'Cadastre os itens e informe o saldo físico de cada filial e tamanho.':'Consulta de estoque. Ajustes e cadastros exigem permissão para administrar o estoque.');
+  }catch(e){notice(e.message,true);}
+ })();
 })();
