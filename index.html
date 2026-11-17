@@ -48,8 +48,8 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
-    <script src="assets/js/rh-ficha-padrao.js?v=20261117-paginas"></script>
-    <script src="assets/js/rh-equipamentos.js?v=20261117-paginas"></script>
+    <script src="assets/js/rh-ficha-padrao.js?v=20261117-empresa-paginas"></script>
+    <script src="assets/js/rh-equipamentos.js?v=20261117-empresa-paginas"></script>
     <script type="text/babel" data-type="text/javascript" data-presets="react">
       const { useState, useMemo, useEffect, useRef } = React;
 
@@ -405,42 +405,8 @@
         };
 
 
-                const getEmpresaInfo = (localRegistro, empresasList = [], empresaId = null) => {
-          const byId = empresaId && empresasList.find((e) => String(e.id) === String(empresaId));
-          if (byId) return byId;
-          if (!localRegistro) {
-            const def = empresasList.find((e) => e.nome && e.nome.toUpperCase().includes("NUNES")) || empresasList[0];
-            return def ? { nome: def.nome, cnpj: def.cnpj } : { nome: "NUNES & VIEIRA LOGISTICA LTDA", cnpj: "48.986.353/0001-39" };
-          }
-
-          const str = localRegistro.toString().trim().toUpperCase();
-
-          if (str.includes("JEQUIÉ") || str.includes("JEQUIE")) {
-            const eq = empresasList.find(
-              (e) => e.cnpj?.includes("0002-82") || (e.endereco && (e.endereco.toUpperCase().includes("JEQUIÉ") || e.endereco.toUpperCase().includes("JEQUIE")))
-            );
-            if (eq) return { nome: eq.nome, cnpj: eq.cnpj };
-            return { nome: "PRIME DISTRIBUICAO LTDA", cnpj: "52.522.019/0002-82" };
-          }
-
-          if (str.includes("ILHÉUS") || str.includes("ILHEUS")) {
-            const eq = empresasList.find(
-              (e) => e.cnpj?.includes("0001-00") || (e.endereco && (e.endereco.toUpperCase().includes("ILHÉUS") || e.endereco.toUpperCase().includes("ILHEUS")))
-            );
-            if (eq) return { nome: eq.nome, cnpj: eq.cnpj };
-            return { nome: "PRIME DISTRIBUICAO LTDA", cnpj: "52.522.019/0001-00" };
-          }
-
-          if (str.includes("NUNES") || str.includes("ITABUNA") || str.includes("VIEIRA")) {
-            const eq = empresasList.find(
-              (e) => e.cnpj?.includes("0001-39") || (e.nome && e.nome.toUpperCase().includes("NUNES"))
-            );
-            if (eq) return { nome: eq.nome, cnpj: eq.cnpj };
-            return { nome: "NUNES & VIEIRA LOGISTICA LTDA", cnpj: "48.986.353/0001-39" };
-          }
-
-          return { nome: "NUNES & VIEIRA LOGISTICA LTDA", cnpj: "48.986.353/0001-39" };
-        };
+        const getEmpresaInfo = (employee, companies) =>
+          RHFichaPadrao.resolveCompany(employee?.local_registro, employee?.empresa_id, companies);
 
         const formatarDataBonita = (dateVal) => {
           if (!dateVal) return "-";
@@ -568,12 +534,6 @@
               .order("id", { ascending: true });
             if (error) throw error;
             setEmpresas(data);
-            if (data.length > 0) {
-              // Default to Nunes & Vieira (id 1 usually)
-              const defaultEmp =
-                data.find((e) => e.nome.includes("NUNES")) || data[0];
-              setSelectedEmpresaId(defaultEmp.id);
-            }
           } catch (error) {
             console.error("Error fetching empresas:", error);
           }
@@ -790,7 +750,6 @@
         const [newDeliveryDate, setNewDeliveryDate] = useState("");
         const [newLink, setNewLink] = useState("");
         const [empresas, setEmpresas] = useState([]);
-        const [selectedEmpresaId, setSelectedEmpresaId] = useState(null);
         const scrollContainerRef = useRef(null);
         const getAllowedItemsForRole = (funcao, tab) => {
           if (!funcao || !epiFuncaoRules.length) return [];
@@ -900,50 +859,6 @@
             }
           }
         }, [selectedEmpId]);
-
-        useEffect(() => {
-          if (selectedEmpId !== null && empresas.length > 0) {
-            const emp = employees.find((e) => e.id === selectedEmpId);
-            let foundId = null;
-
-            if (emp && emp.local_registro) {
-              if (emp.empresa_id) {
-                const associated = empresas.find((e) => String(e.id) === String(emp.empresa_id));
-                if (associated) foundId = associated.id;
-              }
-              const regUpper = emp.local_registro.toUpperCase();
-              if (!foundId && regUpper.includes("JEQUIÉ")) {
-                const eq = empresas.find(
-                  (e) =>
-                    e.endereco.toUpperCase().includes("JEQUIÉ") ||
-                    e.cnpj.includes("0002-82"),
-                );
-                if (eq) foundId = eq.id;
-              } else if (!foundId && regUpper.includes("ILHÉUS")) {
-                const eq = empresas.find(
-                  (e) =>
-                    e.endereco.toUpperCase().includes("ILHÉUS") ||
-                    e.cnpj.includes("0001-00"),
-                );
-                if (eq) foundId = eq.id;
-              } else if (!foundId && regUpper.includes("NUNES")) {
-                const eq = empresas.find((e) =>
-                  e.nome.toUpperCase().includes("NUNES"),
-                );
-                if (eq) foundId = eq.id;
-              }
-            }
-
-            if (foundId) {
-              setSelectedEmpresaId(foundId);
-            } else {
-              // Fallback default
-              const defaultEmp =
-                empresas.find((e) => e.nome.includes("NUNES")) || empresas[0];
-              if (defaultEmp) setSelectedEmpresaId(defaultEmp.id);
-            }
-          }
-        }, [selectedEmpId, empresas, employees]);
 
         useEffect(() => {
           setStagedItems([]);
@@ -1333,7 +1248,11 @@
             return;
           }
 
-          const empInfo = getEmpresaInfo(selectedEmployee.local_registro, empresas, selectedEmployee.empresa_id);
+          const empInfo = getEmpresaInfo(selectedEmployee, empresas);
+          if (!empInfo) {
+            alert("Não foi possível identificar o CNPJ do colaborador. Confira a empresa no cadastro antes de emitir a ficha.");
+            return;
+          }
           const dateStr = itemData.ultimaEntrega
             ? itemData.ultimaEntrega.includes("-")
               ? itemData.ultimaEntrega.split("-").reverse().join("/")
@@ -1507,10 +1426,10 @@
             }
 
             // Call PDF Generation before clearing items
-            const empresaSelecionada = empresas.find(
-              (e) => e.id === selectedEmpresaId,
-            );
-            generatePDF(
+            const empresaSelecionada = getEmpresaInfo(empToUpdate, empresas);
+            if (!empresaSelecionada) {
+              alert("A entrega foi salva. Confira a empresa no cadastro para emitir a ficha com o CNPJ correto.");
+            } else generatePDF(
               empToUpdate,
               finalItemsForPDF,
               formattedDate,
@@ -2326,7 +2245,7 @@
                               Empresa / Razão Social
                             </span>
                             <span className="text-xs font-bold text-[#002060] break-words leading-tight">
-                              {getEmpresaInfo(selectedEmployee.local_registro, empresas, selectedEmployee.empresa_id).nome}
+                              {getEmpresaInfo(selectedEmployee, empresas)?.nome || "Empresa não identificada"}
                             </span>
                           </div>
                           <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">
@@ -2334,7 +2253,7 @@
                               CNPJ
                             </span>
                             <span className="text-xs font-semibold text-gray-800 break-words leading-tight">
-                              {getEmpresaInfo(selectedEmployee.local_registro, empresas, selectedEmployee.empresa_id).cnpj}
+                              {getEmpresaInfo(selectedEmployee, empresas)?.cnpj || "—"}
                             </span>
                           </div>
                           <div className="bg-gray-50 border border-gray-100 rounded-xl p-2 md:p-3 flex flex-col justify-center">

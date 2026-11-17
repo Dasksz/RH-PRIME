@@ -217,22 +217,27 @@
 
 
  }
- function resolveReturnCompany(record, employerIds, companies) {
-   const id = record.funcionario_id && employerIds[record.funcionario_id];
+ const companyKey = value => String(value || "").normalize("NFD")
+   .replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toUpperCase();
+ const companyDigits = value => String(value || "").replace(/\D/g, "");
+ function isCompany(company) {
+   return !!companyKey(company?.nome) && companyDigits(company?.cnpj).length === 14;
+ }
+ function resolveCompany(localRegistration, id, companies) {
    if (id != null && id !== "") {
-     return companies.find(company => String(company.id) === String(id)) || null;
+     return companies.find(company => String(company.id) === String(id) && isCompany(company)) || null;
    }
-   const key = value => String(value || "").normalize("NFD")
-     .replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toUpperCase();
-   const registration = key(record.local_registro);
+   const registration = companyKey(localRegistration);
    if (!registration) return null;
-   const cnpj = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/.exec(registration)?.[0]?.replace(/\D/g, "");
-   const matches = companies.filter(company => cnpj
-     ? String(company.cnpj || "").replace(/\D/g, "") === cnpj
-     : key(company.nome) === registration);
+   const cnpj = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/.exec(registration)?.[0];
+   const matches = companies.filter(company => isCompany(company) && (cnpj
+     ? companyDigits(company.cnpj) === companyDigits(cnpj)
+     : companyKey(company.nome) === registration));
    return matches.length === 1 ? matches[0] : null;
  }
-
+ function resolveReturnCompany(record, employerIds, companies) {
+   return resolveCompany(record.local_registro, employerIds[record.funcionario_id], companies);
+ }
  async function savePdf(root, options, preview) {
    const pages = Array.from(root.children).filter(page => page.hasAttribute("data-ficha-pagina"));
    if (!pages.length) throw new Error("Nenhuma página para gerar.");
@@ -266,5 +271,5 @@
    await pdf.save(options.filename, {returnPromise: true});
  }
 
- global.RHFichaPadrao={render, resolveReturnCompany, savePdf};
+ global.RHFichaPadrao={render, isCompany, resolveCompany, resolveReturnCompany, savePdf};
 })(window);
