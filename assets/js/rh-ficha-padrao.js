@@ -158,8 +158,6 @@
             </table>
              `;
 
-            const isLastPage = currentItemIndex + limit >= items.length || items.length === 0;
-
             let termTitle = "Termo de Verificação";
             let termText = "Declaro ciência das movimentações e do saldo de equipamentos relacionados nesta ficha, conforme suas datas, motivos e quantidades. Baixas por perda ou extravio não representam devolução física.";
             if (returnMode === "current" && hasDeliveries) {
@@ -178,7 +176,7 @@
               termTitle = "Termo de Recebimento de EPI";
               termText = "Declaro que conferi os materiais relacionados nesta ficha e confirmo o recebimento dos itens registrados como entregues, nas datas, quantidades e condições informadas. Responsabilizo-me pela guarda e conservação dos itens que permanecem comigo.";
             }
-            const signaturesBlock = isLastPage ? `
+            const signaturesBlock = `
                 <div class="signatures" style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
                     <div style="border: 1px solid #a0a0a0; padding: 10px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
@@ -194,10 +192,10 @@
                         </div>
                     </div>
                 </div>
-              ` : "";
+              `;
 
             pagesHtml += `
-                <div style="${!isFirstPage ? "page-break-before: always; margin-top: 20px;" : ""}">
+                <div data-ficha-pagina>
                     ${pageContent}
                     ${tableContent}
                     ${signaturesBlock}
@@ -219,5 +217,59 @@
 
 
  }
- global.RHFichaPadrao={render};
+ const companyKey = value => String(value || "").normalize("NFD")
+   .replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toUpperCase();
+ const companyDigits = value => String(value || "").replace(/\D/g, "");
+ function isCompany(company) {
+   return !!companyKey(company?.nome) && companyDigits(company?.cnpj).length === 14;
+ }
+ function resolveCompany(localRegistration, id, companies) {
+   if (id != null && id !== "") {
+     return companies.find(company => String(company.id) === String(id) && isCompany(company)) || null;
+   }
+   const registration = companyKey(localRegistration);
+   if (!registration) return null;
+   const cnpj = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/.exec(registration)?.[0];
+   const matches = companies.filter(company => isCompany(company) && (cnpj
+     ? companyDigits(company.cnpj) === companyDigits(cnpj)
+     : companyKey(company.nome) === registration));
+   return matches.length === 1 ? matches[0] : null;
+ }
+ function resolveReturnCompany(record, employerIds, companies) {
+   return resolveCompany(record.local_registro, employerIds[record.funcionario_id], companies);
+ }
+ async function savePdf(root, options, preview) {
+   const pages = Array.from(root.children).filter(page => page.hasAttribute("data-ficha-pagina"));
+   if (!pages.length) throw new Error("Nenhuma página para gerar.");
+   // Render each logical page separately so the PDF export cannot split its signature.
+   const pdfOptions = {...options, pagebreak: {mode: []}, enableLinks: false};
+   const seed = document.createElement("canvas");
+   seed.width = 16;
+   seed.height = 8;
+   const pdf = await html2pdf().set(pdfOptions).from(seed, "canvas").toPdf().get("pdf");
+   const sheet = root.cloneNode(false);
+   root.parentNode.appendChild(sheet);
+   try {
+     for (const page of pages) {
+       sheet.replaceChildren(page.cloneNode(true));
+       const canvas = await html2pdf().set(pdfOptions).from(sheet).toCanvas().get("canvas");
+       const margin = options.margin;
+       const scale = Math.min(
+         (pdf.internal.pageSize.getWidth() - margin * 2) / canvas.width,
+         (pdf.internal.pageSize.getHeight() - margin * 2) / canvas.height
+       );
+       pdf.addPage();
+       pdf.addImage(canvas.toDataURL("image/jpeg", options.image.quality), "JPEG",
+         margin, margin, canvas.width * scale, canvas.height * scale);
+     }
+   } finally {
+     sheet.remove();
+   }
+   pdf.deletePage(1);
+   pdf.setPage(1);
+   if (preview) preview(pdf);
+   await pdf.save(options.filename, {returnPromise: true});
+ }
+
+ global.RHFichaPadrao={render, isCompany, resolveCompany, resolveReturnCompany, savePdf};
 })(window);

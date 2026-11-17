@@ -42,8 +42,7 @@
   return rows;
  }
  function documentHtml(receipt,onlyOperation,companyFallback={}){
-  const s=receipt.snapshot,e=s.colaborador,savedCompany=s.empresa||{},company={...companyFallback,...savedCompany};
-  for(const key of ['nome','cnpj','endereco'])if(!company[key])company[key]=companyFallback[key]||'';
+  const s=receipt.snapshot,e=s.colaborador,savedCompany=s.empresa||{},company=RHFichaPadrao.isCompany(savedCompany)?savedCompany:companyFallback;
   const relevant=onlyOperation?s.movimentos.filter(m=>m.operacao_id===receipt.id):s.movimentos;
   const employee=Object.fromEntries(Object.entries({...e,cargo:e.funcao}).map(([k,v])=>[k,esc(v)]));
   const empresa=Object.fromEntries(Object.entries({...company,nome:company.nome||e.local_registro}).map(([k,v])=>[k,esc(v)]));
@@ -55,16 +54,23 @@
   const hasDeliveries=(current.length?current:currentChecks.length?[]:relevant).some(m=>m.tipo==='entrega');
   return RHFichaPadrao.render(employee,documentRows(receipt,onlyOperation),empresa,returnMode,hasDeliveries);
  }
- async function pdf(receipt,onlyOperation){
+ async function pdf(client,receipt,onlyOperation){
+  const snapshot=receipt.snapshot;
+  const savedCompany=snapshot?.empresa||{};
   let companyFallback={};
-  const savedCompany=receipt.snapshot?.empresa||{};
-  if((!savedCompany.cnpj||!savedCompany.endereco)&&employee.empresa_id){const result=await client.from('empresas').select('id,nome,cnpj,endereco').eq('id',employee.empresa_id).maybeSingle();if(result.error)throw result.error;companyFallback=result.data||{};}
+  if(!RHFichaPadrao.isCompany(savedCompany)){
+   // Do not substitute today's employer for the employer on a historical document.
+   const result=await RH.fetchAll(client,'empresas','id,nome,cnpj,endereco','id');
+   const match=RHFichaPadrao.resolveCompany(savedCompany.cnpj||snapshot?.colaborador?.local_registro,null,result);
+   if(!match)throw Error('O documento antigo não identifica a empresa. Confira o vínculo e use Gerar Ficha (PDF) para emitir uma nova ficha.');
+   companyFallback=match;
+  }
   const container=document.createElement('div');container.className='rh-equipment-pdf-host';container.setAttribute('aria-hidden','true');container.innerHTML=documentHtml(receipt,onlyOperation,companyFallback);document.body.appendChild(container);
   const employeeName=String(receipt.snapshot?.colaborador?.nome||'Colaborador').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,120)||'Colaborador';
   const issuedAt=receipt.created_at?new Date(receipt.created_at):null;
   const issuedParts=issuedAt&&!Number.isNaN(issuedAt.getTime())?Object.fromEntries(new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(issuedAt).map(p=>[p.type,p.value])):null;
   const issuedStamp=issuedParts?issuedParts.day+'-'+issuedParts.month+'-'+issuedParts.year+'_'+issuedParts.hour+'h'+issuedParts.minute:receipt.id;
-  try{await html2pdf().set({margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+employeeName+'_'+issuedStamp+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy'],avoid:['tr','.signatures']}}).from(container.firstElementChild).save();}finally{container.remove();}
+  try{await RHFichaPadrao.savePdf(container.firstElementChild,{margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+employeeName+'_'+issuedStamp+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}});}finally{container.remove();}
  }
  function Control({client,employee,suggestions,onSaved,onVerificationChange}){
   const [tab,setTab]=React.useState('epi'),[rows,setRows]=React.useState([]),[receipts,setReceipts]=React.useState([]),[loading,setLoading]=React.useState(true),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[notice,setNotice]=React.useState('');
@@ -197,7 +203,7 @@
   }
   function removeReturn(id){setReturns(returns.filter(r=>r.origem!==id));setStaged(staged.filter(i=>i.origem!==id));operation.current=null;}
   async function issue(onlyOperation,existing){
-   setBusy(true);setError('');try{let receipt=existing;if(existing){const r=await client.from('rh_equipment_receipts').select('*').eq('id',existing.id).single();if(r.error)throw r.error;receipt=r.data;}else{const r=await client.rpc('rh_registrar_equipamentos',{p_funcionario:employee.id,p_categoria:tab,p_operacao:crypto.randomUUID(),p_itens:[],p_devolucao:null});if(r.error)throw r.error;receipt=r.data;await load();}await pdf(receipt,onlyOperation);}catch(e){setError('Não foi possível gerar o PDF: '+e.message);}finally{setBusy(false);}
+   setBusy(true);setError('');try{let receipt=existing;if(existing){const r=await client.from('rh_equipment_receipts').select('*').eq('id',existing.id).single();if(r.error)throw r.error;receipt=r.data;}else{const r=await client.rpc('rh_registrar_equipamentos',{p_funcionario:employee.id,p_categoria:tab,p_operacao:crypto.randomUUID(),p_itens:[],p_devolucao:null});if(r.error)throw r.error;receipt=r.data;await load();}await pdf(client,receipt,onlyOperation);}catch(e){setError('Não foi possível gerar o PDF: '+e.message);}finally{setBusy(false);}
   }
   async function finish(){
    if(returning||form.nome.trim()){setError('Inclua ou cancele o item em preenchimento antes de concluir a verificação.');return;}
@@ -209,7 +215,7 @@
     const result=await client.rpc('rh_registrar_equipamentos',{p_funcionario:employee.id,p_categoria:tab,p_operacao:operation.current,p_itens:[...staged,...inspected.map(v=>({acao:'verificacao',origem:v.origem,data:v.data})),...correctedItems],p_devolucao:returns});
     if(result.error)throw result.error;saved=true;clearVerification();setNotice(deliveryOnly?'Entrega salva. A ficha está disponível em Documentos emitidos.':'Verificação concluída. As conferências, devoluções e entregas estão registradas na ficha. Você pode emiti-la novamente em Documentos emitidos.');
     await load();if(onSaved)await onSaved();
-    try{await pdf(result.data,false);}catch(e){setError('Verificação salva. O PDF falhou: '+e.message+'. Gere novamente em Documentos emitidos.');}
+    try{await pdf(client,result.data,false);}catch(e){setError('Verificação salva. O PDF falhou: '+e.message+'. Gere novamente em Documentos emitidos.');}
    }catch(e){setError((saved?'Verificação salva; atualização da tela falhou: ':'')+e.message);}finally{setBusy(false);}
   }
   const historicalStockChoice=historicalDelivery&&h('div',{className:'rh-equip-retro-stock'},h('label',null,h('input',{type:'checkbox',checked:!!form.sem_desconto_estoque,onChange:e=>setForm({...form,sem_desconto_estoque:e.target.checked})}),h('span',null,'Registrar sem descontar do estoque atual')),h('small',null,'Use para uma entrega já realizada e considerada no saldo atual. O registro ficará no histórico, mesmo sem saldo disponível.'));
