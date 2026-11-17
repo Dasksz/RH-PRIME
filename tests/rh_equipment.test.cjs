@@ -41,3 +41,19 @@ const checksReceipt={...receipt,id:'check-only',snapshot:{...receipt.snapshot,ve
 const checkHtml=api.documentHtml(checksReceipt,false);assert.ok(checkHtml.includes('Verificado em 15/10/2026'));assert.ok(checkHtml.includes('Termo de Movimentação e Responsabilidade de EPI'));assert.ok(checkHtml.includes('histórico de devoluções'));assert.ok(!checkHtml.includes('Termo de Recebimento (Entrega)'));assert.equal(api.documentRows(checksReceipt,false).find(x=>x.nomeItem.includes('Verificado em')).dataEntrega,'2026-10-15');
 const oldReceipt={id:'old',snapshot:{...receipt.snapshot,movimentos:[{id:'a',tipo:'entrega',quantidade:1,descricao:'BOTA',data_movimento:'2026-01-02',operacao_id:'old'}],verificacoes:[{id:'v',entrega_id:'a',operacao_id:'check',data_verificacao:'2026-10-15'}]}};
 assert.equal(api.documentRows(oldReceipt,false)[0].dataEntrega,'2026-01-02');assert.ok(api.documentHtml(oldReceipt,false).includes('Verificado em 15/10/2026'));console.log('OK: conferência visível na ficha, termo adequado e data original preservada');
+
+const companies=[
+ {id:1,nome:'NUNES & VIEIRA LOGISTICA LTDA',cnpj:'48.986.353/0001-39'},
+ {id:2,nome:'PRIME DISTRIBUICAO LTDA',cnpj:'52.522.019/0001-00',endereco:'Ilhéus/BA'},
+ {id:3,nome:'PRIME DISTRIBUICAO LTDA',cnpj:'52.522.019/0002-82',endereco:'Jequié/BA'},
+];
+assert.equal(ctx.RHFichaPadrao.resolveReturnCompany({funcionario_id:'vinculado',local_registro:companies[0].nome},{vinculado:2},companies),companies[1]);
+assert.equal(ctx.RHFichaPadrao.resolveReturnCompany({local_registro:companies[1].nome},{},companies),null);
+assert.equal(ctx.RHFichaPadrao.resolveReturnCompany({local_registro:companies[0].nome},{},companies),companies[0]);
+assert.equal(ctx.RHFichaPadrao.resolveReturnCompany({local_registro:companies[2].cnpj},{},companies),companies[2]);
+const manyDeliveries=Array.from({length:21},(_,i)=>({id:'entrega-'+i,tipo:'entrega',descricao:'MATERIAL '+i,quantidade:1,data_movimento:'2026-11-17',operacao_id:'delivery-only'}));
+const multi=api.documentHtml({...deliveryReceipt,snapshot:{...deliveryReceipt.snapshot,movimentos:manyDeliveries}},false,companies[1]);
+const sheets=multi.split('<div data-ficha-pagina>').slice(1);
+assert.deepEqual(sheets.map(sheet=>(sheet.match(/MATERIAL \d+/g)||[]).length),[5,15,1]);
+assert.ok(sheets.every(sheet=>sheet.includes('Data: ____/____/________')&&sheet.includes('Assinatura do Colaborador')));
+console.log('OK: CNPJ por vínculo e data/assinatura em todas as páginas');

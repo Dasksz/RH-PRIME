@@ -48,8 +48,8 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
-    <script src="assets/js/rh-ficha-padrao.js?v=20261015d"></script>
-    <script src="assets/js/rh-equipamentos.js?v=20261109-full-history-edit"></script>
+    <script src="assets/js/rh-ficha-padrao.js?v=20261117-paginas"></script>
+    <script src="assets/js/rh-equipamentos.js?v=20261117-paginas"></script>
     <script type="text/babel" data-type="text/javascript" data-presets="react">
       const { useState, useMemo, useEffect, useRef } = React;
 
@@ -219,6 +219,7 @@
       function App() {
         const [employees, setEmployees] = useState([]);
         const [devolucoes, setDevolucoes] = useState([]);
+        const [empresasPorFuncionario, setEmpresasPorFuncionario] = useState({});
         const [selectedDevolucaoId, setSelectedDevolucaoId] = useState(null);
         const [checkedDevolucaoItems, setCheckedDevolucaoItems] = useState({});
         const [epiFuncaoRules, setEpiFuncaoRules] = useState([]);
@@ -406,7 +407,7 @@
 
                 const getEmpresaInfo = (localRegistro, empresasList = [], empresaId = null) => {
           const byId = empresaId && empresasList.find((e) => String(e.id) === String(empresaId));
-          if (byId) return { nome: byId.nome, cnpj: byId.cnpj };
+          if (byId) return byId;
           if (!localRegistro) {
             const def = empresasList.find((e) => e.nome && e.nome.toUpperCase().includes("NUNES")) || empresasList[0];
             return def ? { nome: def.nome, cnpj: def.cnpj } : { nome: "NUNES & VIEIRA LOGISTICA LTDA", cnpj: "48.986.353/0001-39" };
@@ -586,6 +587,22 @@
               .order("created_at", { ascending: false });
             if (error) throw error;
             const initialDev = data || [];
+            const ids = [...new Set(initialDev.map((d) => d.funcionario_id).filter(Boolean))];
+            const vinculos = {};
+            for (let i = 0; i < ids.length; i += 100) {
+              const { data: funcionarios, error: lookupError } = await supabase
+                .from("funcionarios_epi")
+                .select("id,empresa_id")
+                .in("id", ids.slice(i, i + 100));
+              if (lookupError) {
+                console.error("Não foi possível consultar os vínculos das devoluções:", lookupError);
+                continue;
+              }
+              for (const funcionario of funcionarios || []) {
+                vinculos[funcionario.id] = funcionario.empresa_id;
+              }
+            }
+            setEmpresasPorFuncionario(vinculos);
             setDevolucoes(initialDev);
             const initialCheckedMap = {};
             initialDev.forEach((d) => {
@@ -642,7 +659,7 @@
           const item = itemToDevolver;
           try {
             if (generatePDFOption) {
-              handleGenerateDevolucaoPDF(item, false);
+              if (!await handleGenerateDevolucaoPDF(item, false)) return;
             }
 
             await supabase.from("sistema_logs").insert([
@@ -1045,7 +1062,7 @@
           );
         };
 
-        const generatePDF = (emp, items, dateStr, empresaInfo, isDevolucaoPDF = false) => {
+        const generatePDF = async (emp, items, dateStr, empresaInfo, isDevolucaoPDF = false) => {
           const formatShortDate = (rawDate) => {
             if (!rawDate) return "";
             const str = String(rawDate).trim();
@@ -1065,11 +1082,9 @@
             }
             return str;
           };
-          const empNome = empresaInfo?.nome || "NUNES & VIEIRA LOGISTICA LTDA";
-          const empCnpj = empresaInfo?.cnpj || "48.986.353/0001-39";
-          const empEnd =
-            empresaInfo?.endereco ||
-            "Tv São Pedro, 426, CEP: 45.604-570, Itabuna/BA";
+          const empNome = empresaInfo?.nome || "";
+          const empCnpj = empresaInfo?.cnpj || "";
+          const empEnd = empresaInfo?.endereco || "";
 
           // Create a hidden div for the PDF content
           const container = document.createElement("div");
@@ -1208,10 +1223,7 @@
             </table>
              `;
 
-            const isLastPage = currentItemIndex + limit >= items.length || items.length === 0;
-
-            const signaturesBlock = isLastPage
-              ? isDevolucaoPDF
+            const signaturesBlock = isDevolucaoPDF
                 ? `
                 <div style="margin-top: 12px; border: 1px solid black; padding: 8px; page-break-inside: avoid;">
                     <div style="border: 1px solid #a0a0a0; padding: 10px; background-color: #fafafa; display: flex; flex-direction: column; justify-content: space-between;">
@@ -1249,11 +1261,10 @@
                         </div>
                     </div>
                 </div>
-              `
-              : "";
+              `;
 
             pagesHtml += `
-                <div style="${!isFirstPage ? "page-break-before: always; margin-top: 20px;" : ""}">
+                <div data-ficha-pagina>
                     ${pageContent}
                     ${tableContent}
                     ${signaturesBlock}
@@ -1268,14 +1279,14 @@
           }
 
           container.innerHTML = `
-            <div id="pdf-content" style="width: 1080px; background: white; font-family: Arial, Helvetica, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px; letter-spacing: 0.2px; word-spacing: 1px; text-rendering: optimizeLegibility;">
+            <div style="width: 1080px; background: white; font-family: Arial, Helvetica, sans-serif; padding: 20px; box-sizing: border-box; color: black; font-size: 10px; letter-spacing: 0.2px; word-spacing: 1px; text-rendering: optimizeLegibility;">
                 ${pagesHtml}
             </div>
           `;
 
           document.body.appendChild(container);
 
-          const element = document.getElementById("pdf-content");
+          const element = container.firstElementChild;
           const safeName = (emp.nome || "Funcionario").replace(
             /[^a-z0-9]/gi,
             "_",
@@ -1292,21 +1303,16 @@
             pagebreak: { mode: ["css", "legacy"] },
           };
 
-          html2pdf()
-            .set(opt)
-            .from(element)
-            .toPdf()
-            .get("pdf")
-            .then(function (pdf) {
+          try {
+            await RHFichaPadrao.savePdf(element, opt, (pdf) => {
               window.open(pdf.output("bloburl"), "_blank");
-            })
-            .save()
-            .then(() => {
-              document.body.removeChild(container);
             });
+          } finally {
+            container.remove();
+          }
         };
 
-                const handlePrintEmployeeHistoryPDF = (type = null) => {
+                const handlePrintEmployeeHistoryPDF = async (type = null) => {
           if (!selectedEmployee) return;
           const tab = type || activeTab;
           const itemData = tab === "epi" ? selectedEmployee.epi : selectedEmployee.fardamento;
@@ -1334,10 +1340,15 @@
               : itemData.ultimaEntrega
             : new Date().toLocaleDateString("pt-BR");
 
-          generatePDF(selectedEmployee, parsedItems, dateStr, empInfo, false);
+          try {
+            await generatePDF(selectedEmployee, parsedItems, dateStr, empInfo, false);
+          } catch (error) {
+            console.error("Erro ao gerar ficha:", error);
+            alert("Não foi possível gerar a ficha em PDF.");
+          }
         };
 
-        const handleGenerateDevolucaoPDF = (devolucaoRecord, onlyChecked = false) => {
+        const handleGenerateDevolucaoPDF = async (devolucaoRecord, onlyChecked = false) => {
           if (!devolucaoRecord) return;
 
           const recordChecked = checkedDevolucaoItems[devolucaoRecord.id] || {};
@@ -1398,10 +1409,21 @@
             local_registro: devolucaoRecord.local_registro
           };
 
-          const empInfo = getEmpresaInfo(devolucaoRecord.local_registro, empresas);
+          const empInfo = RHFichaPadrao.resolveReturnCompany(devolucaoRecord, empresasPorFuncionario, empresas);
+          if (!empInfo?.cnpj) {
+            alert("Não foi possível identificar o CNPJ do colaborador. Confira a empresa no cadastro antes de emitir a ficha.");
+            return false;
+          }
           const dateStr = new Date().toLocaleDateString("pt-BR");
 
-          generatePDF(empObject, itemsForPdf, dateStr, empInfo, true);
+          try {
+            await generatePDF(empObject, itemsForPdf, dateStr, empInfo, true);
+            return true;
+          } catch (error) {
+            console.error("Erro ao gerar ficha de devolução:", error);
+            alert("Não foi possível gerar a ficha de devolução em PDF.");
+            return false;
+          }
         };
 
         const handleRegisterAll = async () => {
@@ -1493,7 +1515,10 @@
               finalItemsForPDF,
               formattedDate,
               empresaSelecionada,
-            );
+            ).catch((error) => {
+              console.error("Erro ao gerar ficha de entrega:", error);
+              alert("A entrega foi salva, mas não foi possível gerar a ficha em PDF.");
+            });
 
             // Note: Supabase Realtime will automatically trigger fetchEmployees and update the state!
             setIsNewVerification(false);
@@ -2071,7 +2096,7 @@
                     );
                   }
 
-                  const empInfo = getEmpresaInfo(item.local_registro, empresas);
+                  const empInfo = RHFichaPadrao.resolveReturnCompany(item, empresasPorFuncionario, empresas);
 
                   // Calculate total items and checked items count
                   const epiParsed = parseItemString(item.epi_itens);
@@ -2150,11 +2175,11 @@
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                           <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-100">
                             <span className="text-[10px] font-bold uppercase text-blue-900/70 block">Razão Social</span>
-                            <span className="font-bold text-[#002060] text-sm block mt-0.5">{empInfo.nome}</span>
+                            <span className="font-bold text-[#002060] text-sm block mt-0.5">{empInfo?.nome || "Empresa não identificada"}</span>
                           </div>
                           <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-100">
                             <span className="text-[10px] font-bold uppercase text-blue-900/70 block">CNPJ</span>
-                            <span className="font-mono font-bold text-slate-800 text-sm block mt-0.5">{empInfo.cnpj}</span>
+                            <span className="font-mono font-bold text-slate-800 text-sm block mt-0.5">{empInfo?.cnpj || "—"}</span>
                           </div>
                           <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-100">
                             <span className="text-[10px] font-bold uppercase text-blue-900/70 block">Local de Registro</span>
