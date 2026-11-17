@@ -231,6 +231,10 @@
         const [itemToDevolver, setItemToDevolver] = useState(null);
         const [finalizandoDevolucao, setFinalizandoDevolucao] = useState(false);
         const [erroDevolucao, setErroDevolucao] = useState("");
+        const [itensDestino, setItensDestino] = useState(null);
+        const [destinos, setDestinos] = useState({});
+        const [carregandoDestinos, setCarregandoDestinos] = useState(false);
+        const devolucaoOperacao = useRef(null);
 
         const [isAuthChecking, setIsAuthChecking] = useState(true);
 
@@ -611,53 +615,64 @@
           }
         };
 
-        const triggerMarcarDevolvido = (item) => {
+        const triggerMarcarDevolvido = async (item) => {
           setErroDevolucao("");
           setItemToDevolver(item);
+          setItensDestino(null);
+          setDestinos({});
+          devolucaoOperacao.current = crypto.randomUUID();
           setIsConfirmDevolucaoModalOpen(true);
+          setCarregandoDestinos(true);
+          try {
+            const {data, error} = await supabase.rpc("rh_itens_devolucao_pendente", {p_id: item.id});
+            if (error) throw error;
+            setItensDestino(Array.isArray(data) ? data : []);
+          } catch (error) {
+            console.error("Erro ao carregar itens de devolução:", error);
+            setErroDevolucao(error.message || "Não foi possível consultar as entregas. Feche a janela e tente novamente.");
+          } finally {
+            setCarregandoDestinos(false);
+          }
         };
 
+        const encaminhamentos = (itensDestino || []).map(item => ({
+          id: item.id,
+          tamanho: item.tamanho,
+          estoque: Number(destinos[item.id]?.estoque || 0),
+          desgaste: Number(destinos[item.id]?.desgaste || 0),
+        })).filter(item => item.estoque !== 0 || item.desgaste !== 0);
+        const quantidadesInvalidas = encaminhamentos.some(item => {
+          const original = itensDestino.find(linha => linha.id === item.id);
+          return original.conflito_tamanho || (!original.pode_reintegrar && item.estoque !== 0) ||
+            ![item.estoque, item.desgaste].every(n => Number.isInteger(n) && n >= 0) ||
+            item.estoque + item.desgaste > Number(original.saldo);
+        });
+
         const handleConfirmMarcarDevolvido = async (generatePDFOption = false) => {
-          if (!itemToDevolver || finalizandoDevolucao) return;
+          if (!itemToDevolver || finalizandoDevolucao || !encaminhamentos.length || quantidadesInvalidas) return;
           const item = itemToDevolver;
           setFinalizandoDevolucao(true);
           setErroDevolucao("");
           try {
-            if (generatePDFOption) {
-              if (!await handleGenerateDevolucaoPDF(item, false)) return;
-            }
-
-            await supabase.from("sistema_logs").insert([
-              {
-                tabela_afetada: "devolucoes_pendentes",
-                tipo_operacao: "DELETE",
-                descricao: `Devolução concluída para ${item.funcionario_nome} (Marcar como Devolvido)`,
-                dados_anteriores: item,
-                dados_novos: null,
-              },
-            ]);
-
-            const { data: concluida, error } = await supabase
-              .from("devolucoes_pendentes")
-              .delete()
-              .eq("id", item.id)
-              .select("id")
-              .maybeSingle();
-
+            const {data, error} = await supabase.rpc("rh_destinar_devolucao", {
+              p_id: item.id, p_operacao: devolucaoOperacao.current, p_itens: encaminhamentos
+            });
             if (error) throw error;
-            if (!concluida) {
-              setErroDevolucao("A pendência não foi concluída. Confira sua permissão ou atualize a lista e tente novamente.");
-              return;
-            }
+            if (!data || !Array.isArray(data.itens)) throw Error("O sistema não confirmou a gravação. Tente novamente nesta janela.");
 
-            setDevolucoes((prev) => prev.filter((d) => d.id !== item.id));
-            setSelectedDevolucaoId(null);
+            if (data.concluida) {
+              setDevolucoes(prev => prev.filter(d => d.id !== item.id));
+              setSelectedDevolucaoId(null);
+            }
             setIsConfirmDevolucaoModalOpen(false);
             setItemToDevolver(null);
-            alert("Registro de devolução finalizado e tirado do sistema!");
-          } catch (err) {
-            console.error("Erro ao marcar como devolvido:", err);
-            setErroDevolucao("Não foi possível concluir a devolução. Tente novamente.");
+
+            const pdfGerado = !generatePDFOption || await handleGenerateDevolucaoPDF(item, false, data);
+            const resumo = data.concluida ? "Devolução concluída." : `Devolução registrada. Ainda há ${data.restante} un. pendentes.`;
+            alert(resumo + (pdfGerado ? "" : " A movimentação foi salva, mas o PDF não pôde ser gerado."));
+          } catch (error) {
+            console.error("Erro ao registrar devolução:", error);
+            setErroDevolucao(error.message || "Não foi possível registrar a devolução. Tente novamente.");
           } finally {
             setFinalizandoDevolucao(false);
           }
@@ -1281,7 +1296,7 @@
           }
         };
 
-        const handleGenerateDevolucaoPDF = async (devolucaoRecord, onlyChecked = false) => {
+        const handleGenerateDevolucaoPDF = async (devolucaoRecord, onlyChecked = false, movimentacao = null) => {
           if (!devolucaoRecord) return;
 
           const recordChecked = checkedDevolucaoItems[devolucaoRecord.id] || {};
@@ -1297,29 +1312,36 @@
             devolucaoRecord.fardamento_data || todayIso
           );
 
-          const itemsForPdf = [];
+          const itemsForPdf = movimentacao ? movimentacao.itens.map(it => ({
+            nomeItem: it.descricao + (it.tamanho && it.tamanho !== "ÚNICO" ? ` (Tam. ${it.tamanho})` : ""),
+            dataEntrega: it.data_entrega, ca: it.ca, qtd: it.quantidade,
+            dataDevolucao: movimentacao.data,
+            motivoDevolucao: it.destino === "estoque" ? "Estoque disponível" : "Desgaste / avaria",
+          })) : [];
 
           // Process EPI items (include ALL items, fill devolução data only if checked)
-          epiItems.forEach((it, idx) => {
+          if (!movimentacao) epiItems.forEach((it, idx) => {
             const itemKey = `epi_${idx}_${it.nomeItem}`;
             const isChecked = !!recordChecked[itemKey];
+            if (onlyChecked && !isChecked) return;
 
             itemsForPdf.push({
               ...it,
-              dataDevolucao: isChecked ? todayIso : "",
-              motivoDevolucao: isChecked ? "Desligamento" : ""
+              dataDevolucao: "",
+              motivoDevolucao: ""
             });
           });
 
           // Process Fardamento items (include ALL items, fill devolução data only if checked)
-          fardamentoItems.forEach((it, idx) => {
+          if (!movimentacao) fardamentoItems.forEach((it, idx) => {
             const itemKey = `fardamento_${idx}_${it.nomeItem}`;
             const isChecked = !!recordChecked[itemKey];
+            if (onlyChecked && !isChecked) return;
 
             itemsForPdf.push({
               ...it,
-              dataDevolucao: isChecked ? todayIso : "",
-              motivoDevolucao: isChecked ? "Desligamento" : ""
+              dataDevolucao: "",
+              motivoDevolucao: ""
             });
           });
 
@@ -2097,6 +2119,7 @@
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                           Materiais Pendentes de Devolução
                         </h3>
+                        <p className="text-xs text-slate-500 mb-3">Lista do desligamento para conferência. Consulte o saldo atual e escolha o destino em Marcar como Devolvido.</p>
 
                         {item.epi_itens && (
                           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
@@ -2133,10 +2156,10 @@
                           <button
                             onClick={() => handleGenerateDevolucaoPDF(item, true)}
                             className="w-full sm:w-auto bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs px-4 py-3 rounded-xl transition-all border border-amber-200 flex items-center justify-center gap-1.5 shadow-xs"
-                            title="Gerar PDF da ficha de devolução apenas com os itens selecionados/conferidos"
+                            title="Imprimir os itens conferidos, sem registrar a devolução no estoque"
                           >
                             <FileText size={16} className="text-amber-600" />
-                            Gerar Ficha de Devolução
+                            Gerar Ficha para Conferência
                           </button>
 
                           {!allChecked && totalItemsCount > 0 && (
@@ -2402,7 +2425,7 @@
               {/* Modal de Confirmação de Devolução */}
               {isConfirmDevolucaoModalOpen && itemToDevolver && ReactDOM.createPortal(
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
-                  <div role="dialog" aria-modal="true" aria-labelledby="titulo-confirmar-devolucao" aria-busy={finalizandoDevolucao} className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
+                  <div role="dialog" aria-modal="true" aria-labelledby="titulo-confirmar-devolucao" aria-busy={finalizandoDevolucao || carregandoDestinos} className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90dvh] overflow-y-auto shadow-xl border border-gray-100">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
                         <CheckCircle2 size={24} />
@@ -2418,33 +2441,59 @@
                     </div>
 
                     <p className="text-sm text-gray-600 mb-6">
-                      Deseja marcar os itens como devolvidos e finalizar esta pendência? Você pode também gerar a Ficha de Devolução em PDF com as datas de entrega e devolução preenchidas.
+                      Informe quantas unidades foram recebidas em cada condição. O que não for informado continua pendente.
                     </p>
 
+                    {carregandoDestinos && <p role="status" className="text-sm text-gray-600 mb-4">Consultando as entregas…</p>}
+                    {itensDestino?.length === 0 && <p className="text-sm text-amber-700 mb-4">Não há itens em posse vinculados a esta pendência. Confira o histórico antes de registrar uma devolução.</p>}
+                    {itensDestino?.map(item => (
+                      <div key={item.id} className="border border-slate-200 rounded-xl p-3 mb-3">
+                        <h4 className="font-bold text-sm text-slate-800">{item.descricao} · {item.tamanho}</h4>
+                        <p className="text-xs text-slate-500 mb-2">{item.filial || "Filial não vinculada"} · Entrega: {formatarDataBonita(item.data_entrega)} · Em posse: {item.saldo} un.</p>
+                        {item.conflito_tamanho ? <p className="text-xs text-amber-700">O tamanho da ficha difere do histórico. Corrija a entrega antes de destinar este item.</p> :
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {[["estoque", "Boas condições — estoque disponível"], ["desgaste", "Com desgaste / avaria — área de devolvidos"]].map(([destino,label]) => (
+                              <label key={destino} className="text-xs font-semibold text-slate-600">
+                                {label}
+                                <input type="number" inputMode="numeric" step="1" min="0" max={item.saldo}
+                                  value={destinos[item.id]?.[destino] ?? ""}
+                                  disabled={finalizandoDevolucao || (destino === "estoque" && !item.pode_reintegrar)}
+                                  onChange={event => {
+                                    const value = event.target.value;
+                                    setDestinos(prev => ({...prev, [item.id]: {...prev[item.id], [destino]: value}}));
+                                  }}
+                                  placeholder="0" className="block w-full mt-1 border border-slate-300 rounded-lg p-2 bg-white text-slate-900 disabled:opacity-50" />
+                              </label>
+                            ))}
+                          </div>}
+                        {!item.conflito_tamanho && !item.pode_reintegrar && <p className="text-xs text-amber-700 mt-1">Sem cadastro, tamanho ou filial válidos para reintegração ao estoque.</p>}
+                      </div>
+                    ))}
+                    {quantidadesInvalidas && <p role="alert" className="text-xs text-red-600 mb-3">Informe quantidades inteiras que somem, no máximo, a quantidade em posse de cada item.</p>}
                     {erroDevolucao && <p role="alert" className="text-sm text-red-600 mb-4">{erroDevolucao}</p>}
                     {finalizandoDevolucao && <p role="status" className="text-sm text-gray-600 mb-4">Concluindo devolução…</p>}
                     <div className="flex flex-col gap-2.5">
                       <button
                         type="button"
-                        disabled={finalizandoDevolucao}
+                        disabled={finalizandoDevolucao || carregandoDestinos || !encaminhamentos.length || quantidadesInvalidas}
                         onClick={() => handleConfirmMarcarDevolvido(true)}
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
                       >
-                        <FileText size={16} /> Gerar Ficha PDF & Finalizar
+                        <FileText size={16} /> Registrar devolução e gerar PDF
                       </button>
 
                       <button
                         type="button"
-                        disabled={finalizandoDevolucao}
+                        disabled={finalizandoDevolucao || carregandoDestinos || !encaminhamentos.length || quantidadesInvalidas}
                         onClick={() => handleConfirmMarcarDevolvido(false)}
                         className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition-colors border border-slate-200"
                       >
-                        Apenas Finalizar (Sem PDF)
+                        Registrar devolução sem PDF
                       </button>
 
                       <button
                         type="button"
-                        disabled={finalizandoDevolucao}
+                        disabled={finalizandoDevolucao || carregandoDestinos}
                         autoFocus
                         onClick={() => {
                           setIsConfirmDevolucaoModalOpen(false);
