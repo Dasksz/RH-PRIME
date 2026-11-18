@@ -53,37 +53,64 @@
     const employee = escapeFields(doc.colaborador);
     const admission = doc.colaborador.admissao;
     const detail = escape(doc.variante ? detailLabels[doc.detalhe] + ' — ' + doc.variante : '—');
+    const cell = 'padding:6px 8px;border:1px solid #111!important;overflow-wrap:anywhere';
     return `
-      <div class="rh-asset-document" style="width:1080px;background:white;color:#111;font:14px/1.45 Arial,sans-serif;padding:24px;box-sizing:border-box">
+      <div class="rh-asset-document" style="width:1080px;background:white;color:#111;font:13px/1.35 Arial,sans-serif;padding:24px;box-sizing:border-box">
         <div data-ficha-pagina>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;border:1px solid #111;padding:14px;background:#102c38;color:#f1f8fa">
-            <div><strong>${company.nome}</strong><br>CNPJ ${company.cnpj}<br>${company.endereco}</div>
-            <strong style="font-size:18px">FICHA INDIVIDUAL DE ENTREGA DE EQUIPAMENTOS</strong>
-          </div>
-          <div style="border:1px solid #111;margin:12px 0;padding:12px">
-            <strong>Colaborador</strong> ${employee.nome} · <strong>CPF</strong> ${employee.cpf}<br>
-            <strong>Função</strong> ${employee.cargo} · <strong>Setor</strong> ${employee.setor} · <strong>Unidade</strong> ${employee.unidade}
-            <br><strong>Data de admissão</strong> ${admission ? escape(formatDate(admission)) : 'Não informada'}
-          </div>
-          <table style="width:100%;border-collapse:collapse;color:#111">
-            <thead><tr style="background:#003399;color:white;text-align:left">
-              <th style="padding:8px">Data da entrega</th><th>Equipamento</th><th>Ano / modelo / descrição</th><th>Qtd.</th>
-            </tr></thead>
-            <tbody><tr style="border:1px solid #111">
-              <td style="padding:8px">${formatDate(event.data)}</td><td>${escape(doc.item)}</td><td>${detail}</td><td>${event.quantidade}</td>
-            </tr></tbody>
-          </table>
-          ${event.observacao ? '<p style="overflow-wrap:anywhere"><strong>Observação</strong> ' + escape(event.observacao) + '</p>' : ''}
-          <div style="border:1px solid #111;margin-top:16px;padding:14px">
-            <strong style="color:#002060">TERMO DE RECEBIMENTO E RESPONSABILIDADE</strong>
-            <p>Declaro que recebi e conferi o equipamento acima. Comprometo-me a utilizá-lo para o trabalho, zelar por sua guarda e conservação, comunicar prontamente perda, extravio ou dano e devolvê-lo quando solicitado ou ao término do vínculo. O desgaste normal decorrente do uso regular fica excluído.</p>
-            <p>Em caso de perda ou dano, eventual ressarcimento será limitado ao prejuízo efetivamente comprovado, após apuração da responsabilidade. O custo atualizado de reparo ou reposição por item equivalente poderá servir de referência documentada, consideradas as condições e a vida útil do bem entregue. Eventual desconto salarial observará o art. 462, § 1º, da CLT e as normas coletivas aplicáveis, mediante ajuste prévio e culpa comprovada ou dolo comprovado.</p>
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-top:44px">
-              <span>Data ____/____/________</span>
-              <span style="width:50%;border-top:1px solid #111;text-align:center">Assinatura do colaborador</span>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid #111;text-align:center;overflow-wrap:anywhere">
+            <div style="padding:10px 14px;border-right:1px solid #111">
+              <strong style="font-size:16px">${company.nome}</strong><br>
+              <strong>CNPJ:</strong> ${company.cnpj}<br><strong>Endereço:</strong> ${company.endereco}
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;padding:10px 14px">
+              <strong style="font-size:18px">FICHA INDIVIDUAL DE ENTREGA DE EQUIPAMENTOS</strong>
             </div>
           </div>
-          <p style="font-size:10px;color:#333">Registro ${escape(event.id)}</p>
+          <div style="border:1px solid #111;margin:6px 0 12px;overflow-wrap:anywhere">
+            <div style="display:grid;grid-template-columns:3fr 1fr 1.35fr;gap:12px;padding:5px 8px;border-bottom:1px solid #111">
+              <div><strong>Nome:</strong> ${employee.nome}</div>
+              <div><strong>CPF:</strong> ${employee.cpf}</div>
+              <div><strong>Data de admissão:</strong> ${admission ? escape(formatDate(admission)) : 'Não informada'}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1.25fr 2.5fr 1fr;gap:12px;padding:5px 8px">
+              <div><strong>Setor:</strong> ${employee.setor}</div>
+              <div><strong>Função:</strong> ${employee.cargo}</div>
+              <div><strong>Unidade:</strong> ${employee.unidade}</div>
+            </div>
+          </div>
+          <div style="border:1px solid #111;margin-bottom:8px;padding:8px;overflow-wrap:anywhere">
+            <strong style="color:#b91c1c">TERMO DE RESPONSABILIDADE</strong>
+            <p style="margin:4px 0">Comprometo-me a utilizar o equipamento para o trabalho, zelar por sua guarda e conservação, comunicar prontamente perda, extravio ou dano e devolvê-lo quando solicitado ou ao término do vínculo. O desgaste normal decorrente do uso regular fica excluído.</p>
+            <p style="margin:0">Em caso de perda ou dano, eventual ressarcimento será limitado ao prejuízo efetivamente comprovado, após apuração da responsabilidade. O custo atualizado de reparo ou reposição por item equivalente poderá servir de referência documentada, consideradas as condições e a vida útil do bem entregue. Eventual desconto salarial observará o art. 462, § 1º, da CLT e as normas coletivas aplicáveis, mediante ajuste prévio e culpa comprovada ou dolo comprovado.</p>
+          </div>
+          <table style="width:100%;table-layout:fixed;border-collapse:collapse;color:#111">
+            <colgroup><col style="width:17%"><col style="width:34%"><col style="width:39%"><col style="width:10%"></colgroup>
+            <thead>
+              <tr><th colspan="4" style="${cell};background:#003399;color:white;text-align:center">EQUIPAMENTO ENTREGUE</th></tr>
+              <tr style="background:#f1f1f1;text-align:center">
+                <th scope="col" style="${cell}">Data da entrega</th><th scope="col" style="${cell}">Equipamento</th>
+                <th scope="col" style="${cell}">Ano / modelo / descrição</th><th scope="col" style="${cell}">Qtd.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="${cell};text-align:center">${formatDate(event.data)}</td><td style="${cell}">${escape(doc.item)}</td>
+                <td style="${cell}">${detail}</td><td style="${cell};text-align:center">${event.quantidade}</td>
+              </tr>
+              ${event.observacao ? '<tr><td colspan="4" style="' + cell + '"><strong>Observação:</strong> ' + escape(event.observacao) + '</td></tr>' : ''}
+            </tbody>
+          </table>
+          <div style="border:1px solid #111;margin-top:12px;padding:8px">
+            <div style="background:#f7f7f7;border:1px solid #aaa;padding:10px">
+              <strong style="color:#002060">TERMO DE RECEBIMENTO DE EQUIPAMENTO</strong>
+              <p style="margin:4px 0 0">Declaro que recebi e conferi o equipamento acima.</p>
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:32px">
+                <span><strong>Data:</strong> ____/____/________</span>
+                <span style="width:50%;border-top:1px solid #111;padding-top:4px;text-align:center">Assinatura do colaborador</span>
+              </div>
+            </div>
+          </div>
+          <p style="margin:4px 0 0;font-size:10px;color:#333">Registro ${escape(event.id)}</p>
         </div>
       </div>`;
   }
