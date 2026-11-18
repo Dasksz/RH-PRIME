@@ -50,8 +50,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
     <script src="assets/js/rh-ficha-padrao.js?v=20261117-empresa-paginas"></script>
-    <script src="assets/js/rh-assets.js?v=20261118"></script>
-    <script src="assets/js/rh-equipamentos.js?v=20261117-empresa-paginas"></script>
+    <script src="assets/js/rh-assets.js?v=20261118-aba"></script>
+    <script src="assets/js/rh-equipamentos.js?v=20261118-aba"></script>
     <script type="text/babel" data-type="text/javascript" data-presets="react">
       const { useState, useMemo, useEffect, useRef } = React;
 
@@ -2301,8 +2301,7 @@
                       </div>
                     </div>
                   </div>
-                  <RHEquipment.Control key={selectedEmpId} client={supabase} employee={selectedEmployee} suggestions={(tab) => getAllowedItemsForRole(selectedEmployee.cargo, tab)} onSaved={fetchEmployees} onVerificationChange={(open) => { equipmentVerificationOpen.current = open; }} />
-                  <RHAssets.Module key={'assets-' + selectedEmpId} client={supabase} employee={selectedEmployee} />
+                  <RHEquipment.Control key={selectedEmpId} client={supabase} employee={selectedEmployee} suggestions={(tab) => getAllowedItemsForRole(selectedEmployee.cargo, tab)} onSaved={fetchEmployees} onVerificationChange={(open) => { equipmentVerificationOpen.current = open; }} equipmentTab={<RHAssets.Module client={supabase} employee={selectedEmployee} />} />
                 </React.Fragment>
               )}
 

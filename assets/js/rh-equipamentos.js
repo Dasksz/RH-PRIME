@@ -72,7 +72,8 @@
   const issuedStamp=issuedParts?issuedParts.day+'-'+issuedParts.month+'-'+issuedParts.year+'_'+issuedParts.hour+'h'+issuedParts.minute:receipt.id;
   try{await RHFichaPadrao.savePdf(container.firstElementChild,{margin:5,filename:(onlyOperation?'Movimentacao_':'Ficha_Equipamentos_')+employeeName+'_'+issuedStamp+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}});}finally{container.remove();}
  }
- function Control({client,employee,suggestions,onSaved,onVerificationChange}){
+ function Control({client,employee,suggestions,onSaved,onVerificationChange,equipmentTab}){
+  const [assetTab,setAssetTab]=React.useState(null);
   const [tab,setTab]=React.useState('epi'),[rows,setRows]=React.useState([]),[receipts,setReceipts]=React.useState([]),[loading,setLoading]=React.useState(true),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[notice,setNotice]=React.useState('');
   const [deliveryOnly,setDeliveryOnly]=React.useState(false),[verifying,setVerifying]=React.useState(false),[returns,setReturns]=React.useState([]),[staged,setStaged]=React.useState([]),[checks,setChecks]=React.useState([]),[inspected,setInspected]=React.useState([]),[verificationDate,setVerificationDate]=React.useState(RH.today);
   const [corrections,setCorrections]=React.useState([]),[nameCorrections,setNameCorrections]=React.useState([]),[editingDate,setEditingDate]=React.useState(null),editRef=React.useRef(null);
@@ -259,9 +260,12 @@
     m.comprovante&&/^https?:\/\//i.test(m.comprovante)&&h('a',{href:m.comprovante,target:'_blank',rel:'noopener noreferrer'},'Ver comprovante')
    )))
   );});
-  if(loading)return h('div',{className:'rh-equip'},'Carregando equipamentos…');
   return h('section',{className:'rh-equip','aria-label':'Controle de equipamentos'},
-   h('div',{className:'rh-equip-tabs'},['epi','fardamento'].map(t=>h('button',{key:t,disabled:busy||verifying,onClick:()=>setTab(t),'aria-pressed':tab===t},icon(t==='epi'?'shield':'shirt'),t==='epi'?'EPIs':'Fardas'))),
+   loading?'Carregando equipamentos…':h('div',{className:'rh-equip-tabs'},['epi','fardamento'].map(t=>h('button',{key:t,disabled:busy||verifying,onClick:()=>{setTab(t);if(assetTab)setAssetTab(false);},'aria-pressed':!assetTab&&tab===t},icon(t==='epi'?'shield':'shirt'),t==='epi'?'EPIs':'Fardas')),
+    equipmentTab&&h('button',{type:'button',disabled:busy||verifying||!!editingDate||!!historyEdit,onClick:()=>setAssetTab(true),'aria-pressed':assetTab===true},
+     h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,'aria-hidden':true},h('path',{d:'M4 7h16v14H4zM3 3h18v4H3zM10 11h4'})),'Equipamentos')),
+   assetTab!==null&&h('div',{hidden:!assetTab},equipmentTab),
+   !loading&&!assetTab&&h(React.Fragment,null,
    error&&h('p',{role:'alert',className:'rh-equip-error'},error),notice&&h('p',{role:'status',className:'rh-equip-notice'},notice),
    editingDate&&h('section',{ref:editRef,className:'rh-equip-card rh-equip-date-form','aria-label':'Corrigir data de entrega'},h('h3',null,'Editar data — '+editingDate.row.descricao),h('p',null,'Data atual: '+date(editingDate.row.data_movimento)),h('form',{onSubmit:saveDate},h('fieldset',{disabled:busy},h('label',null,'Data da entrega',h('input',{type:'date',required:true,max:RH.today(),value:editingDate.data,onChange:e=>setEditingDate({...editingDate,data:e.target.value})})),h('label',null,'Motivo da correção',h('textarea',{required:true,minLength:3,maxLength:500,value:editingDate.motivo,onChange:e=>setEditingDate({...editingDate,motivo:e.target.value}),placeholder:'Ex.: data digitada incorretamente no cadastro anterior'})),h('p',{className:'rh-equip-date-note'},'A nova data será usada no histórico e nas próximas fichas. Os documentos já emitidos continuam preservados.'),h('div',{className:'rh-equip-actions'},h('button',{type:'submit',disabled:editingDate.data===editingDate.row.data_movimento},busy?'Salvando…':'Salvar data'),h('button',{type:'button',className:'rh-equip-action',onClick:()=>setEditingDate(null)},'Cancelar'))))),
    !returning&&!editingDate&&h('section',{className:'rh-equip-card rh-equip-add'},h('h3',null,icon('add'),'Adicionar '+(tab==='epi'?'EPI':'Fardamento')),h('form',{onSubmit:add},h('fieldset',{disabled:busy,className:'rh-equip-add-fields'},equipmentFields,h('button',{type:'submit'},'＋ Incluir'))),deliveryOnly&&summary),
@@ -277,7 +281,7 @@
     (!verifying||deliveryOnly)&&h('button',{className:'rh-equip-action rh-equip-open',disabled:busy,onClick:openVerification},'Abrir verificação')),
     !groups.length&&h('div',{className:'rh-equip-empty'},'Nenhum registro encontrado.'),
     h('div',{className:'rh-equip-history-grid'},historyCards)),
-   receipts.length>0&&h('section',{className:'rh-equip-card'},h('h3',null,'Documentos emitidos'),receipts.map(r=>h('div',{className:'rh-equip-actions',key:r.id},h('span',null,date(r.created_at)+' · '+r.id.slice(0,8)),h('button',{className:'rh-equip-action',disabled:busy||verifying,onClick:()=>issue(false,r)},'Ficha desta emissão'),rows.some(m=>m.operacao_id===r.id)&&h('button',{className:'rh-equip-action',disabled:busy||verifying,onClick:()=>issue(true,r)},'Comprovante da movimentação'))))
+   receipts.length>0&&h('section',{className:'rh-equip-card'},h('h3',null,'Documentos emitidos'),receipts.map(r=>h('div',{className:'rh-equip-actions',key:r.id},h('span',null,date(r.created_at)+' · '+r.id.slice(0,8)),h('button',{className:'rh-equip-action',disabled:busy||verifying,onClick:()=>issue(false,r)},'Ficha desta emissão'),rows.some(m=>m.operacao_id===r.id)&&h('button',{className:'rh-equip-action',disabled:busy||verifying,onClick:()=>issue(true,r)},'Comprovante da movimentação')))))
   );
  }
 
