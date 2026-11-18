@@ -148,7 +148,7 @@
   try{
    await RH.profile(client);
    if(window.RHAssets){
-    window.ReactDOM.createRoot($('asset-stock')).render(window.React.createElement(window.RHAssets.Module,{client}));
+    window.ReactDOM.createRoot($('asset-stock')).render(window.React.createElement(window.RHAssets.Module,{client,registrationTarget:$('asset-registration')}));
    }
    const catalogRoles=await RH.result(client.rpc('rh_stock_catalog_roles'));
    managesStock=Array.isArray(catalogRoles);

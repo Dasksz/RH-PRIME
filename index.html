@@ -50,7 +50,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
     <script src="assets/js/rh-ficha-padrao.js?v=20261117-empresa-paginas"></script>
-    <script src="assets/js/rh-assets.js?v=20261118-aba"></script>
+    <script src="assets/js/rh-assets.js?v=20261118-comprovante"></script>
     <script src="assets/js/rh-equipamentos.js?v=20261118-aba"></script>
     <script type="text/babel" data-type="text/javascript" data-presets="react">
       const { useState, useMemo, useEffect, useRef } = React;
@@ -740,8 +740,27 @@
         };
         const [activeTab, setActiveTab] = useState("epi");
         const [dashboardFilter, setDashboardFilter] = useState("geral");
+        const [assetDeliveredIds, setAssetDeliveredIds] = useState(null);
+        const [assetFilterError, setAssetFilterError] = useState("");
+        const fetchAssetDeliveredIds = async () => {
+          try {
+            const ids = await RH.result(supabase.rpc("rh_asset_delivered_employees"));
+            setAssetDeliveredIds(new Set(ids));
+            setAssetFilterError("");
+          } catch (error) {
+            setAssetFilterError(error.message);
+          }
+        };
+        useEffect(() => {
+          if (dashboardFilter === "equipamentos") fetchAssetDeliveredIds();
+        }, [dashboardFilter]);
         const [statusFilter, setStatusFilter] = useState("todos");
         const [viewMode, setViewModeState] = useState("dashboard");
+        useEffect(() => {
+          if (viewMode === "dashboard") {
+            setDashboardFilter(current => current === "equipamentos" ? "geral" : current);
+          }
+        }, [viewMode]);
         const setViewMode = (mode) => {
           if (equipmentVerificationOpen.current && !window.confirm("Há uma verificação aberta. Descartar as alterações e sair?")) return;
           setViewModeState(mode);
@@ -900,6 +919,9 @@
         }, [selectedEmpId, activeTab]);
 
         const getEmployeeStatus = (emp) => {
+          if (viewMode === "controle" && dashboardFilter === "equipamentos") {
+            return assetDeliveredIds?.has(emp.id) ? "em_dia" : "sem_entrega";
+          }
           if (dashboardFilter === "epi") {
             if (!emp.epi.ultimaEntrega) return "sem_entrega";
             if (emp.epi.status === "vencido") return "vencido";
@@ -924,6 +946,7 @@
         const normalizeFilter = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 
         const filteredEmployees = useMemo(() => {
+          if (dashboardFilter === "equipamentos" && !assetDeliveredIds) return [];
           const lowerSearch = searchTerm.toLowerCase();
           return employees.filter((emp) => {
             const matchesSearch = emp.nomeLower.includes(lowerSearch);
@@ -934,7 +957,7 @@
             if (statusFilter === "todos") return true;
             return getEmployeeStatus(emp) === statusFilter;
           });
-        }, [employees, searchTerm, statusFilter, dashboardFilter, filterFuncao, filterSetor, filterFilial]);
+        }, [employees, searchTerm, statusFilter, dashboardFilter, filterFuncao, filterSetor, filterFilial, assetDeliveredIds, viewMode]);
 
         const optionEmployees = [...employees, ...devolucoes.map((item) => ({ ...item, cargo: item.funcao }))];
         const optionsFor = (field) => [...new Set(optionEmployees.map((emp) => (emp[field] || "").toString().trim()).filter(Boolean).map((value) => value.toUpperCase()))].sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -964,7 +987,7 @@
               ? Math.round((emDia / employees.length) * 100)
               : 0;
           return { emDia, vencidos, semRegistro, taxaConformidade };
-        }, [employees, dashboardFilter]);
+        }, [employees, dashboardFilter, assetDeliveredIds, viewMode]);
 
         const handleAddStagedItem = (e) => {
           e.preventDefault();
@@ -1813,8 +1836,8 @@
                       className="flex-1 py-3 md:py-2.5 px-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#002060] shadow-sm text-[14px] md:text-xs transition-shadow focus:shadow-md text-slate-700 font-medium appearance-none truncate"
                     >
                       <option value="todos">Todos os status</option>
-                      <option value="em_dia">Entregues / Em dia</option>
-                      <option value="vencido">Para verificação / Vencidos</option>
+                      <option value="em_dia">{dashboardFilter === "equipamentos" ? "Com entrega de equipamentos" : "Entregues / Em dia"}</option>
+                      {dashboardFilter !== "equipamentos" && <option value="vencido">Para verificação / Vencidos</option>}
                       <option value="sem_entrega">Sem entrega</option>
                     </select>
 
@@ -1867,7 +1890,19 @@
                     >
                       Fardamento
                     </button>
+                    <button
+                      onClick={() => { setDashboardFilter("equipamentos"); setStatusFilter("em_dia"); }}
+                      className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-all ${dashboardFilter === "equipamentos" ? "bg-white text-[#002060] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                      aria-pressed={dashboardFilter === "equipamentos"}
+                    >
+                      Equipamentos
+                    </button>
                   </div>
+                )}
+                {dashboardFilter === "equipamentos" && assetFilterError && (
+                  <button type="button" onClick={fetchAssetDeliveredIds} className="text-sm text-red-600">
+                    Falha ao consultar equipamentos. Tentar novamente
+                  </button>
                 )}
               </div>
 
@@ -1965,7 +2000,9 @@
                 {((statusFilter === "devolucoes" && devolucoes.length === 0) ||
                   (statusFilter !== "devolucoes" && filteredEmployees.length === 0)) && (
                   <div className="text-center p-6 text-gray-400 text-sm font-medium">
-                    Nenhum colaborador encontrado.
+                    {dashboardFilter === "equipamentos" && !assetDeliveredIds
+                      ? assetFilterError ? "Consulta de equipamentos indisponível." : "Consultando entregas de equipamentos…"
+                      : "Nenhum colaborador encontrado."}
                   </div>
                 )}
               </div>
@@ -2301,7 +2338,7 @@
                       </div>
                     </div>
                   </div>
-                  <RHEquipment.Control key={selectedEmpId} client={supabase} employee={selectedEmployee} suggestions={(tab) => getAllowedItemsForRole(selectedEmployee.cargo, tab)} onSaved={fetchEmployees} onVerificationChange={(open) => { equipmentVerificationOpen.current = open; }} equipmentTab={<RHAssets.Module client={supabase} employee={selectedEmployee} />} />
+                  <RHEquipment.Control key={selectedEmpId} client={supabase} employee={selectedEmployee} suggestions={(tab) => getAllowedItemsForRole(selectedEmployee.cargo, tab)} onSaved={fetchEmployees} onVerificationChange={(open) => { equipmentVerificationOpen.current = open; }} equipmentTab={<RHAssets.Module client={supabase} employee={selectedEmployee} onSaved={fetchAssetDeliveredIds} />} />
                 </React.Fragment>
               )}
 

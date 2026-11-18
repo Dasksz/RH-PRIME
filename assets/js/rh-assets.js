@@ -103,7 +103,7 @@
     }
   }
 
-  function Module({client, employee}) {
+  function Module({client, employee, onSaved, registrationTarget}) {
     const [data, setData] = React.useState(null);
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState('');
@@ -111,6 +111,7 @@
     const defaultEditor = employee ? 'entrega' : null;
     const [editing, setEditing] = React.useState(defaultEditor);
     const [draft, setDraft] = React.useState(() => ({data: RH.today(), quantidade: 1}));
+    const [proofEdit, setProofEdit] = React.useState(null);
     const request = React.useRef(null);
     const inFlight = React.useRef(false);
     const employeeId = employee?.id;
@@ -182,7 +183,18 @@
             p: {...draft, acao: editing, quantidade: Number(draft.quantidade), funcionario_id: employeeId}
           }));
         }
+        if (editing === 'entrega' && onSaved) onSaved();
         resetEditor();
+      }, true);
+    }
+
+    function saveProof(event, delivery) {
+      event.preventDefault();
+      run(async () => {
+        await RH.result(client.rpc('rh_asset_proof', {
+          p_event: delivery.id, p_previous: delivery.comprovante || '', p_link: proofEdit.link.trim()
+        }));
+        setProofEdit(null);
       }, true);
     }
 
@@ -242,6 +254,9 @@
           editing === 'devolucao' && field('Destino', select('destino', Object.entries(destinations).map(([id, name]) => option(id, name)))),
           field(isReturning || editing === 'ajuste' ? 'Motivo / condição' : 'Observação', input('observacao', {
             maxLength: 1000, required: isReturning || editing === 'ajuste'
+          })),
+          editing === 'entrega' && field('Link do comprovante (opcional)', input('comprovante', {
+            type: 'url', maxLength: 2000, placeholder: 'https://…'
           }))
         ]).filter(Boolean).map((element, index) => React.cloneElement(element, {key: index}));
     const editor = editing && h('form', {onSubmit: submit, key: editing},
@@ -301,22 +316,47 @@
                   [actionLabels[event.acao], formatDate(event.data), 'Qtd. ' + event.quantidade, destinations[event.destino], event.observacao].filter(Boolean).join(' · '))))),
               h('div', {className: 'rh-equip-actions'},
                 button('Gerar Ficha (PDF)', {className: 'rh-equip-action rh-equip-document', disabled: busy, onClick: () => run(() => download(item))}),
+                /^https?:\/\//i.test(item.comprovante || '') &&
+                  h('a', {href: item.comprovante, target: '_blank', rel: 'noopener noreferrer'}, 'Ver comprovante'),
+                canEdit && button(item.comprovante ? 'Editar link' : 'Adicionar comprovante', {
+                  className: 'rh-equip-action', disabled: busy,
+                  onClick: () => setProofEdit({id: item.id, link: item.comprovante || ''})
+                }),
                 canEdit && item.restante > 0 && [
                   button('Devolver', {key: 'return', className: 'rh-equip-action rh-equip-return', disabled: busy || isReturning, onClick: () => start('devolucao', {entrega_id: item.id})}),
                   button('Registrar baixa', {key: 'loss', className: 'rh-equip-action', disabled: busy || isReturning, onClick: () => start('baixa', {entrega_id: item.id})})
-                ]))))));
+                ]),
+              proofEdit?.id === item.id && h('form', {onSubmit: event => saveProof(event, item)},
+                h('fieldset', {disabled: busy},
+                  field('Link do comprovante', h('input', {
+                    type: 'url', maxLength: 2000, placeholder: 'https://…', value: proofEdit.link,
+                    onChange: event => setProofEdit({...proofEdit, link: event.target.value})
+                  })),
+                  h('div', {className: 'rh-equip-actions'},
+                    button('Salvar link', {type: 'submit', className: 'rh-equip-action'}),
+                    button('Cancelar link', {className: 'rh-equip-action', onClick: () => setProofEdit(null)})))))))));
     }
 
     return h('section', {className: 'rh-asset-panel'}, heading,
+      canEdit && registrationTarget && ReactDOM.createPortal(button('Cadastrar equipamento', {
+        disabled: busy, onClick: () => {
+          start('tipo', {detalhe: 'nenhum'});
+          requestAnimationFrame(() => {
+            const form = document.querySelector('#asset-stock form');
+            form?.scrollIntoView({block: 'center'});
+            form?.querySelector('input')?.focus({preventScroll: true});
+          });
+        }
+      }), registrationTarget),
       canEdit && h('div', {className: 'rh-asset-actions'},
-        button('Cadastrar tipo', {disabled: busy, onClick: () => start('tipo', {detalhe: 'nenhum'})}),
+        !registrationTarget && button('Cadastrar equipamento', {disabled: busy, onClick: () => start('tipo', {detalhe: 'nenhum'})}),
         button('Registrar entrada', {disabled: busy, onClick: () => start('entrada')}),
         button('Registrar saída', {disabled: busy, onClick: () => start('ajuste')})),
       editor,
       error && h('p', {role: 'alert', className: 'rh-asset-error'}, error),
       notice && h('p', {role: 'status'}, notice),
       h('h3', null, 'Tipos cadastrados'),
-      h('p', null, types.map(type => type.nome).join(' · ') || 'Nenhum tipo cadastrado.'),
+      h('p', null, types.map(type => type.nome + (type.detalhe === 'nenhum' ? '' : ' (' + detailLabels[type.detalhe].toLowerCase() + ')')).join(' · ') || 'Nenhum tipo cadastrado.'),
       h('h3', null, 'Saldo por filial'),
       table(['Item', 'Filial', 'Disponível'], [...stock].sort((a, b) => describeStock(a).localeCompare(describeStock(b), 'pt-BR') || a.filial.localeCompare(b.filial))
         .map(item => cells(item.id, [describeStock(item), item.filial, item.quantidade])), 'Registre uma entrada para informar o estoque físico.'),
