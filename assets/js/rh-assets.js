@@ -51,19 +51,21 @@
     const escapeFields = object => Object.fromEntries(Object.entries(object).map(([key, value]) => [key, escape(value)]));
     const company = escapeFields(doc.empresa);
     const employee = escapeFields(doc.colaborador);
+    const admission = doc.colaborador.admissao;
     const detail = escape(doc.variante ? detailLabels[doc.detalhe] + ' — ' + doc.variante : '—');
     return `
       <div class="rh-asset-document" style="width:1080px;background:white;color:#111;font:14px/1.45 Arial,sans-serif;padding:24px;box-sizing:border-box">
         <div data-ficha-pagina>
-          <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;border:1px solid #111;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;border:1px solid #111;padding:14px;background:#102c38;color:#f1f8fa">
             <div><strong>${company.nome}</strong><br>CNPJ ${company.cnpj}<br>${company.endereco}</div>
             <strong style="font-size:18px">FICHA INDIVIDUAL DE ENTREGA DE EQUIPAMENTOS</strong>
-          </header>
+          </div>
           <div style="border:1px solid #111;margin:12px 0;padding:12px">
             <strong>Colaborador</strong> ${employee.nome} · <strong>CPF</strong> ${employee.cpf}<br>
             <strong>Função</strong> ${employee.cargo} · <strong>Setor</strong> ${employee.setor} · <strong>Unidade</strong> ${employee.unidade}
+            <br><strong>Data de admissão</strong> ${admission ? escape(formatDate(admission)) : 'Não informada'}
           </div>
-          <table style="width:100%;border-collapse:collapse">
+          <table style="width:100%;border-collapse:collapse;color:#111">
             <thead><tr style="background:#003399;color:white;text-align:left">
               <th style="padding:8px">Data da entrega</th><th>Equipamento</th><th>Ano / modelo / descrição</th><th>Qtd.</th>
             </tr></thead>
