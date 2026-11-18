@@ -6,7 +6,7 @@
  let products=[],stock=[],returned=[],events=[],roles=[],names={},managesStock=false,editing=null,counting=null,busy=false,operation=null,transferRequest=null,classificationSource=null,classificationRequest=null;
  const n=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
  function notice(text,error=false){$('notice').textContent=text;$('notice').className=error?'error':'';}
- async function action(fn,errorId){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);document.querySelectorAll('dialog fieldset').forEach(e=>e.disabled=true);try{await fn();}catch(e){if(errorId)$(errorId).textContent=e.message;else notice(e.message,true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);document.querySelectorAll('dialog fieldset').forEach(e=>e.disabled=false);$('productCategory').disabled=false;$('roles').disabled=$('allRoles').checked;if($('transferDialog').open)previewTransfer();if($('classificationDialog').open)previewClassification();}}
+ async function action(fn,errorId){if(busy)return;busy=true;document.querySelectorAll('button:not(#asset-stock button)').forEach(b=>b.disabled=true);document.querySelectorAll('dialog fieldset').forEach(e=>e.disabled=true);try{await fn();}catch(e){if(errorId)$(errorId).textContent=e.message;else notice(e.message,true);}finally{busy=false;document.querySelectorAll('button:not(#asset-stock button)').forEach(b=>b.disabled=false);document.querySelectorAll('dialog fieldset').forEach(e=>e.disabled=false);$('productCategory').disabled=false;$('roles').disabled=$('allRoles').checked;if($('transferDialog').open)previewTransfer();if($('classificationDialog').open)previewClassification();}}
  async function load(){
   [products,stock,returned]=await Promise.all([RH.fetchAll(client,'rh_products'),RH.fetchAll(client,'rh_stock','*','produto_id'),RH.fetchAll(client,'rh_returned_items','*','id')]);
   if(managesStock){const result=await client.from('rh_stock_events').select('*').order('created_at',{ascending:false}).limit(100);if(result.error)throw result.error;events=result.data;}
@@ -147,6 +147,9 @@
  (async()=>{
   try{
    await RH.profile(client);
+   if(window.RHAssets){
+    window.ReactDOM.createRoot($('asset-stock')).render(window.React.createElement(window.RHAssets.Module,{client}));
+   }
    const catalogRoles=await RH.result(client.rpc('rh_stock_catalog_roles'));
    managesStock=Array.isArray(catalogRoles);
    if(managesStock){
