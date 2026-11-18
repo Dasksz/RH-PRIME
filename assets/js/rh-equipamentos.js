@@ -3,6 +3,7 @@
  'use strict';
  const h=React.createElement;
  const icon=(name,size=18)=>h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},...(name==='add'?[h('path',{key:1,d:'M8 6h13M8 12h7M8 18h7M3 6h.01M3 12h.01M3 18h.01M19 15v6M16 18h6'})]:name==='shirt'?[h('path',{key:1,d:'m16 3 6 4-3 5-3-2v11H8V10l-3 2-3-5 6-4a4 4 0 0 0 8 0Z'})]:name==='calendar'?[h('rect',{key:1,x:3,y:5,width:18,height:16,rx:2}),h('path',{key:2,d:'M16 3v4M8 3v4M3 11h18'})]:name==='check'?[h('circle',{key:1,cx:12,cy:12,r:9}),h('path',{key:2,d:'m8 12 3 3 5-6'})]:[h('path',{key:1,d:'M12 3 3 7v6c0 5 9 9 9 9s9-4 9-9V7Z'})]));
+ function HistoryStatus(){return h('span',{className:'rh-equip-history-status','aria-hidden':true},icon('check',16));}
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const date=v=>!v?'Não informada':String(v).includes('T')?new Date(v).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):String(v).slice(0,10).split('-').reverse().join('/');
  function nameParts(v){const [base,...rest]=String(v).replace(/\s+-\s*$/,'').trim().split(/\s+-\s+/);return {equipamento:base.trim(),complemento:rest.join(' - ').trim()};}
@@ -247,7 +248,7 @@
      staged.map((i,index)=>h('div',{key:index,className:'rh-equip-item'},h('strong',null,(i.origem?'Substituto: ':'Nova entrega: ')+i.equipamento+(i.complemento?' - '+i.complemento:'')),h('p',null,'Qtd. '+i.quantidade+' · '+(caLabel(i)||'Sem C.A. ou tamanho')+' · '+date(i.data)),i.sem_desconto_estoque&&h('small',{className:'rh-equip-historical-note'},'Entrega histórica · sem desconto no estoque atual'),!i.origem&&h('button',{className:'rh-equip-action',disabled:busy||!!form.nome.trim(),onClick:()=>{setForm({nome:i.equipamento+(i.complemento?' - '+i.complemento:''),ca:i.ca,tamanho:i.tamanho||'',quantidade:i.quantidade,data:i.data,comprovante:i.comprovante,sem_desconto_estoque:!!i.sem_desconto_estoque});setStaged(staged.filter((_,j)=>j!==index));operation.current=null;}},'Editar'),h('button',{className:'rh-equip-action',disabled:busy,onClick:()=>{setStaged(staged.filter((_,j)=>j!==index));operation.current=null;},'aria-label':'Remover nova entrega de '+i.equipamento},'Remover'))),
      h('div',{className:'rh-equip-actions rh-equip-finish'},h('button',{className:'rh-equip-primary',disabled:busy||!!returning||(!returns.length&&!staged.length&&!inspected.length),onClick:finish},busy?'Salvando…':deliveryOnly?'Salvar e gerar ficha':'Concluir verificação e gerar ficha'),deliveryOnly&&h('button',{className:'rh-equip-action',disabled:busy,onClick:cancelVerification},'Cancelar entrega')));
   const historyCards=groups.map(([when,list],index)=>{const expired=list.some(m=>needsReview(m,verified,RH.today()));return h('section',{className:'rh-equip-card rh-equip-history-group'+(expired?' rh-equip-expired':''),key:when},
-   h('div',{className:'rh-equip-history-heading'},h('span',{className:'rh-equip-history-status'},icon('check',16)),h('div',null,h('h4',null,index===0?'Última Entrega':'Entrega Anterior'),h('p',null,icon('calendar',12),date(when)),expired&&h('span',{className:'rh-equip-expired-label'},'Verificação pendente · 180 dias'))),h('strong',{className:'rh-equip-items-label'},'Itens:'),
+   h('div',{className:'rh-equip-history-heading'},h(HistoryStatus),h('div',null,h('h4',null,index===0?'Última Entrega':'Entrega Anterior'),h('p',null,icon('calendar',12),date(when)),expired&&h('span',{className:'rh-equip-expired-label'},'Verificação pendente · 180 dias'))),h('strong',{className:'rh-equip-items-label'},'Itens:'),
    h('ul',null,list.map(m=>h('li',{key:m.id,id:'rh-equipment-history-'+m.id},
     h('span',null,displayedName(m)+(m.ca?' (CA: '+m.ca+')':'')+' — Qtd: '+m.quantidade+(m.tamanho?' · Tam.: '+m.tamanho:'')+(m.saldo!==m.quantidade?' · Em posse: '+m.saldo:'')),
     historyItemEditor(m),
@@ -285,6 +286,6 @@
   );
  }
 
- global.RHEquipment={Control,nameParts,balances,latestChecks,latestCorrections,needsReview,documentRows,documentHtml};
+ global.RHEquipment={Control,HistoryStatus,nameParts,balances,latestChecks,latestCorrections,needsReview,documentRows,documentHtml};
 })(window);
 

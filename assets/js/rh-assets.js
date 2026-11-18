@@ -351,7 +351,7 @@
           h('div', {className: 'rh-equip-history-grid'}, deliveries.map((item, index) =>
             h('section', {className: 'rh-equip-card rh-equip-history-group', key: item.id},
               h('div', {className: 'rh-equip-history-heading'},
-                h('span', {className: 'rh-equip-history-status', 'aria-hidden': true}, '✓'),
+                h(global.RHEquipment.HistoryStatus),
                 h('div', null, h('h4', null, index === 0 ? 'Última Entrega' : 'Entrega Anterior'),
                   h('p', null, formatDate(item.data)))),
               h('strong', {className: 'rh-equip-items-label'}, 'Item:'),
