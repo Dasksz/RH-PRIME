@@ -12,6 +12,7 @@
   const field = (label, input) => h('label', null, label, input);
   const button = (label, props = {}) => h('button', {type: 'button', ...props}, label);
   const describe = (name, variant) => [name, variant].filter(Boolean).join(' · ');
+  const normalizeTypeName = name => (name || '').trim().toLowerCase();
 
   function table(headers, rows, empty) {
     return h('div', {className: 'rh-asset-scroll'}, h('table', null,
@@ -114,6 +115,8 @@
     const [proofEdit, setProofEdit] = React.useState(null);
     const request = React.useRef(null);
     const inFlight = React.useRef(false);
+    const stockDialog = React.useRef(null);
+    const stockEditorOpen = !employee && Boolean(editing);
     const employeeId = employee?.id;
 
     async function load() {
@@ -128,6 +131,17 @@
 
     React.useEffect(() => { load().catch(err => setError(err.message)); }, [client, employeeId]);
 
+    React.useLayoutEffect(() => {
+      const dialog = stockDialog.current;
+      if (!dialog) return;
+      if (stockEditorOpen) {
+        if (!dialog.open) dialog.showModal();
+        dialog.querySelector('input, select')?.focus();
+      } else if (dialog.open) {
+        dialog.close();
+      }
+    }, [editing, stockEditorOpen]);
+
     async function run(task, reload = false) {
       if (inFlight.current) return;
       inFlight.current = true;
@@ -137,7 +151,7 @@
       try {
         await task();
         if (reload) {
-          setNotice('Registro salvo.');
+          setNotice(editing === 'tipo' ? 'Tipo de equipamento cadastrado.' : 'Registro salvo.');
           try {
             await load();
           } catch (err) {
@@ -168,14 +182,28 @@
 
     function change(values) {
       request.current = null;
+      if (editing === 'tipo') setError('');
       setDraft(old => ({...old, ...values}));
+    }
+
+    function cancelStockEditor() {
+      setError('');
+      resetEditor();
     }
 
     function submit(event) {
       event.preventDefault();
+      if (editing === 'tipo' && (existingType || !draft.nome?.trim())) return;
       run(async () => {
         if (editing === 'tipo') {
-          await RH.result(client.from('rh_asset_types').insert({nome: draft.nome.trim(), detalhe: draft.detalhe}));
+          try {
+            await RH.result(client.from('rh_asset_types').insert({nome: draft.nome.trim(), detalhe: draft.detalhe}));
+          } catch (err) {
+            if (err.code !== '23505') throw err;
+            setError('Já existe um tipo com esse nome. Use o cadastro existente para registrar uma entrada.');
+            try { await load(); } catch { /* A mensagem de duplicidade continua disponível. */ }
+            return;
+          }
         } else {
           request.current ||= crypto.randomUUID();
           await RH.result(client.rpc('rh_asset_event', {
@@ -210,6 +238,8 @@
     }
 
     const {access, types, stock, events} = data;
+    const existingType = editing === 'tipo' && types.find(type =>
+      normalizeTypeName(type.nome) === normalizeTypeName(draft.nome));
     const typeById = new Map(types.map(type => [type.id, type]));
     const stockById = new Map(stock.map(item => [item.id, item]));
     const describeStock = item => item ? describe(typeById.get(item.tipo_id)?.nome, item.variante) : 'Equipamento';
@@ -233,8 +263,8 @@
     }, option('', 'Selecione'), options);
 
     const editorFields = (editing === 'tipo' ? [
-          field('Nome do tipo', input('nome', {required: true, maxLength: 80})),
-          field('Informação obrigatória', select('detalhe', [
+          field('Nome do tipo', input('nome', {required: true, maxLength: 80, placeholder: 'Ex.: Notebook'})),
+          field('Informação exigida na entrada', select('detalhe', [
             option('nenhum', 'Nenhuma'), option('ano', 'Ano'), option('modelo', 'Modelo'), option('descricao', 'Descrição')
           ]))
         ] : [
@@ -259,13 +289,27 @@
             type: 'url', maxLength: 2000, placeholder: 'https://…'
           }))
         ]).filter(Boolean).map((element, index) => React.cloneElement(element, {key: index}));
-    const editor = editing && h('form', {onSubmit: submit, key: editing},
-      h('fieldset', {disabled: busy, className: 'rh-asset-fields'},
-        h('legend', null, editing === 'tipo' ? 'Cadastrar tipo de equipamento' : actionLabels[editing]),
-        editorFields,
-        h('div', {className: 'rh-asset-actions'},
-          button('Salvar', {type: 'submit'}),
-          button('Cancelar', {onClick: resetEditor}))));
+    const editor = canEdit && h('dialog', {
+      ref: stockDialog, className: 'rh-asset-dialog', 'aria-labelledby': 'rh-asset-dialog-title',
+      onCancel: event => {
+        event.preventDefault();
+        if (!inFlight.current) cancelStockEditor();
+      }
+    }, stockEditorOpen && h('form', {onSubmit: submit, key: editing},
+      h('h2', {id: 'rh-asset-dialog-title'},
+        editing === 'tipo' ? 'Cadastrar tipo de equipamento' : 'Registrar ' + actionLabels[editing].toLowerCase()),
+      editing === 'tipo' && h('p', {className: 'muted'}, 'Cadastre o tipo uma vez. Para adicionar unidades ao estoque, registre uma entrada.'),
+      h('fieldset', {disabled: busy, className: 'rh-asset-editor-fields'}, editorFields),
+      existingType && h('p', {role: 'status', className: 'rh-asset-existing'},
+        'O tipo ', h('strong', null, existingType.nome), ' já está cadastrado.'),
+      error && !existingType && h('p', {role: 'alert', className: 'error'}, error),
+      h('div', {className: 'rh-asset-actions rh-asset-dialog-actions'},
+        button('Cancelar', {className: 'secondary', disabled: busy, onClick: cancelStockEditor}),
+        existingType
+          ? button('Registrar entrada', {disabled: busy, onClick: () => start('entrada', {tipo_id: existingType.id})})
+          : button(editing === 'tipo' ? 'Salvar cadastro' : 'Salvar movimentação', {
+            type: 'submit', disabled: busy || (editing === 'tipo' && !draft.nome?.trim())
+          }))));
 
     if (employee) {
       const returns = new Map();
@@ -339,21 +383,14 @@
 
     return h('section', {className: 'rh-asset-panel'}, heading,
       canEdit && registrationTarget && ReactDOM.createPortal(button('Cadastrar equipamento', {
-        disabled: busy, onClick: () => {
-          start('tipo', {detalhe: 'nenhum'});
-          requestAnimationFrame(() => {
-            const form = document.querySelector('#asset-stock form');
-            form?.scrollIntoView({block: 'center'});
-            form?.querySelector('input')?.focus({preventScroll: true});
-          });
-        }
+        disabled: busy, onClick: () => start('tipo', {detalhe: 'nenhum'})
       }), registrationTarget),
       canEdit && h('div', {className: 'rh-asset-actions'},
         !registrationTarget && button('Cadastrar equipamento', {disabled: busy, onClick: () => start('tipo', {detalhe: 'nenhum'})}),
         button('Registrar entrada', {disabled: busy, onClick: () => start('entrada')}),
         button('Registrar saída', {disabled: busy, onClick: () => start('ajuste')})),
       editor,
-      error && h('p', {role: 'alert', className: 'rh-asset-error'}, error),
+      error && !stockEditorOpen && h('p', {role: 'alert', className: 'rh-asset-error'}, error),
       notice && h('p', {role: 'status'}, notice),
       h('h3', null, 'Tipos cadastrados'),
       h('p', null, types.map(type => type.nome + (type.detalhe === 'nenhum' ? '' : ' (' + detailLabels[type.detalhe].toLowerCase() + ')')).join(' · ') || 'Nenhum tipo cadastrado.'),

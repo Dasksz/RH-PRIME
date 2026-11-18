@@ -21,28 +21,40 @@ html[data-rh-theme=dark] #asset-stock .rh-asset-panel { background: #172e39; }
   cursor: pointer;
 }
 .rh-asset-panel button:disabled { opacity: .55; cursor: default; }
-.rh-asset-fields {
+.rh-asset-dialog {
+  max-width: 38rem;
+}
+.rh-asset-dialog h2 { margin: 0; }
+.rh-asset-dialog .rh-asset-editor-fields {
   display: grid;
-  gap: .75rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-  padding: .75rem;
-  margin: .75rem 0;
-  border: 1px solid #cbd5e1;
-  border-radius: .5rem;
-}
-.rh-asset-fields legend { padding-inline: .3rem; font-weight: 700; }
-.rh-asset-fields label { display: grid; gap: .3rem; align-content: start; }
-.rh-asset-fields input, .rh-asset-fields select {
-  width: 100%;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  margin-block: 1rem;
   min-width: 0;
-  padding: .4rem;
-  border: 1px solid #94a3b8;
-  border-radius: .35rem;
-  background: Field;
-  color: FieldText;
-  font: inherit;
 }
-.rh-asset-fields .rh-asset-actions { grid-column: 1 / -1; }
+.rh-asset-editor-fields label { margin: 0; }
+.rh-asset-editor-fields input, .rh-asset-editor-fields select {
+  min-width: 0;
+}
+.rh-asset-dialog .rh-asset-dialog-actions {
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rh-border, #cbd5e1);
+}
+.rh-asset-dialog .rh-asset-dialog-actions button.secondary {
+  background: transparent;
+  color: inherit;
+  border-color: var(--rh-border, #94a3b8);
+}
+.rh-asset-existing {
+  padding: .75rem;
+  border-radius: .5rem;
+  background: var(--rh-soft, #f1f5f9);
+}
+@media (max-width: 520px) {
+  .rh-asset-dialog { padding: 1rem; }
+  .rh-asset-dialog-actions button { flex: 1; }
+}
 .rh-asset-scroll { overflow: auto; max-height: 28rem; }
 .rh-asset-panel table { width: 100%; border-collapse: collapse; }
 .rh-asset-panel th, .rh-asset-panel td { text-align: left; padding: .5rem; border-bottom: 1px solid #cbd5e1; }
