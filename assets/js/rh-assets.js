@@ -307,7 +307,11 @@
     const describeStock = item => item ? describe(typeById.get(item.tipo_id)?.nome, item.variante) : 'Equipamento';
     const available = stock.filter(item => item.filial === employee?.unidade && item.quantidade > 0)
       .sort((a, b) => describeStock(a).localeCompare(describeStock(b), 'pt-BR'));
-    const deliveries = deliveryBalances(events);
+    const deliveries = deliveryBalances(events).map(delivery => {
+      const current = stockById.get(delivery.estoque_id);
+      if (!current || current.variante === delivery.ficha.variante) return delivery;
+      return {...delivery, ficha: {...delivery.ficha, variante: current.variante}};
+    });
     const selectedType = typeById.get(draft.tipo_id);
     const selectedStock = stockById.get(draft.estoque_id);
     const selectedDelivery = deliveries.find(item => item.id === draft.entrega_id);
