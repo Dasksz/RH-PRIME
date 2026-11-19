@@ -4,7 +4,7 @@
   const h = React.createElement;
   const detailLabels = {ano: 'Ano', modelo: 'Modelo', descricao: 'Descrição', nenhum: 'Sem complemento'};
   const actionLabels = {entrada: 'Entrada', ajuste: 'Saída de estoque', entrega: 'Entrega', devolucao: 'Devolução', baixa: 'Baixa por perda ou extravio'};
-  const destinations = {disponivel: 'Reintegrado ao estoque', avariado: 'Retido para conferência'};
+  const destinations = {disponivel: 'Reintegrar ao estoque', avariado: 'Separar por desgaste ou avaria'};
   const branchOptions = ['FILIAL 5', 'FILIAL 8'];
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[c]);
   const formatDate = value => value.split('-').reverse().join('/');
@@ -46,7 +46,7 @@
     }));
   }
 
-  function documentHtml(event) {
+  function documentHtml(event, movement) {
     const doc = event.ficha;
     const escapeFields = object => Object.fromEntries(Object.entries(object).map(([key, value]) => [key, escape(value)]));
     const company = escapeFields(doc.empresa);
@@ -54,6 +54,10 @@
     const admission = doc.colaborador.admissao;
     const detail = escape(doc.variante ? detailLabels[doc.detalhe] + ' — ' + doc.variante : '—');
     const cell = 'padding:6px 8px;border:1px solid #111!important;overflow-wrap:anywhere';
+    const kind = movement?.acao;
+    const title = kind === 'conferencia' ? 'FICHA PARA CONFERÊNCIA DE EQUIPAMENTO' :
+      kind === 'baixa' ? 'REGISTRO DE BAIXA DE EQUIPAMENTO' :
+      movement ? 'FICHA DE DEVOLUÇÃO DE EQUIPAMENTO' : 'FICHA INDIVIDUAL DE ENTREGA DE EQUIPAMENTOS';
     return `
       <div class="rh-asset-document" style="width:1080px;background:white;color:#111;font:13px/1.35 Arial,sans-serif;padding:24px;box-sizing:border-box">
         <div data-ficha-pagina>
@@ -63,7 +67,7 @@
               <strong>CNPJ:</strong> ${company.cnpj}<br><strong>Endereço:</strong> ${company.endereco}
             </div>
             <div style="display:flex;align-items:center;justify-content:center;padding:10px 14px">
-              <strong style="font-size:18px">FICHA INDIVIDUAL DE ENTREGA DE EQUIPAMENTOS</strong>
+              <strong style="font-size:18px">${title}</strong>
             </div>
           </div>
           <div style="border:1px solid #111;margin:6px 0 12px;overflow-wrap:anywhere">
@@ -78,15 +82,15 @@
               <div><strong>Unidade:</strong> ${employee.unidade}</div>
             </div>
           </div>
-          <div style="border:1px solid #111;margin-bottom:8px;padding:8px;overflow-wrap:anywhere">
+          ${movement ? '' : `<div style="border:1px solid #111;margin-bottom:8px;padding:8px;overflow-wrap:anywhere">
             <strong style="color:#b91c1c">TERMO DE RESPONSABILIDADE</strong>
             <p style="margin:4px 0">Comprometo-me a utilizar o equipamento para o trabalho, zelar por sua guarda e conservação, comunicar prontamente perda, extravio ou dano e devolvê-lo quando solicitado ou ao término do vínculo. O desgaste normal decorrente do uso regular fica excluído.</p>
             <p style="margin:0">Em caso de perda ou dano, eventual ressarcimento será limitado ao prejuízo efetivamente comprovado, após apuração da responsabilidade. O custo atualizado de reparo ou reposição por item equivalente poderá servir de referência documentada, consideradas as condições e a vida útil do bem entregue. Eventual desconto salarial observará o art. 462, § 1º, da CLT e as normas coletivas aplicáveis, mediante ajuste prévio e culpa comprovada ou dolo comprovado.</p>
-          </div>
+          </div>`}
           <table style="width:100%;table-layout:fixed;border-collapse:collapse;color:#111">
             <colgroup><col style="width:17%"><col style="width:34%"><col style="width:39%"><col style="width:10%"></colgroup>
             <thead>
-              <tr><th colspan="4" style="${cell};background:#003399;color:white;text-align:center">EQUIPAMENTO ENTREGUE</th></tr>
+              <tr><th colspan="4" style="${cell};background:#003399;color:white;text-align:center">${movement ? 'EQUIPAMENTO CONFERIDO / MOVIMENTADO' : 'EQUIPAMENTO ENTREGUE'}</th></tr>
               <tr style="background:#f1f1f1;text-align:center">
                 <th scope="col" style="${cell}">Data da entrega</th><th scope="col" style="${cell}">Equipamento</th>
                 <th scope="col" style="${cell}">Ano / modelo / descrição</th><th scope="col" style="${cell}">Qtd.</th>
@@ -95,35 +99,44 @@
             <tbody>
               <tr>
                 <td style="${cell};text-align:center">${formatDate(event.data)}</td><td style="${cell}">${escape(doc.item)}</td>
-                <td style="${cell}">${detail}</td><td style="${cell};text-align:center">${event.quantidade}</td>
+                <td style="${cell}">${detail}</td><td style="${cell};text-align:center">${movement?.quantidade ?? event.quantidade}</td>
               </tr>
-              ${event.observacao ? '<tr><td colspan="4" style="' + cell + '"><strong>Observação:</strong> ' + escape(event.observacao) + '</td></tr>' : ''}
+              ${movement ? `<tr><td colspan="4" style="${cell}"><strong>${kind === 'conferencia' ? 'Data do desligamento' : 'Data da movimentação'}:</strong> ${formatDate(movement.data)}
+                ${movement.destino ? ' · <strong>Destino:</strong> ' + escape(destinations[movement.destino]) : ''}
+                ${movement.observacao ? '<br><strong>Motivo / condição:</strong> ' + escape(movement.observacao) : ''}</td></tr>` :
+                event.observacao ? '<tr><td colspan="4" style="' + cell + '"><strong>Observação:</strong> ' + escape(event.observacao) + '</td></tr>' : ''}
             </tbody>
           </table>
           <div style="border:1px solid #111;margin-top:12px;padding:8px">
             <div style="background:#f7f7f7;border:1px solid #aaa;padding:10px">
-              <strong style="color:#002060">TERMO DE RECEBIMENTO DE EQUIPAMENTO</strong>
-              <p style="margin:4px 0 0">Declaro que recebi e conferi o equipamento acima.</p>
+              <strong style="color:#002060">${movement ? 'CIÊNCIA DA MOVIMENTAÇÃO' : 'TERMO DE RECEBIMENTO DE EQUIPAMENTO'}</strong>
+              <p style="margin:4px 0 0">${kind === 'conferencia' ? 'Ficha para conferência. A devolução será registrada após a verificação do item e de sua condição.' :
+                kind === 'baixa' ? 'Declaro ciência da baixa registrada. O item não foi devolvido fisicamente.' :
+                movement ? 'Declaro ciência da devolução, quantidade e condição registradas acima.' : 'Declaro que recebi e conferi o equipamento acima.'}</p>
               <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:32px">
                 <span><strong>Data:</strong> ____/____/________</span>
                 <span style="width:50%;border-top:1px solid #111;padding-top:4px;text-align:center">Assinatura do colaborador</span>
               </div>
             </div>
           </div>
-          <p style="margin:4px 0 0;font-size:10px;color:#333">Registro ${escape(event.id)}</p>
+          <p style="margin:4px 0 0;font-size:10px;color:#333">Registro ${escape(movement?.id || event.id)}</p>
         </div>
       </div>`;
   }
 
-  async function download(event) {
+  async function download(event, movement) {
     const container = document.createElement('div');
     container.className = 'rh-equipment-pdf-host';
     container.setAttribute('aria-hidden', 'true');
-    container.innerHTML = documentHtml(event);
+    container.innerHTML = documentHtml(event, movement);
+    const employeeName = (event.ficha.colaborador.nome || '').normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 120) || 'Colaborador';
+    const prefix = {devolucao: 'Devolucao', baixa: 'Baixa', conferencia: 'Conferencia'}[movement?.acao] || 'Entrega';
     document.body.append(container);
     try {
       await RHFichaPadrao.savePdf(container.firstElementChild, {
-        margin: 5, filename: 'Ficha_Entrega_Equipamentos_' + event.data + '_' + event.id + '.pdf',
+        margin: 5, filename: 'Ficha_' + prefix + '_Equipamentos_' + employeeName + '_' + (movement?.data || event.data)
+          + '_' + (movement?.id || event.id).slice(0, 8) + '.pdf',
         image: {type: 'jpeg', quality: .98},
         html2canvas: {scale: 2, scrollX: 0, scrollY: 0},
         jsPDF: {unit: 'mm', format: 'a4', orientation: 'landscape'}
@@ -133,12 +146,12 @@
     }
   }
 
-  function Module({client, employee, onSaved, registrationTarget}) {
+  function Module({client, employee, onSaved, registrationTarget, offboardingDate}) {
     const [data, setData] = React.useState(null);
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState('');
     const [notice, setNotice] = React.useState('');
-    const defaultEditor = employee ? 'entrega' : null;
+    const defaultEditor = employee && !offboardingDate ? 'entrega' : null;
     const [editing, setEditing] = React.useState(defaultEditor);
     const [draft, setDraft] = React.useState(() => ({data: RH.today(), quantidade: 1}));
     const [proofEdit, setProofEdit] = React.useState(null);
@@ -211,6 +224,14 @@
       setDraft({data: RH.today(), quantidade: 1});
     }
 
+    function startReturn(action, delivery) {
+      start(action, {entrega_id: delivery.id});
+      requestAnimationFrame(() => {
+        deliveryEditor.current?.scrollIntoView({block: 'nearest'});
+        deliveryEditor.current?.querySelector('input')?.focus({preventScroll: true});
+      });
+    }
+
     function change(values) {
       request.current = null;
       if (editing === 'tipo') setError('');
@@ -263,10 +284,11 @@
           request.current ||= crypto.randomUUID();
           await RH.result(client.rpc(editing === 'variante' ? 'rh_asset_register_variant' : 'rh_asset_event', {
             p_id: request.current,
-            p: {...draft, acao: editing, quantidade: Number(draft.quantidade), funcionario_id: employeeId}
+            p: {...draft, acao: editing, quantidade: Number(draft.quantidade), funcionario_id: employeeId,
+              observacao: offboardingDate ? 'Desligamento — ' + (draft.observacao || '').trim() : draft.observacao}
           }));
         }
-        if ((editing === 'entrega' || editing === 'corrigir-entrega') && onSaved) onSaved();
+        if ((editing === 'entrega' || editing === 'corrigir-entrega' || offboardingDate) && onSaved) onSaved();
         resetEditor();
       }, true);
     }
@@ -374,7 +396,7 @@
             input('quantidade', {type: 'number', required: true, min: registeringVariant ? 0 : correcting ? Math.max(1, alreadyReturned) : 1, max: Math.min(max ?? 10000, 10000)})),
           editing === 'devolucao' && field('Destino', select('destino', Object.entries(destinations).map(([id, name]) => option(id, name)))),
           (!registeringVariant || hasInitialStock) && field(isReturning || editing === 'ajuste' ? 'Motivo / condição' : 'Observação', input('observacao', {
-            maxLength: 1000, required: isReturning || editing === 'ajuste'
+            maxLength: offboardingDate ? 980 : 1000, required: isReturning || editing === 'ajuste'
           })),
           editing === 'entrega' && field('Link do comprovante (opcional)', input('comprovante', {
             type: 'url', maxLength: 2000, placeholder: 'https://…'
@@ -421,7 +443,7 @@
       return h(React.Fragment, null,
         error && h('p', {role: 'alert', className: 'rh-equip-error'}, error),
         notice && h('p', {role: 'status', className: 'rh-equip-notice'}, notice),
-        canEdit && h('section', {ref: deliveryEditor, className: 'rh-equip-card ' + (isReturning || correcting ? '' : 'rh-equip-add')},
+        canEdit && editing && h('section', {ref: deliveryEditor, className: 'rh-equip-card ' + (isReturning || correcting ? '' : 'rh-equip-add')},
           h('h3', null, correcting ? 'Editar entrega' : isReturning ? actionLabels[editing] + ' — ' + describe(selectedDelivery?.ficha.item, selectedDelivery?.ficha.variante) : 'Adicionar equipamento'),
           h('form', {key: editing, onSubmit: submit}, h('fieldset', {disabled: busy, className: isReturning || correcting ? undefined : 'rh-equip-add-fields'},
             h('div', {className: 'rh-equip-fields'}, editorFields),
@@ -441,10 +463,10 @@
               button('Cancelar', {className: 'rh-equip-action', onClick: resetEditor})) :
               button('Salvar entrega', {type: 'submit', disabled: !selectedStock?.quantidade})))),
         h('section', {className: 'rh-equip-history'},
-          h('div', {className: 'rh-equip-actions'}, h('h3', null, 'Histórico Salvo'),
+          h('div', {className: 'rh-equip-actions'}, h('h3', null, offboardingDate ? 'Devolução de equipamentos no desligamento' : 'Histórico Salvo'),
             button('Atualizar', {className: 'rh-equip-action', disabled: busy, onClick: () => run(load)})),
           !deliveries.length && h('div', {className: 'rh-equip-empty'}, 'Nenhum registro encontrado.'),
-          h('div', {className: 'rh-equip-history-grid'}, deliveries.map(item =>
+          h('div', {className: 'rh-equip-history-grid'}, deliveries.filter(item => !offboardingDate || item.data <= today).map(item =>
             h('section', {className: 'rh-equip-card rh-equip-history-group', key: item.id},
               h('div', {className: 'rh-equip-history-heading'},
                 h(global.RHEquipment.HistoryStatus),
@@ -459,10 +481,14 @@
                   .toLocaleDateString('pt-BR', {timeZone: 'America/Sao_Paulo'})),
                 item.observacao && h('small', null, 'Observação: ' + item.observacao),
                 (returns.get(item.id) || []).map(event => h('small', {key: event.id},
-                  [actionLabels[event.acao], formatDate(event.data), 'Qtd. ' + event.quantidade, destinations[event.destino], event.observacao].filter(Boolean).join(' · '))))),
+                  [actionLabels[event.acao], formatDate(event.data), 'Qtd. ' + event.quantidade, destinations[event.destino], event.observacao].filter(Boolean).join(' · '),
+                  ' ', button(event.acao === 'baixa' ? 'Ficha de baixa (PDF)' : 'Ficha de devolução (PDF)',
+                    {className: 'rh-equip-action rh-equip-document', disabled: busy, onClick: () => run(() => download(item, event))}))))),
               h('div', {className: 'rh-equip-actions'},
-                button('Gerar Ficha (PDF)', {className: 'rh-equip-action rh-equip-document', disabled: busy, onClick: () => run(() => download(item))}),
-                canEdit && button('Editar entrega', {className: 'rh-equip-action', disabled: busy || isReturning || correcting,
+                !offboardingDate && button('Gerar Ficha (PDF)', {className: 'rh-equip-action rh-equip-document', disabled: busy, onClick: () => run(() => download(item))}),
+                offboardingDate && item.restante > 0 && button('Ficha para conferência (PDF)', {className: 'rh-equip-action rh-equip-document',
+                  disabled: busy, onClick: () => run(() => download(item, {acao: 'conferencia', data: offboardingDate, quantidade: item.restante}))}),
+                canEdit && !offboardingDate && button('Editar entrega', {className: 'rh-equip-action', disabled: busy || isReturning || correcting,
                   onClick: () => {
                     start('corrigir-entrega', {entrega_id: item.id, estoque_id: item.estoque_id, data: item.data,
                       quantidade: item.quantidade, observacao: item.observacao, corrigido_em: item.corrigido_em});
@@ -478,8 +504,8 @@
                   onClick: () => setProofEdit({id: item.id, link: item.comprovante || ''})
                 }),
                 canEdit && item.restante > 0 && item.data <= today && [
-                  button('Devolver', {key: 'return', className: 'rh-equip-action rh-equip-return', disabled: busy || isReturning || correcting, onClick: () => start('devolucao', {entrega_id: item.id})}),
-                  button('Registrar baixa', {key: 'loss', className: 'rh-equip-action', disabled: busy || isReturning || correcting, onClick: () => start('baixa', {entrega_id: item.id})})
+                  button('Devolver', {key: 'return', className: 'rh-equip-action rh-equip-return', disabled: busy || isReturning || correcting, onClick: () => startReturn('devolucao', item)}),
+                  button('Registrar baixa', {key: 'loss', className: 'rh-equip-action', disabled: busy || isReturning || correcting, onClick: () => startReturn('baixa', item)})
                 ]),
               proofEdit?.id === item.id && h('form', {onSubmit: event => saveProof(event, item)},
                 h('fieldset', {disabled: busy},

@@ -50,7 +50,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
     <script src="assets/js/rh-ficha-padrao.js?v=20261117-empresa-paginas"></script>
-    <script src="assets/js/rh-assets.js?v=20261119-entrega-futura"></script>
+    <script src="assets/js/rh-assets.js?v=20261119-fichas-devolucao"></script>
     <script src="assets/js/rh-equipamentos.js?v=20261118-icone-historico"></script>
     <script type="text/babel" data-type="text/javascript" data-presets="react">
       const { useState, useMemo, useEffect, useRef } = React;
@@ -221,6 +221,23 @@
       function App() {
         const [employees, setEmployees] = useState([]);
         const [devolucoes, setDevolucoes] = useState([]);
+        const [devolucoesEquipamentos, setDevolucoesEquipamentos] = useState([]);
+        const [erroDevolucoesEquipamentos, setErroDevolucoesEquipamentos] = useState("");
+        const devolucoesVisiveis = useMemo(() => {
+          const porFuncionario = new Map(devolucoesEquipamentos.map(item => [item.funcionario_id, item]));
+          const registros = devolucoes.map(item => ({
+            ...item, equipamentos: porFuncionario.get(item.funcionario_id)
+          }));
+          const comPendenciaLegada = new Set(devolucoes.map(item => item.funcionario_id));
+          for (const item of devolucoesEquipamentos) {
+            if (comPendenciaLegada.has(item.funcionario_id)) continue;
+            registros.push({...item, id: "equipamentos-" + item.funcionario_id, equipamentos: item,
+              somenteEquipamentos: true, status: item.equipamentos_pendentes > 0 ? "Pendente" : "Concluído"});
+          }
+          return registros;
+        }, [devolucoes, devolucoesEquipamentos]);
+        const totalDevolucoesPendentes = devolucoesVisiveis.filter(item =>
+          !item.somenteEquipamentos || item.equipamentos_pendentes > 0).length;
         const [empresasPorFuncionario, setEmpresasPorFuncionario] = useState({});
         const [selectedDevolucaoId, setSelectedDevolucaoId] = useState(null);
         const [checkedDevolucaoItems, setCheckedDevolucaoItems] = useState({});
@@ -547,7 +564,17 @@
           }
         };
 
+        const fetchDevolucoesEquipamentos = async () => {
+          try {
+            setDevolucoesEquipamentos(await RH.result(supabase.rpc("rh_asset_offboarding")));
+            setErroDevolucoesEquipamentos("");
+          } catch (error) {
+            setErroDevolucoesEquipamentos(error.message || "Não foi possível consultar as devoluções de equipamentos.");
+          }
+        };
+
         const fetchDevolucoes = async () => {
+          fetchDevolucoesEquipamentos();
           try {
             const { data, error } = await supabase
               .from("devolucoes_pendentes")
@@ -664,7 +691,7 @@
 
             if (data.concluida) {
               setDevolucoes(prev => prev.filter(d => d.id !== item.id));
-              setSelectedDevolucaoId(null);
+              setSelectedDevolucaoId(item.equipamentos ? "equipamentos-" + item.funcionario_id : null);
             }
             setIsConfirmDevolucaoModalOpen(false);
             setItemToDevolver(null);
@@ -1859,11 +1886,11 @@
                     >
                       <UserMinus size={15} />
                       <span>Devoluções</span>
-                      {devolucoes.length > 0 && (
+                      {totalDevolucoesPendentes > 0 && (
                         <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                           statusFilter === "devolucoes" ? "bg-white text-red-700" : "bg-red-600 text-white"
                         }`}>
-                          {devolucoes.length}
+                          {totalDevolucoesPendentes}
                         </span>
                       )}
                     </button>
@@ -1909,7 +1936,7 @@
               {/* Sidebar List */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 min-h-[50vh]">
                 {statusFilter === "devolucoes" ? (
-                  devolucoes
+                  devolucoesVisiveis
                     .filter((d) => {
                       const search = searchTerm.toLowerCase();
                       if (filterFuncao && normalizeFilter(d.funcao) !== normalizeFilter(filterFuncao)) return false;
@@ -1997,7 +2024,12 @@
                   })
                 )}
 
-                {((statusFilter === "devolucoes" && devolucoes.length === 0) ||
+                {statusFilter === "devolucoes" && erroDevolucoesEquipamentos && (
+                  <button type="button" onClick={fetchDevolucoesEquipamentos} className="text-sm text-red-600">
+                    Falha ao consultar devoluções de equipamentos. Tentar novamente
+                  </button>
+                )}
+                {((statusFilter === "devolucoes" && devolucoesVisiveis.length === 0) ||
                   (statusFilter !== "devolucoes" && filteredEmployees.length === 0)) && (
                   <div className="text-center p-6 text-gray-400 text-sm font-medium">
                     {dashboardFilter === "equipamentos" && !assetDeliveredIds
@@ -2019,7 +2051,7 @@
             >
               {statusFilter === "devolucoes" ? (
                 (() => {
-                  const item = devolucoes.find((d) => d.id === selectedDevolucaoId);
+                  const item = devolucoesVisiveis.find((d) => d.id === selectedDevolucaoId);
                   if (!item) {
                     return (
                       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 hidden md:flex">
@@ -2036,7 +2068,10 @@
                     );
                   }
 
-                  const empInfo = RHFichaPadrao.resolveReturnCompany(item, empresasPorFuncionario, empresas);
+                  const empInfo = RHFichaPadrao.resolveReturnCompany(item, {
+                    ...empresasPorFuncionario,
+                    ...(item.equipamentos?.empresa_id ? {[item.funcionario_id]: item.equipamentos.empresa_id} : {})
+                  }, empresas);
 
                   // Calculate total items and checked items count
                   const epiParsed = parseItemString(item.epi_itens);
@@ -2101,9 +2136,9 @@
                           <p className="text-slate-500 text-sm mt-1">
                             CPF: <span className="font-mono text-slate-700 font-bold">{item.cpf || "Não informado"}</span>
                           </p>
-                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
+                          {!item.somenteEquipamentos && <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
                             Conferência: <span className={`font-bold font-mono px-2 py-0.5 rounded-md ${allChecked ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{checkedCount} / {totalItemsCount} conferidos</span>
-                          </p>
+                          </p>}
                         </div>
                       </div>
 
@@ -2154,7 +2189,7 @@
                       </div>
 
                       {/* Bloco 3: Itens Entregues a Devolver */}
-                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                      {!item.somenteEquipamentos && <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                           Materiais Pendentes de Devolução
                         </h3>
@@ -2223,7 +2258,14 @@
                             Marcar como Devolvido
                           </button>
                         </div>
-                      </div>
+                      </div>}
+                      {item.equipamentos && (
+                        <section className="rh-equip bg-white rounded-2xl border border-slate-200">
+                          <RHAssets.Module key={item.funcionario_id} client={supabase}
+                            employee={{id: item.funcionario_id, unidade: item.unidade}}
+                            offboardingDate={item.data_desligamento} onSaved={fetchDevolucoesEquipamentos} />
+                        </section>
+                      )}
                     </div>
                   );
                 })()
