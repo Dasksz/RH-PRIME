@@ -59,7 +59,7 @@
       kind === 'baixa' ? 'REGISTRO DE BAIXA DE EQUIPAMENTO' :
       movement ? 'FICHA DE DEVOLUÇÃO DE EQUIPAMENTO' : 'FICHA INDIVIDUAL DE ENTREGA DE EQUIPAMENTOS';
     return `
-      <div class="rh-asset-document" style="width:1080px;background:white;color:#111;font:13px/1.35 Arial,sans-serif;padding:24px;box-sizing:border-box">
+      <div class="rh-asset-document" style="width:1080px;background:white;color:#111;font:13px/1.35 Arial,sans-serif;letter-spacing:.2px;word-spacing:1px;padding:24px;box-sizing:border-box">
         <div data-ficha-pagina>
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid #111;text-align:center;overflow-wrap:anywhere">
             <div style="padding:10px 14px;border-right:1px solid #111">
@@ -115,7 +115,7 @@
                 movement ? 'Declaro ciência da devolução, quantidade e condição registradas acima.' : 'Declaro que recebi e conferi o equipamento acima.'}</p>
               <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:32px">
                 <span><strong>Data:</strong> ____/____/________</span>
-                <span style="width:50%;border-top:1px solid #111;padding-top:4px;text-align:center">Assinatura do colaborador</span>
+                <span style="width:50%;border-top:1px solid #111;padding-top:4px;text-align:center">Assinatura&nbsp;do&nbsp;colaborador</span>
               </div>
             </div>
           </div>
