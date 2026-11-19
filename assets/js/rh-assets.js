@@ -266,7 +266,7 @@
             p: {...draft, acao: editing, quantidade: Number(draft.quantidade), funcionario_id: employeeId}
           }));
         }
-        if (editing === 'entrega' && onSaved) onSaved();
+        if ((editing === 'entrega' || editing === 'corrigir-entrega') && onSaved) onSaved();
         resetEditor();
       }, true);
     }
@@ -330,8 +330,11 @@
     const max = correcting && selectedStock
       ? selectedStock.quantidade + (selectedStock.id === selectedDelivery?.estoque_id ? selectedDelivery.quantidade : 0)
       : editing === 'entrega' ? selectedStock?.quantidade : isReturning ? selectedDelivery?.restante : 10000;
+    const today = RH.today();
     const firstReturn = correcting ? events.filter(item => item.entrega_id === selectedDelivery?.id)
-      .reduce((earliest, item) => item.data < earliest ? item.data : earliest, RH.today()) : RH.today();
+      .reduce((earliest, item) => !earliest || item.data < earliest ? item.data : earliest, undefined) : undefined;
+    const maxDate = correcting ? firstReturn : editing === 'entrega' ? undefined : today;
+    const futureDelivery = (editing === 'entrega' || correcting) && draft.data > today;
     const input = (key, options) => h('input', {
       value: draft[key] ?? '',
       onChange: event => change({[key]: event.target.value}),
@@ -366,7 +369,7 @@
               describe(selectedDelivery.ficha.item, selectedDelivery.ficha.variante)),
             ...correctionChoices.map(item => option(item.id, describeStock(item)))
           ])),
-          (!registeringVariant || hasInitialStock) && field('Data', input('data', {type: 'date', required: true, max: firstReturn, min: isReturning ? selectedDelivery?.data : undefined})),
+          (!registeringVariant || hasInitialStock) && field('Data', input('data', {type: 'date', required: true, max: maxDate, min: isReturning ? selectedDelivery?.data : undefined})),
           field(registeringVariant ? 'Quantidade inicial (0 para somente cadastrar)' : 'Quantidade',
             input('quantidade', {type: 'number', required: true, min: registeringVariant ? 0 : correcting ? Math.max(1, alreadyReturned) : 1, max: Math.min(max ?? 10000, 10000)})),
           editing === 'devolucao' && field('Destino', select('destino', Object.entries(destinations).map(([id, name]) => option(id, name)))),
@@ -404,6 +407,7 @@
           }))));
 
     if (employee) {
+      const latestCompleted = deliveries.find(item => item.data <= today);
       const returns = new Map();
       for (const event of events) {
         if (!event.entrega_id) continue;
@@ -421,6 +425,8 @@
           h('h3', null, correcting ? 'Editar entrega' : isReturning ? actionLabels[editing] + ' — ' + describe(selectedDelivery?.ficha.item, selectedDelivery?.ficha.variante) : 'Adicionar equipamento'),
           h('form', {key: editing, onSubmit: submit}, h('fieldset', {disabled: busy, className: isReturning || correcting ? undefined : 'rh-equip-add-fields'},
             h('div', {className: 'rh-equip-fields'}, editorFields),
+            futureDelivery && h('p', {role: 'status', style: {gridColumn: '1 / -1'}},
+              'Entrega futura. A quantidade fica reservada no estoque ao salvar.'),
             !isReturning && !correcting && h('div', {className: 'rh-equip-stock', 'aria-live': 'polite'},
               h('div', {className: 'rh-equip-stock-info'},
                 h('span', {className: 'rh-equip-stock-count'},
@@ -438,15 +444,17 @@
           h('div', {className: 'rh-equip-actions'}, h('h3', null, 'Histórico Salvo'),
             button('Atualizar', {className: 'rh-equip-action', disabled: busy, onClick: () => run(load)})),
           !deliveries.length && h('div', {className: 'rh-equip-empty'}, 'Nenhum registro encontrado.'),
-          h('div', {className: 'rh-equip-history-grid'}, deliveries.map((item, index) =>
+          h('div', {className: 'rh-equip-history-grid'}, deliveries.map(item =>
             h('section', {className: 'rh-equip-card rh-equip-history-group', key: item.id},
               h('div', {className: 'rh-equip-history-heading'},
                 h(global.RHEquipment.HistoryStatus),
-                h('div', null, h('h4', null, index === 0 ? 'Última Entrega' : 'Entrega Anterior'),
+                h('div', null, h('h4', null, item.data > today ? 'Entrega futura' :
+                  item.id === latestCompleted?.id ? 'Última Entrega' : 'Entrega Anterior'),
                   h('p', null, formatDate(item.data)))),
               h('strong', {className: 'rh-equip-items-label'}, 'Item:'),
               h('ul', null, h('li', null,
-                h('span', null, describe(item.ficha.item, item.ficha.variante) + ' — Qtd: ' + item.quantidade + ' · Em posse: ' + item.restante),
+                h('span', null, describe(item.ficha.item, item.ficha.variante) +
+                  (item.data > today ? ' — Qtd. reservada: ' + item.quantidade : ' — Qtd: ' + item.quantidade + ' · Em posse: ' + item.restante)),
                 item.corrigido_em && h('small', null, 'Entrega corrigida em ' + new Date(item.corrigido_em)
                   .toLocaleDateString('pt-BR', {timeZone: 'America/Sao_Paulo'})),
                 item.observacao && h('small', null, 'Observação: ' + item.observacao),
@@ -469,7 +477,7 @@
                   className: 'rh-equip-action', disabled: busy,
                   onClick: () => setProofEdit({id: item.id, link: item.comprovante || ''})
                 }),
-                canEdit && item.restante > 0 && [
+                canEdit && item.restante > 0 && item.data <= today && [
                   button('Devolver', {key: 'return', className: 'rh-equip-action rh-equip-return', disabled: busy || isReturning || correcting, onClick: () => start('devolucao', {entrega_id: item.id})}),
                   button('Registrar baixa', {key: 'loss', className: 'rh-equip-action', disabled: busy || isReturning || correcting, onClick: () => start('baixa', {entrega_id: item.id})})
                 ]),
