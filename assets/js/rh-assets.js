@@ -145,6 +145,7 @@
     const request = React.useRef(null);
     const inFlight = React.useRef(false);
     const stockDialog = React.useRef(null);
+    const deliveryEditor = React.useRef(null);
     const stockEditorOpen = !employee && Boolean(editing);
     const employeeId = employee?.id;
 
@@ -253,6 +254,11 @@
           await RH.result(client.rpc('rh_asset_rename_variant', {
             p_id: draft.variante_id, p_previous: draft.variante_anterior, p_name: draft.variante
           }), true);
+        } else if (editing === 'corrigir-entrega') {
+          request.current ||= crypto.randomUUID();
+          await RH.result(client.rpc('rh_asset_correct_delivery', {
+            p_operation: request.current, p: draft
+          }), true);
         } else {
           request.current ||= crypto.randomUUID();
           await RH.result(client.rpc(editing === 'variante' ? 'rh_asset_register_variant' : 'rh_asset_event', {
@@ -312,7 +318,16 @@
     const hasInitialStock = registeringVariant && Number(draft.quantidade) > 0;
     const detailLocked = editing === 'editar-tipo' && (linkedTypes.has(draft.tipo_id) || variantsByType.has(draft.tipo_id));
     const isReturning = editing === 'devolucao' || editing === 'baixa';
-    const max = editing === 'entrega' ? selectedStock?.quantidade : isReturning ? selectedDelivery?.restante : 10000;
+    const correcting = editing === 'corrigir-entrega';
+    const originalStock = stockById.get(selectedDelivery?.estoque_id);
+    const alreadyReturned = selectedDelivery ? selectedDelivery.quantidade - selectedDelivery.restante : 0;
+    const correctionChoices = correcting ? stock.filter(item => item.id !== selectedDelivery?.estoque_id &&
+      !alreadyReturned && item.filial === originalStock?.filial && item.quantidade > 0) : [];
+    const max = correcting && selectedStock
+      ? selectedStock.quantidade + (selectedStock.id === selectedDelivery?.estoque_id ? selectedDelivery.quantidade : 0)
+      : editing === 'entrega' ? selectedStock?.quantidade : isReturning ? selectedDelivery?.restante : 10000;
+    const firstReturn = correcting ? events.filter(item => item.entrega_id === selectedDelivery?.id)
+      .reduce((earliest, item) => item.data < earliest ? item.data : earliest, RH.today()) : RH.today();
     const input = (key, options) => h('input', {
       value: draft[key] ?? '',
       onChange: event => change({[key]: event.target.value}),
@@ -342,16 +357,22 @@
           (isStockEdit || hasInitialStock) && field('Filial', select('filial', branchOptions.map(branch => option(branch, branch)))),
           editing === 'entrega' && field('Equipamento', select('estoque_id',
             available.map(item => option(item.id, describeStock(item))))),
-          (!registeringVariant || hasInitialStock) && field('Data', input('data', {type: 'date', required: true, max: RH.today(), min: selectedDelivery?.data})),
+          correcting && selectedDelivery && field('Equipamento', select('estoque_id', [
+            option(selectedDelivery.estoque_id, originalStock ? describeStock(originalStock) :
+              describe(selectedDelivery.ficha.item, selectedDelivery.ficha.variante)),
+            ...correctionChoices.map(item => option(item.id, describeStock(item)))
+          ])),
+          (!registeringVariant || hasInitialStock) && field('Data', input('data', {type: 'date', required: true, max: firstReturn, min: isReturning ? selectedDelivery?.data : undefined})),
           field(registeringVariant ? 'Quantidade inicial (0 para somente cadastrar)' : 'Quantidade',
-            input('quantidade', {type: 'number', required: true, min: registeringVariant ? 0 : 1, max: Math.min(max ?? 10000, 10000)})),
+            input('quantidade', {type: 'number', required: true, min: registeringVariant ? 0 : correcting ? Math.max(1, alreadyReturned) : 1, max: Math.min(max ?? 10000, 10000)})),
           editing === 'devolucao' && field('Destino', select('destino', Object.entries(destinations).map(([id, name]) => option(id, name)))),
           (!registeringVariant || hasInitialStock) && field(isReturning || editing === 'ajuste' ? 'Motivo / condição' : 'Observação', input('observacao', {
             maxLength: 1000, required: isReturning || editing === 'ajuste'
           })),
           editing === 'entrega' && field('Link do comprovante (opcional)', input('comprovante', {
             type: 'url', maxLength: 2000, placeholder: 'https://…'
-          }))
+          })),
+          correcting && field('Motivo da correção', input('motivo', {required: true, maxLength: 300}))
         ]).map((element, index) => element && React.cloneElement(element, {key: index}));
     const editor = canEdit && h('dialog', {
       ref: stockDialog, className: 'rh-asset-dialog', 'aria-labelledby': 'rh-asset-dialog-title',
@@ -392,11 +413,11 @@
       return h(React.Fragment, null,
         error && h('p', {role: 'alert', className: 'rh-equip-error'}, error),
         notice && h('p', {role: 'status', className: 'rh-equip-notice'}, notice),
-        canEdit && h('section', {className: 'rh-equip-card ' + (isReturning ? '' : 'rh-equip-add')},
-          h('h3', null, isReturning ? actionLabels[editing] + ' — ' + describe(selectedDelivery?.ficha.item, selectedDelivery?.ficha.variante) : 'Adicionar equipamento'),
-          h('form', {key: editing, onSubmit: submit}, h('fieldset', {disabled: busy, className: isReturning ? undefined : 'rh-equip-add-fields'},
+        canEdit && h('section', {ref: deliveryEditor, className: 'rh-equip-card ' + (isReturning || correcting ? '' : 'rh-equip-add')},
+          h('h3', null, correcting ? 'Editar entrega' : isReturning ? actionLabels[editing] + ' — ' + describe(selectedDelivery?.ficha.item, selectedDelivery?.ficha.variante) : 'Adicionar equipamento'),
+          h('form', {key: editing, onSubmit: submit}, h('fieldset', {disabled: busy, className: isReturning || correcting ? undefined : 'rh-equip-add-fields'},
             h('div', {className: 'rh-equip-fields'}, editorFields),
-            !isReturning && h('div', {className: 'rh-equip-stock', 'aria-live': 'polite'},
+            !isReturning && !correcting && h('div', {className: 'rh-equip-stock', 'aria-live': 'polite'},
               h('div', {className: 'rh-equip-stock-info'},
                 h('span', {className: 'rh-equip-stock-count'},
                   selectedStock ? h(React.Fragment, null, h('strong', null, selectedStock.quantidade),
@@ -405,8 +426,8 @@
                 h('span', {className: 'rh-equip-stock-location'},
                   [employee.unidade || 'Filial não cadastrada', stockCaption].filter(Boolean).join(' · '))),
               h('div', {className: 'rh-equip-stock-details'}, stockLink)),
-            isReturning ? h('div', {className: 'rh-equip-actions'},
-              button('Salvar movimentação', {type: 'submit', className: 'rh-equip-primary'}),
+            isReturning || correcting ? h('div', {className: 'rh-equip-actions'},
+              button(correcting ? 'Salvar correção' : 'Salvar movimentação', {type: 'submit', className: 'rh-equip-primary'}),
               button('Cancelar', {className: 'rh-equip-action', onClick: resetEditor})) :
               button('Salvar entrega', {type: 'submit', disabled: !selectedStock?.quantidade})))),
         h('section', {className: 'rh-equip-history'},
@@ -422,11 +443,22 @@
               h('strong', {className: 'rh-equip-items-label'}, 'Item:'),
               h('ul', null, h('li', null,
                 h('span', null, describe(item.ficha.item, item.ficha.variante) + ' — Qtd: ' + item.quantidade + ' · Em posse: ' + item.restante),
+                item.corrigido_em && h('small', null, 'Entrega corrigida em ' + new Date(item.corrigido_em)
+                  .toLocaleDateString('pt-BR', {timeZone: 'America/Sao_Paulo'})),
                 item.observacao && h('small', null, 'Observação: ' + item.observacao),
                 (returns.get(item.id) || []).map(event => h('small', {key: event.id},
                   [actionLabels[event.acao], formatDate(event.data), 'Qtd. ' + event.quantidade, destinations[event.destino], event.observacao].filter(Boolean).join(' · '))))),
               h('div', {className: 'rh-equip-actions'},
                 button('Gerar Ficha (PDF)', {className: 'rh-equip-action rh-equip-document', disabled: busy, onClick: () => run(() => download(item))}),
+                canEdit && button('Editar entrega', {className: 'rh-equip-action', disabled: busy || isReturning || correcting,
+                  onClick: () => {
+                    start('corrigir-entrega', {entrega_id: item.id, estoque_id: item.estoque_id, data: item.data,
+                      quantidade: item.quantidade, observacao: item.observacao, corrigido_em: item.corrigido_em});
+                    requestAnimationFrame(() => {
+                      deliveryEditor.current?.scrollIntoView({block: 'nearest'});
+                      deliveryEditor.current?.querySelector('select')?.focus({preventScroll: true});
+                    });
+                  }}),
                 /^https?:\/\//i.test(item.comprovante || '') &&
                   h('a', {href: item.comprovante, target: '_blank', rel: 'noopener noreferrer'}, 'Ver comprovante'),
                 canEdit && button(item.comprovante ? 'Editar link' : 'Adicionar comprovante', {
@@ -434,8 +466,8 @@
                   onClick: () => setProofEdit({id: item.id, link: item.comprovante || ''})
                 }),
                 canEdit && item.restante > 0 && [
-                  button('Devolver', {key: 'return', className: 'rh-equip-action rh-equip-return', disabled: busy || isReturning, onClick: () => start('devolucao', {entrega_id: item.id})}),
-                  button('Registrar baixa', {key: 'loss', className: 'rh-equip-action', disabled: busy || isReturning, onClick: () => start('baixa', {entrega_id: item.id})})
+                  button('Devolver', {key: 'return', className: 'rh-equip-action rh-equip-return', disabled: busy || isReturning || correcting, onClick: () => start('devolucao', {entrega_id: item.id})}),
+                  button('Registrar baixa', {key: 'loss', className: 'rh-equip-action', disabled: busy || isReturning || correcting, onClick: () => start('baixa', {entrega_id: item.id})})
                 ]),
               proofEdit?.id === item.id && h('form', {onSubmit: event => saveProof(event, item)},
                 h('fieldset', {disabled: busy},
