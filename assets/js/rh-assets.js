@@ -149,13 +149,14 @@
     const employeeId = employee?.id;
 
     async function load() {
-      const [access, types, stock, events] = await Promise.all([
+      const [access, types, stock, events, variants] = await Promise.all([
         RH.result(client.rpc('rh_asset_access')),
         RH.fetchAll(client, 'rh_asset_types', '*', 'id'),
         RH.fetchAll(client, 'rh_asset_stock', '*', 'id'),
-        readEvents(client, employeeId)
+        readEvents(client, employeeId),
+        employeeId ? [] : RH.fetchAll(client, 'rh_asset_variants')
       ]);
-      setData({access, types: types.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), stock, events});
+      setData({access, types: types.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), stock, events, variants});
     }
 
     React.useEffect(() => { load().catch(err => setError(err.message)); }, [client, employeeId]);
@@ -220,9 +221,24 @@
       resetEditor();
     }
 
+    function manageType(type, remove) {
+      if (remove && !window.confirm('Excluir o tipo “' + type.nome + '” e seus modelos sem estoque associado?')) return;
+      run(async () => {
+        await RH.result(client.rpc('rh_asset_manage_type', {
+          p_id: type.id, p_name: draft.nome?.trim() || type.nome,
+          p_detail: draft.detalhe || type.detalhe, p_delete: remove
+        }));
+        resetEditor();
+      }, true);
+    }
+
     function submit(event) {
       event.preventDefault();
-      if (editing === 'tipo' && (existingType || !draft.nome?.trim())) return;
+      if (typeEditor && (existingType || !draft.nome?.trim())) return;
+      if (editing === 'editar-tipo') {
+        manageType(selectedType, false);
+        return;
+      }
       run(async () => {
         if (editing === 'tipo') {
           try {
@@ -235,7 +251,7 @@
           }
         } else {
           request.current ||= crypto.randomUUID();
-          await RH.result(client.rpc('rh_asset_event', {
+          await RH.result(client.rpc(editing === 'variante' ? 'rh_asset_register_variant' : 'rh_asset_event', {
             p_id: request.current,
             p: {...draft, acao: editing, quantidade: Number(draft.quantidade), funcionario_id: employeeId}
           }));
@@ -266,9 +282,16 @@
         h('p', {role: error ? 'alert' : 'status'}, error || 'Carregando equipamentos…'));
     }
 
-    const {access, types, stock, events} = data;
-    const existingType = editing === 'tipo' && types.find(type =>
-      normalizeTypeName(type.nome) === normalizeTypeName(draft.nome));
+    const {access, types, stock, events, variants} = data;
+    const typeEditor = editing === 'tipo' || editing === 'editar-tipo';
+    const existingType = typeEditor && types.find(type =>
+      type.id !== draft.tipo_id && normalizeTypeName(type.nome) === normalizeTypeName(draft.nome));
+    const linkedTypes = new Set(stock.map(item => item.tipo_id));
+    const variantsByType = new Map();
+    for (const item of variants) {
+      if (!variantsByType.has(item.tipo_id)) variantsByType.set(item.tipo_id, []);
+      variantsByType.get(item.tipo_id).push(item.variante);
+    }
     const typeById = new Map(types.map(type => [type.id, type]));
     const stockById = new Map(stock.map(item => [item.id, item]));
     const describeStock = item => item ? describe(typeById.get(item.tipo_id)?.nome, item.variante) : 'Equipamento';
@@ -280,6 +303,9 @@
     const selectedDelivery = deliveries.find(item => item.id === draft.entrega_id);
     const canEdit = employee ? access.entrega : access.estoque;
     const isStockEdit = editing === 'entrada' || editing === 'ajuste';
+    const registeringVariant = editing === 'variante';
+    const hasInitialStock = registeringVariant && Number(draft.quantidade) > 0;
+    const detailLocked = editing === 'editar-tipo' && (linkedTypes.has(draft.tipo_id) || variantsByType.has(draft.tipo_id));
     const isReturning = editing === 'devolucao' || editing === 'baixa';
     const max = editing === 'entrega' ? selectedStock?.quantidade : isReturning ? selectedDelivery?.restante : 10000;
     const input = (key, options) => h('input', {
@@ -287,37 +313,41 @@
       onChange: event => change({[key]: event.target.value}),
       ...options
     });
-    const select = (key, options, onChange = value => change({[key]: value})) => h('select', {
-      required: true, value: draft[key] || '', onChange: event => onChange(event.target.value)
+    const select = (key, options, onChange = value => change({[key]: value}), disabled = false) => h('select', {
+      required: true, disabled, value: draft[key] || '', onChange: event => onChange(event.target.value)
     }, option('', 'Selecione'), options);
 
-    const editorFields = (editing === 'tipo' ? [
+    const editorFields = (typeEditor ? [
           field('Nome do tipo', input('nome', {required: true, maxLength: 80, placeholder: 'Ex.: Notebook'})),
           field('Informação exigida na entrada', select('detalhe', [
             option('nenhum', 'Nenhuma'), option('ano', 'Ano'), option('modelo', 'Modelo'), option('descricao', 'Descrição')
-          ]))
+          ], undefined, detailLocked)),
+          detailLocked && h('p', null, 'A informação exigida é usada pelos modelos ou saldos já cadastrados.')
         ] : [
-          isStockEdit && field('Tipo', select('tipo_id', types.map(type => option(type.id, type.nome)),
+          (isStockEdit || registeringVariant) && field('Tipo', select('tipo_id',
+            types.filter(type => !registeringVariant || type.detalhe !== 'nenhum').map(type => option(type.id, type.nome)),
             tipo_id => change({tipo_id, variante: ''}))),
-          isStockEdit && selectedType && selectedType.detalhe !== 'nenhum' &&
+          (isStockEdit || registeringVariant) && selectedType && selectedType.detalhe !== 'nenhum' &&
             field(detailLabels[selectedType.detalhe], input('variante', {
               required: true, maxLength: selectedType.detalhe === 'ano' ? 4 : 120,
+              list: 'rh-asset-variant-options',
               pattern: selectedType.detalhe === 'ano' ? '[1-9][0-9]{3}' : undefined,
               inputMode: selectedType.detalhe === 'ano' ? 'numeric' : undefined
             })),
-          isStockEdit && field('Filial', select('filial', branchOptions.map(branch => option(branch, branch)))),
+          (isStockEdit || hasInitialStock) && field('Filial', select('filial', branchOptions.map(branch => option(branch, branch)))),
           editing === 'entrega' && field('Equipamento', select('estoque_id',
             available.map(item => option(item.id, describeStock(item))))),
-          field('Data', input('data', {type: 'date', required: true, max: RH.today(), min: selectedDelivery?.data})),
-          field('Quantidade', input('quantidade', {type: 'number', required: true, min: 1, max: Math.min(max ?? 10000, 10000)})),
+          (!registeringVariant || hasInitialStock) && field('Data', input('data', {type: 'date', required: true, max: RH.today(), min: selectedDelivery?.data})),
+          field(registeringVariant ? 'Quantidade inicial (0 para somente cadastrar)' : 'Quantidade',
+            input('quantidade', {type: 'number', required: true, min: registeringVariant ? 0 : 1, max: Math.min(max ?? 10000, 10000)})),
           editing === 'devolucao' && field('Destino', select('destino', Object.entries(destinations).map(([id, name]) => option(id, name)))),
-          field(isReturning || editing === 'ajuste' ? 'Motivo / condição' : 'Observação', input('observacao', {
+          (!registeringVariant || hasInitialStock) && field(isReturning || editing === 'ajuste' ? 'Motivo / condição' : 'Observação', input('observacao', {
             maxLength: 1000, required: isReturning || editing === 'ajuste'
           })),
           editing === 'entrega' && field('Link do comprovante (opcional)', input('comprovante', {
             type: 'url', maxLength: 2000, placeholder: 'https://…'
           }))
-        ]).filter(Boolean).map((element, index) => React.cloneElement(element, {key: index}));
+        ]).map((element, index) => element && React.cloneElement(element, {key: index}));
     const editor = canEdit && h('dialog', {
       ref: stockDialog, className: 'rh-asset-dialog', 'aria-labelledby': 'rh-asset-dialog-title',
       onCancel: event => {
@@ -326,18 +356,21 @@
       }
     }, stockEditorOpen && h('form', {onSubmit: submit, key: editing},
       h('h2', {id: 'rh-asset-dialog-title'},
-        editing === 'tipo' ? 'Cadastrar tipo de equipamento' : 'Registrar ' + actionLabels[editing].toLowerCase()),
-      editing === 'tipo' && h('p', {className: 'muted'}, 'Cadastre o tipo uma vez. Para adicionar unidades ao estoque, registre uma entrada.'),
+        ({tipo: 'Cadastrar tipo de equipamento', 'editar-tipo': 'Editar tipo de equipamento', variante: 'Cadastrar modelo ou versão'})[editing]
+          || 'Registrar ' + actionLabels[editing].toLowerCase()),
+      editing === 'tipo' && h('p', {className: 'muted'}, 'Cadastre o tipo uma vez. Use Cadastrar modelo ou versão para adicionar um modelo ou ano.'),
       h('fieldset', {disabled: busy, className: 'rh-asset-editor-fields'}, editorFields),
+      h('datalist', {id: 'rh-asset-variant-options'}, (variantsByType.get(draft.tipo_id) || []).sort()
+        .map(variant => option(variant, variant))),
       existingType && h('p', {role: 'status', className: 'rh-asset-existing'},
         'O tipo ', h('strong', null, existingType.nome), ' já está cadastrado.'),
       error && !existingType && h('p', {role: 'alert', className: 'error'}, error),
       h('div', {className: 'rh-asset-actions rh-asset-dialog-actions'},
         button('Cancelar', {className: 'secondary', disabled: busy, onClick: cancelStockEditor}),
-        existingType
+        existingType && editing === 'tipo'
           ? button('Registrar entrada', {disabled: busy, onClick: () => start('entrada', {tipo_id: existingType.id})})
-          : button(editing === 'tipo' ? 'Salvar cadastro' : 'Salvar movimentação', {
-            type: 'submit', disabled: busy || (editing === 'tipo' && !draft.nome?.trim())
+          : button(typeEditor || registeringVariant ? 'Salvar cadastro' : 'Salvar movimentação', {
+            type: 'submit', disabled: busy || (typeEditor && (!draft.nome?.trim() || !!existingType))
           }))));
 
     if (employee) {
@@ -416,13 +449,23 @@
       }), registrationTarget),
       canEdit && h('div', {className: 'rh-asset-actions'},
         !registrationTarget && button('Cadastrar equipamento', {disabled: busy, onClick: () => start('tipo', {detalhe: 'nenhum'})}),
+        button('Cadastrar modelo ou versão', {disabled: busy, onClick: () => start('variante', {quantidade: 0})}),
         button('Registrar entrada', {disabled: busy, onClick: () => start('entrada')}),
         button('Registrar saída', {disabled: busy, onClick: () => start('ajuste')})),
       editor,
       error && !stockEditorOpen && h('p', {role: 'alert', className: 'rh-asset-error'}, error),
       notice && h('p', {role: 'status'}, notice),
       h('h3', null, 'Tipos cadastrados'),
-      h('p', null, types.map(type => type.nome + (type.detalhe === 'nenhum' ? '' : ' (' + detailLabels[type.detalhe].toLowerCase() + ')')).join(' · ') || 'Nenhum tipo cadastrado.'),
+      table(['Tipo', 'Informação exigida', 'Modelos ou versões', ...(canEdit ? ['Ações'] : [])],
+        types.map(type => cells(type.id, [
+          type.nome, detailLabels[type.detalhe], (variantsByType.get(type.id) || []).sort().join(' · ') || '—',
+          ...(canEdit ? [h('div', {className: 'rh-asset-actions'},
+            button('Editar', {disabled: busy, onClick: () => start('editar-tipo', {tipo_id: type.id, nome: type.nome, detalhe: type.detalhe})}),
+            type.detalhe !== 'nenhum' && button('Cadastrar modelo ou versão', {className: 'secondary', disabled: busy,
+              onClick: () => start('variante', {tipo_id: type.id, quantidade: 0})}),
+            linkedTypes.has(type.id) ? h('small', null, 'Vinculado ao estoque') :
+              button('Excluir', {className: 'secondary', disabled: busy, onClick: () => manageType(type, true)}))] : [])
+        ])), 'Nenhum tipo cadastrado.'),
       h('h3', null, 'Saldo por filial'),
       table(['Item', 'Filial', 'Disponível'], [...stock].sort((a, b) => describeStock(a).localeCompare(describeStock(b), 'pt-BR') || a.filial.localeCompare(b.filial))
         .map(item => cells(item.id, [describeStock(item), item.filial, item.quantidade])), 'Registre uma entrada para informar o estoque físico.'),
