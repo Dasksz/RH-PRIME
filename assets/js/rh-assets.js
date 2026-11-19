@@ -249,6 +249,10 @@
             try { await load(); } catch { /* A mensagem de duplicidade continua disponível. */ }
             return;
           }
+        } else if (editing === 'editar-variante') {
+          await RH.result(client.rpc('rh_asset_rename_variant', {
+            p_id: draft.variante_id, p_previous: draft.variante_anterior, p_name: draft.variante
+          }), true);
         } else {
           request.current ||= crypto.randomUUID();
           await RH.result(client.rpc(editing === 'variante' ? 'rh_asset_register_variant' : 'rh_asset_event', {
@@ -290,7 +294,7 @@
     const variantsByType = new Map();
     for (const item of variants) {
       if (!variantsByType.has(item.tipo_id)) variantsByType.set(item.tipo_id, []);
-      variantsByType.get(item.tipo_id).push(item.variante);
+      variantsByType.get(item.tipo_id).push(item);
     }
     const typeById = new Map(types.map(type => [type.id, type]));
     const stockById = new Map(stock.map(item => [item.id, item]));
@@ -304,6 +308,7 @@
     const canEdit = employee ? access.entrega : access.estoque;
     const isStockEdit = editing === 'entrada' || editing === 'ajuste';
     const registeringVariant = editing === 'variante';
+    const renamingVariant = editing === 'editar-variante';
     const hasInitialStock = registeringVariant && Number(draft.quantidade) > 0;
     const detailLocked = editing === 'editar-tipo' && (linkedTypes.has(draft.tipo_id) || variantsByType.has(draft.tipo_id));
     const isReturning = editing === 'devolucao' || editing === 'baixa';
@@ -317,7 +322,13 @@
       required: true, disabled, value: draft[key] || '', onChange: event => onChange(event.target.value)
     }, option('', 'Selecione'), options);
 
-    const editorFields = (typeEditor ? [
+    const variantInput = field(detailLabels[selectedType?.detalhe] || 'Modelo ou versão', input('variante', {
+      required: true, maxLength: selectedType?.detalhe === 'ano' ? 4 : 120,
+      list: renamingVariant ? undefined : 'rh-asset-variant-options',
+      pattern: selectedType?.detalhe === 'ano' ? '[1-9][0-9]{3}' : undefined,
+      inputMode: selectedType?.detalhe === 'ano' ? 'numeric' : undefined
+    }));
+    const editorFields = (renamingVariant ? [variantInput] : typeEditor ? [
           field('Nome do tipo', input('nome', {required: true, maxLength: 80, placeholder: 'Ex.: Notebook'})),
           field('Informação exigida na entrada', select('detalhe', [
             option('nenhum', 'Nenhuma'), option('ano', 'Ano'), option('modelo', 'Modelo'), option('descricao', 'Descrição')
@@ -327,13 +338,7 @@
           (isStockEdit || registeringVariant) && field('Tipo', select('tipo_id',
             types.filter(type => !registeringVariant || type.detalhe !== 'nenhum').map(type => option(type.id, type.nome)),
             tipo_id => change({tipo_id, variante: ''}))),
-          (isStockEdit || registeringVariant) && selectedType && selectedType.detalhe !== 'nenhum' &&
-            field(detailLabels[selectedType.detalhe], input('variante', {
-              required: true, maxLength: selectedType.detalhe === 'ano' ? 4 : 120,
-              list: 'rh-asset-variant-options',
-              pattern: selectedType.detalhe === 'ano' ? '[1-9][0-9]{3}' : undefined,
-              inputMode: selectedType.detalhe === 'ano' ? 'numeric' : undefined
-            })),
+          (isStockEdit || registeringVariant) && selectedType && selectedType.detalhe !== 'nenhum' && variantInput,
           (isStockEdit || hasInitialStock) && field('Filial', select('filial', branchOptions.map(branch => option(branch, branch)))),
           editing === 'entrega' && field('Equipamento', select('estoque_id',
             available.map(item => option(item.id, describeStock(item))))),
@@ -356,12 +361,12 @@
       }
     }, stockEditorOpen && h('form', {onSubmit: submit, key: editing},
       h('h2', {id: 'rh-asset-dialog-title'},
-        ({tipo: 'Cadastrar tipo de equipamento', 'editar-tipo': 'Editar tipo de equipamento', variante: 'Cadastrar modelo ou versão'})[editing]
+        ({tipo: 'Cadastrar tipo de equipamento', 'editar-tipo': 'Editar tipo de equipamento', variante: 'Cadastrar modelo ou versão', 'editar-variante': 'Editar modelo ou versão'})[editing]
           || 'Registrar ' + actionLabels[editing].toLowerCase()),
       editing === 'tipo' && h('p', {className: 'muted'}, 'Cadastre o tipo uma vez. Use Cadastrar modelo ou versão para adicionar um modelo ou ano.'),
       h('fieldset', {disabled: busy, className: 'rh-asset-editor-fields'}, editorFields),
-      h('datalist', {id: 'rh-asset-variant-options'}, (variantsByType.get(draft.tipo_id) || []).sort()
-        .map(variant => option(variant, variant))),
+      h('datalist', {id: 'rh-asset-variant-options'}, (variantsByType.get(draft.tipo_id) || [])
+        .map(({variante}) => option(variante, variante))),
       existingType && h('p', {role: 'status', className: 'rh-asset-existing'},
         'O tipo ', h('strong', null, existingType.nome), ' já está cadastrado.'),
       error && !existingType && h('p', {role: 'alert', className: 'error'}, error),
@@ -369,7 +374,7 @@
         button('Cancelar', {className: 'secondary', disabled: busy, onClick: cancelStockEditor}),
         existingType && editing === 'tipo'
           ? button('Registrar entrada', {disabled: busy, onClick: () => start('entrada', {tipo_id: existingType.id})})
-          : button(typeEditor || registeringVariant ? 'Salvar cadastro' : 'Salvar movimentação', {
+          : button(renamingVariant ? 'Salvar nome' : typeEditor || registeringVariant ? 'Salvar cadastro' : 'Salvar movimentação', {
             type: 'submit', disabled: busy || (typeEditor && (!draft.nome?.trim() || !!existingType))
           }))));
 
@@ -458,7 +463,15 @@
       h('h3', null, 'Tipos cadastrados'),
       table(['Tipo', 'Informação exigida', 'Modelos ou versões', ...(canEdit ? ['Ações'] : [])],
         types.map(type => cells(type.id, [
-          type.nome, detailLabels[type.detalhe], (variantsByType.get(type.id) || []).sort().join(' · ') || '—',
+          type.nome, detailLabels[type.detalhe], variantsByType.has(type.id) ?
+            h('div', {className: 'rh-asset-actions'}, [...variantsByType.get(type.id)]
+              .sort((a, b) => a.variante.localeCompare(b.variante, 'pt-BR')).map(item =>
+                canEdit ? button(item.variante + ' · Editar', {
+                  key: item.id, className: 'secondary', disabled: busy,
+                  onClick: () => start('editar-variante', {
+                    tipo_id: type.id, variante_id: item.id, variante_anterior: item.variante, variante: item.variante
+                  })
+                }) : h('span', {key: item.id}, item.variante))) : '—',
           ...(canEdit ? [h('div', {className: 'rh-asset-actions'},
             button('Editar', {disabled: busy, onClick: () => start('editar-tipo', {tipo_id: type.id, nome: type.nome, detalhe: type.detalhe})}),
             type.detalhe !== 'nenhum' && button('Cadastrar modelo ou versão', {className: 'secondary', disabled: busy,
