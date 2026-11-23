@@ -147,8 +147,12 @@
  (async()=>{
   try{
    await RH.profile(client);
-   if(window.RHAssets){
-    window.ReactDOM.createRoot($('asset-stock')).render(window.React.createElement(window.RHAssets.Module,{client,registrationTarget:$('asset-registration')}));
+   const assetStock=$('asset-stock');
+   try{
+    window.ReactDOM.createRoot(assetStock).render(window.React.createElement(window.RHAssets.Module,{client,registrationTarget:$('asset-registration')}));
+   }catch(error){
+    assetStock.textContent='Não foi possível carregar o estoque de equipamentos. Recarregue a página para tentar novamente.';
+    console.error('Falha ao iniciar o estoque de equipamentos:',error);
    }
    const catalogRoles=await RH.result(client.rpc('rh_stock_catalog_roles'));
    managesStock=Array.isArray(catalogRoles);
@@ -162,6 +166,7 @@
    $('historyPanel').hidden=!managesStock;
    await load();
    $('app').hidden=false;
+   if(window.location?.hash==='#asset-stock') assetStock.scrollIntoView();
    notice(managesStock?'Cadastre os itens e informe o saldo físico de cada filial e tamanho.':'Consulta de estoque. Ajustes e cadastros exigem permissão para administrar o estoque.');
   }catch(e){notice(e.message,true);}
  })();
