@@ -166,7 +166,6 @@
    $('historyPanel').hidden=!managesStock;
    await load();
    $('app').hidden=false;
-   if(window.location?.hash==='#asset-stock') assetStock.scrollIntoView();
    notice(managesStock?'Cadastre os itens e informe o saldo físico de cada filial e tamanho.':'Consulta de estoque. Ajustes e cadastros exigem permissão para administrar o estoque.');
   }catch(e){notice(e.message,true);}
  })();

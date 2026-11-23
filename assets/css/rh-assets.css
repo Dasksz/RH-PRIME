@@ -59,3 +59,21 @@ html[data-rh-theme=dark] #asset-stock .rh-asset-panel { background: #172e39; }
 .rh-asset-panel table { width: 100%; border-collapse: collapse; }
 .rh-asset-panel th, .rh-asset-panel td { text-align: left; padding: .5rem; border-bottom: 1px solid #cbd5e1; }
 .rh-asset-error { font-weight: 700; }
+.rh-stock-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.rh-stock-tabs a {
+  padding: .55rem .8rem;
+  border: 1px solid var(--rh-border, #8797a0);
+  border-radius: .5rem;
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+main:not(:has(> #asset-stock:target)) > #asset-stock,
+main:has(> #asset-stock:target) > #app,
+main:has(> #asset-stock:target) > #notice:not(.error),
+main:has(> #asset-stock:target) #newProduct { display: none; }
+main:not(:has(> #asset-stock:target)) .rh-stock-tabs a[href="#estoque-epi"],
+main:has(> #asset-stock:target) .rh-stock-tabs a[href="#asset-stock"] {
+  background: #145467;
+  color: white;
+}
