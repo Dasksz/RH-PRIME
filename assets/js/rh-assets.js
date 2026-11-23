@@ -285,6 +285,7 @@
           await RH.result(client.rpc(editing === 'variante' ? 'rh_asset_register_variant' : 'rh_asset_event', {
             p_id: request.current,
             p: {...draft, acao: editing, quantidade: Number(draft.quantidade), funcionario_id: employeeId,
+              sem_desconto_estoque: editing === 'entrega' && !!draft.data && draft.data < RH.today() && !!draft.sem_desconto_estoque,
               observacao: offboardingDate ? 'Desligamento — ' + (draft.observacao || '').trim() : draft.observacao}
           }));
         }
@@ -327,7 +328,10 @@
     const typeById = new Map(types.map(type => [type.id, type]));
     const stockById = new Map(stock.map(item => [item.id, item]));
     const describeStock = item => item ? describe(typeById.get(item.tipo_id)?.nome, item.variante) : 'Equipamento';
-    const available = stock.filter(item => item.filial === employee?.unidade && item.quantidade > 0)
+    const today = RH.today();
+    const historicalDelivery = editing === 'entrega' && !!draft.data && draft.data < today;
+    const withoutStock = historicalDelivery && !!draft.sem_desconto_estoque;
+    const available = stock.filter(item => item.filial === employee?.unidade && (withoutStock || item.quantidade > 0))
       .sort((a, b) => describeStock(a).localeCompare(describeStock(b), 'pt-BR'));
     const deliveries = (employee ? deliveryBalances(events) : []).map(delivery => {
       const current = stockById.get(delivery.estoque_id);
@@ -348,18 +352,21 @@
     const originalStock = stockById.get(selectedDelivery?.estoque_id);
     const alreadyReturned = selectedDelivery ? selectedDelivery.quantidade - selectedDelivery.restante : 0;
     const correctionChoices = correcting ? stock.filter(item => item.id !== selectedDelivery?.estoque_id &&
-      !alreadyReturned && item.filial === originalStock?.filial && item.quantidade > 0) : [];
-    const max = correcting && selectedStock
+      !alreadyReturned && item.filial === originalStock?.filial && (selectedDelivery.sem_desconto_estoque || item.quantidade > 0)) : [];
+    const max = withoutStock || (correcting && selectedDelivery?.sem_desconto_estoque) ? 10000 : correcting && selectedStock
       ? selectedStock.quantidade + (selectedStock.id === selectedDelivery?.estoque_id ? selectedDelivery.quantidade : 0)
       : editing === 'entrega' ? selectedStock?.quantidade : isReturning ? selectedDelivery?.restante : 10000;
-    const today = RH.today();
     const firstReturn = correcting ? events.filter(item => item.entrega_id === selectedDelivery?.id)
       .reduce((earliest, item) => !earliest || item.data < earliest ? item.data : earliest, undefined) : undefined;
     const maxDate = correcting ? firstReturn : editing === 'entrega' ? undefined : today;
     const futureDelivery = (editing === 'entrega' || correcting) && draft.data > today;
     const input = (key, options) => h('input', {
       value: draft[key] ?? '',
-      onChange: event => change({[key]: event.target.value}),
+      onChange: event => {
+        const value = event.target.value;
+        change(key === 'data' && (!value || value >= today)
+          ? {data: value, sem_desconto_estoque: false} : {[key]: value});
+      },
       ...options
     });
     const select = (key, options, onChange = value => change({[key]: value}), disabled = false) => h('select', {
@@ -447,11 +454,17 @@
           h('h3', null, correcting ? 'Editar entrega' : isReturning ? actionLabels[editing] + ' — ' + describe(selectedDelivery?.ficha.item, selectedDelivery?.ficha.variante) : 'Adicionar equipamento'),
           h('form', {key: editing, onSubmit: submit}, h('fieldset', {disabled: busy, className: isReturning || correcting ? undefined : 'rh-equip-add-fields'},
             h('div', {className: 'rh-equip-fields'}, editorFields),
+            historicalDelivery && h('div', {className: 'rh-equip-retro-stock'},
+              h('label', null, h('input', {type: 'checkbox', checked: withoutStock,
+                onChange: event => change({sem_desconto_estoque: event.target.checked})}),
+                h('span', null, 'Registrar sem descontar do estoque atual')),
+              h('small', null, 'Use para uma entrega já realizada e considerada no saldo atual.')),
             futureDelivery && h('p', {role: 'status', style: {gridColumn: '1 / -1'}},
               'Entrega futura. A quantidade fica reservada no estoque ao salvar.'),
             !isReturning && !correcting && h('div', {className: 'rh-equip-stock', 'aria-live': 'polite'},
               h('div', {className: 'rh-equip-stock-info'},
                 h('span', {className: 'rh-equip-stock-count'},
+                  withoutStock ? 'Sem desconto no estoque atual' :
                   selectedStock ? h(React.Fragment, null, h('strong', null, selectedStock.quantidade),
                     selectedStock.quantidade === 1 ? 'un. disponível' : 'un. disponíveis') :
                     available.length ? 'Selecione um equipamento' : 'Sem equipamentos disponíveis'),
@@ -461,7 +474,7 @@
             isReturning || correcting ? h('div', {className: 'rh-equip-actions'},
               button(correcting ? 'Salvar correção' : 'Salvar movimentação', {type: 'submit', className: 'rh-equip-primary'}),
               button('Cancelar', {className: 'rh-equip-action', onClick: resetEditor})) :
-              button('Salvar entrega', {type: 'submit', disabled: !selectedStock?.quantidade})))),
+              button('Salvar entrega', {type: 'submit', disabled: !selectedStock || (!withoutStock && !selectedStock.quantidade)})))),
         h('section', {className: 'rh-equip-history'},
           h('div', {className: 'rh-equip-actions'}, h('h3', null, offboardingDate ? 'Devolução de equipamentos no desligamento' : 'Histórico Salvo'),
             button('Atualizar', {className: 'rh-equip-action', disabled: busy, onClick: () => run(load)})),
@@ -477,6 +490,7 @@
               h('ul', null, h('li', null,
                 h('span', null, describe(item.ficha.item, item.ficha.variante) +
                   (item.data > today ? ' — Qtd. reservada: ' + item.quantidade : ' — Qtd: ' + item.quantidade + ' · Em posse: ' + item.restante)),
+                item.sem_desconto_estoque && h('small', {className: 'rh-equip-historical-note'}, 'Entrega histórica · sem desconto no estoque atual'),
                 item.corrigido_em && h('small', null, 'Entrega corrigida em ' + new Date(item.corrigido_em)
                   .toLocaleDateString('pt-BR', {timeZone: 'America/Sao_Paulo'})),
                 item.observacao && h('small', null, 'Observação: ' + item.observacao),
@@ -558,7 +572,7 @@
           events.map(event => {
             const item = stockById.get(event.estoque_id);
             return cells(event.id, [formatDate(event.data), describeStock(item),
-              [actionLabels[event.acao], destinations[event.destino]].filter(Boolean).join(' · '), event.quantidade,
+              [actionLabels[event.acao], event.sem_desconto_estoque && 'Sem desconto', destinations[event.destino]].filter(Boolean).join(' · '), event.quantidade,
               event.saldo_estoque, item?.filial]);
           }), 'Nenhuma movimentação registrada.')));
   }
