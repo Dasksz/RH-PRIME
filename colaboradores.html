@@ -36,6 +36,8 @@
   <body class="bg-[#F8FAFC]">
     <div id="root"></div>
 
+    <script src="assets/js/rh-aniversariantes.js?v=20261125"></script>
+
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 
@@ -368,21 +370,51 @@
       function Aniversariantes({ colaboradores, empresas, carregando, erro }) {
         const dialogRef = useRef(null);
         const [mes, setMes] = useState(() => RH.today().slice(5, 7));
+        const [gerando, setGerando] = useState("");
+        const [erroExportacao, setErroExportacao] = useState("");
         const aniversariantes = useMemo(
           () => listarAniversariantes(colaboradores, empresas, mes),
           [colaboradores, empresas, mes]
         );
 
-        function baixarCsv() {
-          const blob = new Blob([gerarCsvAniversariantes(aniversariantes, mes)], { type: "text/csv;charset=utf-8" });
+        const mesNome = nomesMeses[Number(mes) - 1];
+        const imagens = RHAniversariantes.dividir(aniversariantes, "imagem");
+        const exportacaoIndisponivel = carregando || erro || !aniversariantes.length;
+
+        function baixarArquivo(blob, extensao, sufixo = "") {
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
-          link.download = "aniversariantes-" + nomesMeses[Number(mes) - 1] + ".csv";
+          link.download = "aniversariantes-" + mesNome + sufixo + "." + extensao;
           document.body.appendChild(link);
           link.click();
           link.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+
+        function baixarCsv() {
+          const blob = new Blob([gerarCsvAniversariantes(aniversariantes, mes)], { type: "text/csv;charset=utf-8" });
+          baixarArquivo(blob, "csv");
+        }
+
+        async function baixarCartaz(formato, indice = 0) {
+          setGerando(formato);
+          setErroExportacao("");
+          try {
+            if (formato === "pdf") {
+              const paginas = RHAniversariantes.dividir(aniversariantes, "pdf");
+              baixarArquivo(await RHAniversariantes.pdf(paginas, mes, mesNome), "pdf");
+            } else {
+              const numero = indice + 1;
+              const blob = await RHAniversariantes.imagem(imagens[indice], mes, mesNome, numero, imagens.length);
+              baixarArquivo(blob, "png", imagens.length > 1 ? "-" + numero + "-de-" + imagens.length : "");
+            }
+          } catch (error) {
+            console.error("Erro ao gerar cartaz de aniversariantes:", error);
+            setErroExportacao("Não foi possível gerar " + (formato === "pdf" ? "o PDF" : "a imagem") + ". Tente novamente.");
+          } finally {
+            setGerando("");
+          }
         }
 
         return (
@@ -409,21 +441,47 @@
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <label htmlFor="aniversariantes-mes" className="block text-sm font-semibold mb-1">Mês</label>
-                    <select id="aniversariantes-mes" value={mes} onChange={(event) => setMes(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm capitalize">
+                    <select id="aniversariantes-mes" value={mes} disabled={Boolean(gerando)} onChange={(event) => {
+                      setMes(event.target.value);
+                      setErroExportacao("");
+                    }} className="rounded-xl border border-slate-200 px-3 py-2 text-sm capitalize">
                       {nomesMeses.map((nome, index) => (
                         <option key={nome} value={String(index + 1).padStart(2, "0")}>{nome}</option>
                       ))}
                     </select>
                   </div>
-                  <button
-                    type="button"
-                    onClick={baixarCsv}
-                    disabled={carregando || erro || !aniversariantes.length}
-                    className="bg-[#002060] hover:bg-[#001848] text-white font-bold text-sm px-4 py-2 rounded-xl disabled:opacity-50"
-                  >
-                    Baixar CSV
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={baixarCsv} disabled={exportacaoIndisponivel}
+                      className="border border-slate-200 font-bold text-sm px-3 py-2 rounded-xl disabled:opacity-50">
+                      Baixar CSV
+                    </button>
+                    <button type="button" onClick={() => baixarCartaz("pdf")} disabled={exportacaoIndisponivel || Boolean(gerando)}
+                      className="bg-[#002060] hover:bg-[#001848] text-white font-bold text-sm px-3 py-2 rounded-xl disabled:opacity-50">
+                      {gerando === "pdf" ? "Gerando PDF..." : "Baixar PDF para mural"}
+                    </button>
+                    {imagens.length <= 1 && (
+                      <button type="button" onClick={() => baixarCartaz("imagem")} disabled={exportacaoIndisponivel || Boolean(gerando)}
+                        className="border border-slate-200 font-bold text-sm px-3 py-2 rounded-xl disabled:opacity-50">
+                        {gerando === "imagem" ? "Gerando imagem..." : "Baixar imagem para WhatsApp"}
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {!exportacaoIndisponivel && imagens.length > 1 && (
+                  <fieldset className="rounded-xl border border-slate-200 p-3">
+                    <legend className="px-1 text-sm font-semibold">Imagens para WhatsApp</legend>
+                    <div className="flex flex-wrap gap-2">
+                      {imagens.map((_, indice) => (
+                        <button key={indice} type="button" onClick={() => baixarCartaz("imagem", indice)} disabled={Boolean(gerando)}
+                          className="border border-slate-200 font-bold text-sm px-3 py-2 rounded-xl disabled:opacity-50">
+                          Baixar imagem {indice + 1} de {imagens.length}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
+                {erroExportacao && <p role="alert" className="text-sm">{erroExportacao}</p>}
+                {gerando === "imagem" && imagens.length > 1 && <p role="status" className="text-sm">Gerando imagem...</p>}
                 <p role="status" className="text-sm">
                   {carregando ? "Carregando colaboradores..." :
                     erro ? "Não foi possível carregar os colaboradores." :
