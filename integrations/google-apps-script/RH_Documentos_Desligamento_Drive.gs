@@ -80,7 +80,7 @@ function instalarDocumentosDesligamentoDriveRH(){
  if(typeof apiDriveRH!=='function'||typeof pastaColaboradorAtestadoRH!=='function'||typeof permissoesAtestadoRH!=='function')throw Error('Instale RH_Drive_Automacoes e RH_Atestados_Drive no mesmo projeto');
  DriveApp.getRootFolder().getId();
  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='processarDocumentosDesligamentoDriveRH').forEach(t=>ScriptApp.deleteTrigger(t));
- ScriptApp.newTrigger('processarDocumentosDesligamentoDriveRH').timeBased().everyMinutes(1).create();
+ ScriptApp.newTrigger('processarDocumentosDesligamentoDriveRH').timeBased().everyMinutes(5).create();
  processarDocumentosDesligamentoDriveRH();
  console.log('Envio privado de avisos prévios e documentos de rescisão habilitado.');
 }
